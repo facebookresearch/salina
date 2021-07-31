@@ -1,0 +1,15 @@
+
+env_name: PongNoFrameskip-v4
+
+agent:
+  classname: salina_examples.speed_test.agents.GymRandomAgent
+  env:
+    classname: salina_examples.speed_test.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: 1000
+
+speed_test:
+  max_epoch: 100
+  batch_size: 4
+  n_processes: 0
+  n_timesteps: 100

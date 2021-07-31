@@ -1,0 +1,6 @@
+torch
+torchvision
+gym
+tensorboard
+tqdm
+hydra

@@ -1,0 +1,13 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
+OMP_NUM_THREADS=1 PYTHONPATH=salina python salina/salina_examples/rl/dqn/double_dqn/dqn_with_eval.py \
+-cn benchmark/pong --multirun \
+n_envs=1,4,8 \
+n_timesteps=2,3,10 \
+algorithm.batch_size=64,128 \
+algorithm.epsilon_exploration_decay=10000,30000

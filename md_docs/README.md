@@ -1,0 +1,129 @@
+# Principles
+
+## Introduction
+
+The core of `salina` is just two files: [agent.py](../salina/agent.py) and [workspace.py](../salina/workspace.py)
+
+If you want to understand deeply how salina works, you have to understand these two files and that's it. But you can use and develop algorithms without looking at these two files.
+
+## Differences with Pytorch
+
+`salina` just allows to extend `pytorch` such that a temporal dimension is added. In order to achieve this, instead of having `Module`s that takes tensors as inputs and returns tensors, `salina` proposes `Agent`s that read from tensors and write into tensors, these tensors being stored in a `Workspace`. The interest is that `Agent`s can thus access information at different timesteps and thus build the information in a sequential way.
+
+
+## Agents
+
+In salina, instead of manipulating `nn.Module`, you manipulate `Agent`. The different is that an Agent is **reading and writting** information into a `Workspace`. This `Workspace` is thus used by multiple agents to exchange information.
+
+For instance, in the Reinforcement Learning case, on agent will be the environments, writing `oobservations`, `reward`, etc... and reading `actions`. Another agent will implement the policy, reading `observations` from the `Workspace` and writing `actions`.
+
+The typicaly use of an `Agent` is the following:
+```
+    my_agent = MyAgent()
+    my_agent(workspace)
+```
+
+
+## Workspace
+
+A `Workspace` is a set of pytorch tensors organized by `name` and by `time`. Each of these tensors has a first dimension which corresponds to the `batch dimension` (as in pytorch -- the same for all the tensors in the workspace).
+
+Defining a new workspace is done as follows:
+```
+    workspace = Workspace(batch_size=B, time_size=T)
+```
+
+Note that a `Workspace` has a batch size and time size defined at creation time. It means to all the agents executed over this workspace will process `batch_size` elements together, and can write variables only for time `t=0` to `t=time_size-1`.
+
+A variable in the workspace can be accessed through `workspace[var_name]`. It returns a `T x B x ...` tensor corresponding to the value of this variable for all timesteps. One can also use `workspace.get(var_name,t)` to get a `B x ...` variable for timestep `t` in the workspace.
+
+## Defining an Agent
+
+As an example, let us define an agent working at time `t` that does a simple incrementation of a variable `x` and stores the result in a variable `y`. Such an agent can be written as:
+
+```
+    class IncAgent(TAgent):  # TAgent is used to indicate that the agent operates at time t
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, t, **args):
+            x = self.get(("x", t))  # to get the variable x at time t
+            # or
+            x = self.workspace.get("x", t)  # alternative writting
+
+            y = x + 1.0
+
+            self.set(("y", t), y)  # To write the value in the workspace
+            # or
+            x = self.workspace.set("y", t, y)  # alternative writting
+```
+
+Note that this agent as an extra argument `t` in `forward` to indicate at which timestep it operates. Note that an agent can operate at multiple timesteps simultaneously.
+
+To execute this agent over a full workspace:
+```
+    agent = IncAgent()
+    for t in range(workspace.time_size()):
+        agent(workspace, t=t)
+```
+
+## Containers Agent
+
+To facilitate the code writing, we provide containers to build complex agents by combining simple ones.
+
+### Agents
+
+Multiple agents can be executed sequentially by using the `Agents` container:
+```
+    agent_1=MyAgent()
+    agent_2=MyAgent2()
+    agent_3=MyAgent3()
+
+    agent_1(workspace)
+    agent_2(workspace)
+    agent_3(workspace)
+
+    # Can be replaced by:
+
+    agent=Agents(agent_1,agent_2,agent_3)
+    agent(workspace)
+```
+
+### TemporalAgent
+
+Executing one agent over multiple timesteps can be made through the `TemporalAgent`
+```
+    agent_1=MyAgent()
+
+    for t in range(T):
+        agent_1(workspace,t=t)
+
+    # Can be replaced by
+
+    agent=TemporalAgent(agent_1)
+    agent(workspace)
+```
+Note that a `TemporalAgent` can process a subset of the timesteps, and can also automatically stop its execution with conditions:
+
+```
+    agent=TemporalAgent(agent_1,stop_variable='stop') # This agent stops processing if the variable 'stop' at time 't' is True
+    agent(workspace,t=5,n_steps=4) # Execute from timesteps t=5, and for 4 steps
+```
+
+### RemoteAgent
+
+The `RemoteAgent` is used to execute an agent over multiple processes. It is usefull to speed-up computation. **Important: ** when using the `RemoteAgent`, there is no gradient computation (see reinforcement learning examples to see how gradient can be computed over multiple processes). At first call, the `RemoteAgent` is executed in the main process to initialize the workspace with shared memory. It thus returns a `SharedWorkspace` than can be reused for future calls
+
+```
+    agent=MyAgent()
+    agent=RemoteAgent(agent,num_processes=4)
+    agent.seed(50) #Seed must be specified for RemoteAgent
+
+    shared_workspace=agent(workspace) # Executed in the main process
+
+    #then one can use:
+
+    agent(shared_workspace) #Executed on 4 processes
+```
+
+To better understand the library, take a look at the [A2C tutorial](/salina_examples/rl/a2c)
