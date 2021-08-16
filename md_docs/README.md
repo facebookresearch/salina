@@ -8,8 +8,9 @@ If you want to understand deeply how salina works, you have to understand these 
 
 ## Differences with Pytorch
 
-`salina` just allows to extend `pytorch` such that a temporal dimension is added. In order to achieve this, instead of having `Module`s that takes tensors as inputs and returns tensors, `salina` proposes `Agent`s that read from tensors and write into tensors, these tensors being stored in a `Workspace`. The interest is that `Agent`s can thus access information at different timesteps and thus build the information in a sequential way.
+`salina` just allows to extend `pytorch` such that a temporal dimension is added. In order to achieve this, instead of having `Module`s that takes tensors as inputs and returns tensors, `salina` proposes `Agent`s that read tensors from a `Workspace` and write tensors into the `Workspace` as illustrated in the figure. The interest is that `Agent`s can thus access information at different timesteps and thus build the information in a sequential way. With such a setting, an agent can access a set of tensors organized by time such as a complete episode, a subset of the history, the previou timestep, etc... This simple 'trick' makes the implementation of sequential models much easier, and allows complex parallelisation schemas as described in the next sections.
 
+![Principles of Salina](fig1.png)
 
 ## Agents
 

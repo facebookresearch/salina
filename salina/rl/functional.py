@@ -58,7 +58,6 @@ def doubleqlearning_temporal_difference(
     td = torch.cat([td, to_add], dim=0)
     return td
 
-
 def gae(critic, reward, done, discount_factor, gae_coef):
     r = reward[1:]
     v = critic[1:].detach()
