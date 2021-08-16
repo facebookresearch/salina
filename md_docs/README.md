@@ -89,6 +89,9 @@ Multiple agents can be executed sequentially by using the `Agents` container:
     agent=Agents(agent_1,agent_2,agent_3)
     agent(workspace)
 ```
+![Principles of Salina](fig2.png)
+
+
 
 ### TemporalAgent
 
@@ -110,6 +113,9 @@ Note that a `TemporalAgent` can process a subset of the timesteps, and can also 
     agent=TemporalAgent(agent_1,stop_variable='stop') # This agent stops processing if the variable 'stop' at time 't' is True
     agent(workspace,t=5,n_steps=4) # Execute from timesteps t=5, and for 4 steps
 ```
+
+![Principles of Salina](fig3.png)
+
 
 ### RemoteAgent
 
