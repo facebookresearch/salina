@@ -2,7 +2,7 @@ logger:
   classname: salina.logger.TFLogger
   log_dir: ./td3
   modulo: 100
-  cache_size: 10000
+  every_n_seconds: 60
   verbose: True
 
 n_envs: 256
@@ -44,7 +44,7 @@ algorithm:
   policy_delay: 2
   burning_timesteps: 0
   clip_grad: 2
-  inner_epochs: 10
+  inner_epochs: ${n_timesteps}
   discount_factor: 0.995
   update_target_tau: 0.005
   device: cuda:0
@@ -58,7 +58,7 @@ algorithm:
   initial_buffer_size: 10000
 
   evaluation:
-    evaluate_every: 100
+    evaluate_every: 1000
     n_envs: 256
     n_timesteps: 1010
     env_seed: 46
