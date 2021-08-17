@@ -89,7 +89,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
         batch_size=cfg.algorithm.evaluation.n_envs,
         time_size=cfg.algorithm.evaluation.n_timesteps,
     )
-    evaluation_workspace.to(cfg.algorithm.device)
+    evaluation_workspace=evaluation_workspace.to(cfg.algorithm.device)
 
     # == Setting up & initializing the replay buffer for DQN
     replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=cfg.algorithm.device)
