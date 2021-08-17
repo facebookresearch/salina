@@ -272,6 +272,10 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
 def main(cfg):
     import torch.multiprocessing as mp
 
+    CUDA_AVAILABLE = torch.cuda.is_available()
+    if CUDA_AVAILABLE:
+        v = torch.ones(1, device="cuda")
+
     mp.set_start_method("spawn")
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg)
