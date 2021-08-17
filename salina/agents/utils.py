@@ -66,10 +66,6 @@ class TemporalAgent(Agent):
     def seed(self, seed):
         self.agent.seed(seed)
 
-    def to(self,device):
-        print("TA: to")
-        super().to(device)
-
 class CopyTAgent(TAgent):
     """a TAgent that copies one variable to another. The variable can be copied with or without gradient."""
 

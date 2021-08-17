@@ -32,24 +32,18 @@ class BraxAgent(TAgent):
         self._seed = None
         self.output = output
         self.input = input
-        self._device=torch.device("cpu")
+        self.device=None
 
     def _initialize_envs(self, batch_size):
         assert self._seed is not None, "[GymAgent] seeds must be specified"
         assert self.batch_size is None
 
         self.gym_env=create_gym_env(self.brax_env_name,batch_size=batch_size,seed=self._seed,**self.args)
-        self.gym_env=JaxToTorchWrapper(self.gym_env,device=self._device)
-        print("Creating BRAX env on ",self._device)
-
-    def to(self,device):
-        super().to(device)
-        print("Changing BRAX device to ",device)
-        self._device=torch.device(device)
+        self.gym_env=JaxToTorchWrapper(self.gym_env)
 
     def _write(self,v,t):
         for k in v:
-            self.set((self.output+k,t),v[k])
+            self.set((self.output+k,t),v[k],use_workspace_device=True)
 
     def forward(self, t=0, **args):
         if self.gym_env is None:
@@ -60,6 +54,9 @@ class BraxAgent(TAgent):
         if t == 0 or self.timestep==0:
             self.timestep=0
             o=self.gym_env.reset()
+            if self.device is None:
+                self._device=o.device
+                print(" -- BRAX Device is ",self._device)
             self.cumulated_reward=torch.zeros(self.batch_size,device=self._device).float()
             ret = {
                 "env_obs":o,
@@ -73,9 +70,8 @@ class BraxAgent(TAgent):
             self.timestep+=1
             return
         else:
-
             action=self.get((self.input,t-1))
-            assert action.device==self._device
+            assert action.device==torch.device(self._device)
             obs, rewards, done, info = self.gym_env.step(action)
             self.cumulated_reward+=rewards
             done=done.bool()
