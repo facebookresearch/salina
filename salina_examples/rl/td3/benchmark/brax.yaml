@@ -48,7 +48,7 @@ algorithm:
   discount_factor: 0.99
   update_target_tau: 0.005
   device: cuda:0
-  reward_scaling: 10.0
+  reward_scaling: 1.0
 
   n_envs: ${n_envs}
   n_processes: 0

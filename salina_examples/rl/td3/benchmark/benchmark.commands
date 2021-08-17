@@ -16,5 +16,6 @@ XLA_PYTHON_CLIENT_PREALLOCATE=false OMP_NUM_THREADS=1 PYTHONPATH=salina python s
 -cn benchmark/brax --multirun \
 env_name=halfcheetah \
 n_envs=1,4,8,64 \
-n_timesteps=5,10,25,50 \
-algorithm.batch_size=128 \
+n_timesteps=1,10,25,50 \
+algorithm.inner_epochs=50,256 \
+algorithm.batch_size=128,256 \
