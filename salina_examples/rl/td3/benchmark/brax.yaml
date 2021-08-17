@@ -60,7 +60,7 @@ algorithm:
   evaluation:
     evaluate_every: 100
     n_envs: 256
-    n_timesteps: 200
+    n_timesteps: 1010
     env_seed: 46
 
 hydra:
