@@ -44,6 +44,7 @@ class BraxAgent(TAgent):
 
     def to(self,device):
         super().to(device)
+        print("Changing BRAX device to ",device)
         self._device=torch.device(device)
 
     def _write(self,v,t):
