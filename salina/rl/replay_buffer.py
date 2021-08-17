@@ -55,7 +55,7 @@ class ReplayBuffer:
             if indexes is None:
                 indexes = torch.arange(B) + self.position
                 arange = torch.arange(B,device=self.device)
-            self.variables[k][:, indexes] = v[:, arange]
+            self.variables[k][:, indexes] = v[:, arange].detach()
 
         self.position = self.position + B
         if self.position >= self.max_size:
