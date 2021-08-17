@@ -105,7 +105,6 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
             epsilon=cfg.algorithm.action_noise,
         )
         replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
-
     logger.message("[DDQN] Learning")
     n_interactions = 0
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -167,8 +166,9 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
             replay_workspace = replay_buffer.get(batch_size).to(
                 cfg.algorithm.device
             )
-            done, reward = replay_workspace["env/done", "env/reward"]
+            done, reward, action = replay_workspace["env/done", "env/reward","action"]
             reward=reward*cfg.algorithm.reward_scaling
+
             replay_workspace = train_temporal_q_agent_1(
                 replay_workspace, detach_action=True
             )
