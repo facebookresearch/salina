@@ -32,7 +32,7 @@ class BraxAgent(TAgent):
         self._seed = None
         self.output = output
         self.input = input
-        self.device=None
+        self._device=None
 
     def _initialize_envs(self, batch_size):
         assert self._seed is not None, "[GymAgent] seeds must be specified"
