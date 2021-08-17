@@ -104,6 +104,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
             t=cfg.algorithm.overlapping_timesteps,
             epsilon=cfg.algorithm.action_noise,
         )
+        _cpu_workspace=workspace.to("cpu")
         replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
 
     logger.message("[DDQN] Learning")
