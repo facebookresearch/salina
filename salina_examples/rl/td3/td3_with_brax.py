@@ -105,7 +105,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
             epsilon=cfg.algorithm.action_noise,
         )
         _cpu_workspace=workspace.to("cpu")
-        replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
+        replay_buffer.put(_cpu_workspace, time_size=cfg.algorithm.buffer_time_size)
 
     logger.message("[DDQN] Learning")
     n_interactions = 0
