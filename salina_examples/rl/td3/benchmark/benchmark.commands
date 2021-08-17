@@ -12,9 +12,9 @@ n_envs=1,2,4 \
 n_timesteps=25,50,100 \
 algorithm.batch_size=128
 
-OMP_NUM_THREADS=1 PYTHONPATH=salina python salina/salina_examples/rl/td3/td3_with_brax.py \
+XLA_PYTHON_CLIENT_PREALLOCATE=false OMP_NUM_THREADS=1 PYTHONPATH=salina python salina/salina_examples/rl/td3/td3_with_brax.py \
 -cn benchmark/brax --multirun \
 env_name=halfcheetah \
-n_envs=1,2,4,8 \
-n_timesteps=25,50,100 \
+n_envs=1,4,8,64 \
+n_timesteps=5,10,25,50 \
 algorithm.batch_size=128 \

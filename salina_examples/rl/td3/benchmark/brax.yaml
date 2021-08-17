@@ -45,17 +45,18 @@ algorithm:
   burning_timesteps: 0
   clip_grad: 2
   inner_epochs: ${n_timesteps}
-  discount_factor: 0.995
+  discount_factor: 0.99
   update_target_tau: 0.005
   device: cuda:0
+  reward_scaling: 10.0
 
   n_envs: ${n_envs}
   n_processes: 0
   n_timesteps: ${n_timesteps}
   overlapping_timesteps: 1
   buffer_time_size: 2
-  buffer_size: 100000
-  initial_buffer_size: 10000
+  buffer_size: 1000000
+  initial_buffer_size: 100000
 
   evaluation:
     evaluate_every: 1000

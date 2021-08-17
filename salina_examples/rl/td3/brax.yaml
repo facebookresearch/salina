@@ -56,6 +56,7 @@ algorithm:
   buffer_time_size: 2
   buffer_size: 100000
   initial_buffer_size: 10000
+  reward_scaling: 10.0
 
   evaluation:
     evaluate_every: 100
