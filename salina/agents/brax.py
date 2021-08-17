@@ -54,7 +54,7 @@ class BraxAgent(TAgent):
         if t == 0 or self.timestep==0:
             self.timestep=0
             o=self.gym_env.reset()
-            if self.device is None:
+            if self._device is None:
                 self._device=o.device
                 print(" -- BRAX Device is ",self._device)
             self.cumulated_reward=torch.zeros(self.batch_size,device=self._device).float()
