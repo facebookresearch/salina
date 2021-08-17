@@ -40,6 +40,7 @@ class BraxAgent(TAgent):
 
         self.gym_env=create_gym_env(self.brax_env_name,batch_size=batch_size,seed=self._seed,**self.args)
         self.gym_env=JaxToTorchWrapper(self.gym_env,device=self._device)
+        print("Creating BRAX env on ",self._device)
 
     def to(self,device):
         super().to(device)
