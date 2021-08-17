@@ -56,7 +56,7 @@ class BraxAgent(TAgent):
             self.timestep=0
 
         if t == 0 or self.timestep==0:
-            assert self.timestep==0
+            self.timestep=0
             o=self.gym_env.reset()
             self.cumulated_reward=torch.zeros(self.batch_size,device=self._device).float()
             ret = {

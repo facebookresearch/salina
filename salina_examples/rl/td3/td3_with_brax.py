@@ -41,9 +41,11 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     env_agent = BraxAgent(
         **env_args
     )
+
     env_evaluation_agent = BraxAgent(
         **env_args
     )
+
     q_target_agent_1 = copy.deepcopy(q_agent_1)
     q_target_agent_2 = copy.deepcopy(q_agent_2)
     action_target_agent = copy.deepcopy(action_agent)
@@ -58,44 +60,39 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     train_temporal_q_target_agent_2 = TemporalAgent(q_target_agent_2)
     train_temporal_action_target_agent = TemporalAgent(action_target_agent)
 
-    train_temporal_q_agent_1.to(cfg.algorithm.loss_device)
-    train_temporal_q_agent_2.to(cfg.algorithm.loss_device)
-    train_temporal_action_agent.to(cfg.algorithm.loss_device)
-    train_temporal_q_target_agent_1.to(cfg.algorithm.loss_device)
-    train_temporal_q_target_agent_2.to(cfg.algorithm.loss_device)
-    train_temporal_action_target_agent.to(cfg.algorithm.loss_device)
+    train_temporal_q_agent_1.to(cfg.algorithm.device)
+    train_temporal_q_agent_2.to(cfg.algorithm.device)
+    train_temporal_action_agent.to(cfg.algorithm.device)
+    train_temporal_q_target_agent_1.to(cfg.algorithm.device)
+    train_temporal_q_target_agent_2.to(cfg.algorithm.device)
+    train_temporal_action_target_agent.to(cfg.algorithm.device)
 
-    remote_train_agent = RemoteAgent(
-        TemporalAgent(Agents(env_agent, action_acquisition_agent)),
-        num_processes=cfg.algorithm.n_processes,
-    )
+    remote_train_agent = TemporalAgent(Agents(env_agent, action_acquisition_agent))
+    remote_train_agent.to(cfg.algorithm.device)
     remote_train_agent.seed(cfg.algorithm.env_seed)
 
     workspace = salina.Workspace(
         batch_size=cfg.algorithm.n_envs,
         time_size=cfg.algorithm.n_timesteps,
     )
+    workspace=workspace.to(cfg.algorithm.device)
     workspace = remote_train_agent(
         workspace,
         epsilon=cfg.algorithm.action_noise,
     )
 
-    evaluation_agent = RemoteAgent(
-        TemporalAgent(Agents(env_evaluation_agent, action_evaluation_agent)),
-        num_processes=cfg.algorithm.evaluation.n_processes,
-    )
+    evaluation_agent = TemporalAgent(Agents(env_evaluation_agent, action_evaluation_agent))
+    evaluation_agent.to(cfg.algorithm.device)
     evaluation_agent.seed(cfg.algorithm.evaluation.env_seed)
+
     evaluation_workspace = salina.Workspace(
         batch_size=cfg.algorithm.evaluation.n_envs,
         time_size=cfg.algorithm.evaluation.n_timesteps,
     )
-    evaluation_workspace = evaluation_agent(
-        evaluation_workspace,
-        epsilon=0.0,
-    )
+    evaluation_workspace.to(cfg.algorithm.device)
 
     # == Setting up & initializing the replay buffer for DQN
-    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size)
+    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=cfg.algorithm.device)
     # replay_buffer.put(workspace)
 
     logger.message("[DDQN] Initializing replay buffer")
@@ -123,21 +120,18 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     )
     iteration = 0
     for epoch in range(cfg.algorithm.max_epoch):
-        if not evaluation_agent.is_running():
-            creward, done = evaluation_workspace["env/cumulated_reward", "env/done"]
-            creward = creward[done]
-            if creward.size()[0] > 0:
-                logger.add_scalar("evaluation/reward", creward.mean().item(), epoch)
-            action_evaluation_agent.load_state_dict(_state_dict(action_agent, "cpu"))
-            evaluation_workspace.copy_time(
-                from_time=-1,
-                to_time=0,
-            )
-            evaluation_agent.asynchronous_forward_(
+        if epoch%cfg.algorithm.evaluation.evaluate_every==0:
+            print("Evaluation....")
+            action_evaluation_agent.load_state_dict(action_agent.state_dict())
+            evaluation_workspace = evaluation_agent(
                 evaluation_workspace,
                 epsilon=0.0,
-                t=1,
             )
+
+            creward, done = evaluation_workspace["env/cumulated_reward", "env/done"]
+            creward = creward[done]
+            assert creward.size()[0] > 0
+            logger.add_scalar("evaluation/reward", creward.mean().item(), epoch)
 
         ts = workspace.time_size()
         workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
@@ -172,7 +166,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
         for inner_epoch in range(cfg.algorithm.inner_epochs):
             batch_size = cfg.algorithm.batch_size
             replay_workspace = replay_buffer.get(batch_size).to(
-                cfg.algorithm.loss_device
+                cfg.algorithm.device
             )
             done, reward = replay_workspace["env/done", "env/reward"]
 
@@ -265,7 +259,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
             iteration += 1
 
-        action_acquisition_agent.load_state_dict(_state_dict(action_agent, "cpu"))
+        action_acquisition_agent.load_state_dict(action_agent.state_dict())
 
 
 @hydra.main(config_path=".", config_name="gym.yaml")

@@ -5,9 +5,9 @@ logger:
   cache_size: 10000
   verbose: True
 
-n_envs: 4
+n_envs: 256
 env_name: halfcheetah
-n_timesteps: 50
+n_timesteps: 8
 
 q_agent:
   classname: salina_examples.rl.td3.agents.QMLPAgent
@@ -47,7 +47,7 @@ algorithm:
   inner_epochs: ${n_timesteps}
   discount_factor: 0.995
   update_target_tau: 0.005
-  loss_device: cpu
+  device: cpu
 
   n_envs: ${n_envs}
   n_processes: 0
@@ -58,8 +58,7 @@ algorithm:
   initial_buffer_size: 10000
 
   evaluation:
-    evaluate: True
-    env_seed: 23
-    n_envs: 16
-    n_processes: 1
-    n_timesteps: 1000
+    evaluate_every: 100
+    n_envs: 256
+    n_timesteps: 200
+    env_seed: 46
