@@ -92,7 +92,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     evaluation_workspace=evaluation_workspace.to(cfg.algorithm.device)
 
     # == Setting up & initializing the replay buffer for DQN
-    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=cfg.algorithm.device)
+    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=torch.device("cpu"))
     # replay_buffer.put(workspace)
 
     logger.message("[DDQN] Initializing replay buffer")
@@ -156,8 +156,8 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 end_reward.mean().item(),
                 iteration,
             )
-
-        replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
+        _cpu_workspace=workspace.to("cpu")
+        replay_buffer.put(_cpu_workspace, time_size=cfg.algorithm.buffer_time_size)
 
         logger.add_scalar("monitor/replay_buffer_size", replay_buffer.size(), epoch)
 
