@@ -11,3 +11,11 @@ env_name=HalfCheetah-v3,Hopper-v3,Walker2d-v3,Swimmer-v3,Ant-v3 \
 n_envs=1,2,4 \
 n_timesteps=25,50,100 \
 algorithm.batch_size=128
+
+OMP_NUM_THREADS=1 PYTHONPATH=salina python salina/salina_examples/rl/td3/td3_with_brax.py \
+-cn benchmark/brax --multirun \
+env_name=halfcheetah \
+n_envs=32,64,256 \
+n_timesteps=1,8,16 \
+algorithm.batch_size=128 \
+algorithm.inner_epoch=10,25,50

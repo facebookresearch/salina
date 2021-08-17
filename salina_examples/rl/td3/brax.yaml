@@ -28,7 +28,7 @@ action_agent:
 algorithm:
   brax_env:
     env_name: ${env_name}
-    episode_length: 100
+    episode_length: 1000
 
   env_seed: 432
   batch_size: 128
@@ -60,5 +60,5 @@ algorithm:
   evaluation:
     evaluate_every: 100
     n_envs: 256
-    n_timesteps: 200
+    n_timesteps: 1002
     env_seed: 46
