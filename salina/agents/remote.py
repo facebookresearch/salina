@@ -115,7 +115,7 @@ class RemoteAgent(Agent):
                 p = mp.Process(
                     target=f, args=(self.agent, i_queue, o_queue, self.seeds[k])
                 )
-                p.daemon = True
+                p.daemon = False
                 p.start()
                 r = o_queue.get()
                 self.processes.append((p, i_queue, o_queue))
@@ -178,6 +178,8 @@ class RemoteAgent(Agent):
             return False
 
     def close(self):
+        print("[Remoteagent] closing processes")
+        if self.processes is None: return
         if self.num_processes > 0:
             for p, inq, outq in self.processes:
                 inq.put(("exit",))
@@ -190,3 +192,7 @@ class RemoteAgent(Agent):
                 time.sleep(0.1)
                 del inq
                 del outq
+        self.processes=None
+
+    def __del__(self):
+        self.close()

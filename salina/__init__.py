@@ -29,12 +29,18 @@ def instantiate_class(arguments):
 
 def get_class(arguments):
     from importlib import import_module
-
-    classname = arguments.classname
-    module_path, class_name = classname.rsplit(".", 1)
-    module = import_module(module_path)
-    c = getattr(module, class_name)
-    return c
+    if isinstance(arguments,dict):
+        classname = arguments["classname"]
+        module_path, class_name = classname.rsplit(".", 1)
+        module = import_module(module_path)
+        c = getattr(module, class_name)
+        return c
+    else:
+        classname = arguments.classname
+        module_path, class_name = classname.rsplit(".", 1)
+        module = import_module(module_path)
+        c = getattr(module, class_name)
+        return c
 
 
 def get_arguments(arguments):
