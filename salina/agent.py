@@ -53,7 +53,7 @@ class Agent(nn.Module):
             _id = str(type(self)) + "_" + str(hex(id(self)))
             self.workspace._put_in_trace(("set", _id, index))
 
-        if use_workspace_device and value.device != self.workspace.device():
+        if use_workspace_device:
             value = value.to(self.workspace.device())
 
         if isinstance(index, str):

@@ -11,12 +11,13 @@ from salina import Workspace
 
 
 class ReplayBuffer:
-    def __init__(self, max_size):
+    def __init__(self, max_size,device=torch.device("cpu")):
         self.max_size = max_size
         self.variables = {}
         self.position = 0
         self.is_full = False
         self.time_size = None
+        self.device=device
 
     def put(self, workspace, time_size=None, padding=None):
         if not time_size is None and time_size != workspace.time_size():
@@ -46,15 +47,15 @@ class ReplayBuffer:
                     v.dtype,
                 )
                 self.variables[k] = torch.zeros(
-                    self.time_size, self.max_size, *s, dtype=v.dtype
+                    self.time_size, self.max_size, *s, dtype=v.dtype,device=self.device
                 )
             B = v.size()[1]
             B = min(self.position + B, self.max_size)
             B = B - self.position
             if indexes is None:
-                indexes = torch.arange(B) + self.position
-                arange = torch.arange(B)
-            self.variables[k][:, indexes] = v[:, arange]
+                indexes = torch.arange(B,device=self.device) + self.position
+                arange = torch.arange(B,device=self.device)
+            self.variables[k][:, indexes] = v[:, arange].detach()
 
         self.position = self.position + B
         if self.position >= self.max_size:
@@ -68,8 +69,9 @@ class ReplayBuffer:
             return self.position
 
     def get(self, B):
-        who = torch.randint(low=0, high=self.size(), size=(B,))
+        who = torch.randint(low=0, high=self.size(), size=(B,),device=self.device)
         workspace = Workspace(batch_size=B, time_size=self.time_size)
+        workspace = workspace.to(self.device)
         for k in self.variables:
             workspace.variables[k] = self.variables[k][:, who]
 

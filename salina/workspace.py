@@ -229,11 +229,11 @@ class Workspace:
                 if not clone:
                     for kk, vv in v.items():
                         if kk >= from_t and kk < to_t:
-                            workspace.variables[k][kk] = vv
+                            workspace.variables[k][kk-from_t] = vv
                 else:
                     for kk, vv in v.items():
                         if kk >= from_t and kk < to_t:
-                            workspace.variables[k][kk] = vv.clone()
+                            workspace.variables[k][kk-from_t] = vv.clone()
 
         workspace._device = self.device()
         return workspace
