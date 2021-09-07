@@ -175,6 +175,9 @@ class Workspace:
     def to_workspace(self):
         return self
 
+    def convert_to_workspace(self):
+        return self
+
     def to(self, device):
         device = torch.device(device)
         if device == self._device:
