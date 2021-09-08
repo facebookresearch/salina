@@ -38,23 +38,26 @@ class PPOMLPActionVarianceAgent(TAgent):
         super().__init__()
         env = instantiate_class(args["env"])
         input_size = env.observation_space.shape[0]
-        num_outputs = env.action_space.shape[0]
+        self.num_outputs = env.action_space.shape[0]
         hs = args["hidden_size"]
+        n_layers = args["n_layers"]
+        hidden_layers = [nn.Linear(hs,hs),nn.SiLU()] * (n_layers - 1) if n_layers >1 else nn.Identity()
         self.model = nn.Sequential(
-            nn.Linear(input_size, hs), nn.ReLU(), nn.Linear(hs, num_outputs)
-        )
-        self.model_var = nn.Sequential(
-            nn.Linear(input_size, hs), nn.ReLU(), nn.Linear(hs, num_outputs)
+            nn.Linear(input_size, hs), nn.SiLU(), *hidden_layers,nn.Linear(hs, self.num_outputs * 2)
         )
 
     def forward(self, t, replay, action_variance, **args):
         input = self.get(("env/env_obs", t))
-        mean = torch.tanh(self.model(input))
-        var = torch.sigmoid(self.model_var(input)) * action_variance + 0.000001
+        mean, var = torch.split( self.model(input), self.num_outputs, dim = -1)
+        mean = torch.tanh(mean)
+        var = nn.Softplus()(var) + 0.001
+        print("\n\n----mean.abs().max():",mean.abs().max().item())
+        print("\n\n----var.min():",var.min().item())
         dist = torch.distributions.Normal(mean, var)
         self.set(("entropy", t), dist.entropy().sum(-1))
         if not replay:
             action = dist.sample()
+            action = torch.tanh(action)
             action = torch.clip(action, min=-1.0, max=1.0)
             self.set(("action", t), action)
         _action = self.get(("action", t))
@@ -70,11 +73,12 @@ class PPOMLPActionAgent(TAgent):
         input_size = env.observation_space.shape[0]
         num_outputs = env.action_space.shape[0]
         hs = args["hidden_size"]
+        n_layers = args["n_layers"]
+        hidden_layers = [nn.Linear(hs,hs),nn.SiLU()] * (n_layers - 1) if n_layers >1 else nn.Identity()
         self.model = nn.Sequential(
             nn.Linear(input_size, hs),
-            nn.ReLU(),
-            nn.Linear(hs, hs),
-            nn.ReLU(),
+            nn.SiLU(),
+            *hidden_layers,
             nn.Linear(hs, num_outputs),
         )
 
@@ -101,11 +105,12 @@ class PPOMLPCriticAgent(TAgent):
         env = instantiate_class(args["env"])
         input_size = env.observation_space.shape[0]
         hs = args["hidden_size"]
+        n_layers = args["n_layers"]
+        hidden_layers = [nn.Linear(hs,hs),nn.SiLU()] * (n_layers - 1) if n_layers >1 else nn.Identity()
         self.model_critic = nn.Sequential(
             nn.Linear(input_size, hs),
-            nn.ReLU(),
-            nn.Linear(hs, hs),
-            nn.ReLU(),
+            nn.SiLU(),
+            *hidden_layers,
             nn.Linear(hs, 1),
         )
 

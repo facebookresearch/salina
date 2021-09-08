@@ -95,7 +95,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=cfg.algorithm.device)
     # replay_buffer.put(workspace)
 
-    logger.message("[DDQN] Initializing replay buffer")
+    logger.message("[TD3] Initializing replay buffer")
     while replay_buffer.size() < cfg.algorithm.initial_buffer_size:
         ts = workspace.time_size()
         workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
@@ -105,7 +105,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
             epsilon=cfg.algorithm.action_noise,
         )
         replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
-    logger.message("[DDQN] Learning")
+    logger.message("[TD3] Learning")
     n_interactions = 0
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
     optimizer_q_1 = get_class(cfg.algorithm.optimizer)(
@@ -261,13 +261,13 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
         action_acquisition_agent.load_state_dict(action_agent.state_dict())
 
 
-@hydra.main(config_path=".", config_name="gym.yaml")
+@hydra.main(config_path=".", config_name="brax.yaml")
 def main(cfg):
     import torch.multiprocessing as mp
 
     CUDA_AVAILABLE = torch.cuda.is_available()
     if CUDA_AVAILABLE:
-        v = torch.ones(1, device="cuda")
+        v = torch.ones(1, device="cuda:0")
 
     mp.set_start_method("spawn")
     logger = instantiate_class(cfg.logger)
