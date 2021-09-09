@@ -18,7 +18,12 @@ from salina_examples.rl.atari_wrappers import (
     wrap_pytorch,
 )
 
-
+import numpy as np
+import torch
+import math
+from torch import nn
+import torch.nn.functional as F
+from torch.distributions.normal import Normal
 def make_atari_env(**env_args):
     e = make_atari(env_args["env_name"])
     e = wrap_deepmind(e)
@@ -34,6 +39,7 @@ def make_gym_env(**env_args):
 
 
 class PPOMLPActionVarianceAgent(TAgent):
+    """torch.distributions implementation of an diagonal Gaussian policy."""
     def __init__(self, **args):
         super().__init__()
         env = instantiate_class(args["env"])
@@ -41,6 +47,7 @@ class PPOMLPActionVarianceAgent(TAgent):
         self.num_outputs = env.action_space.shape[0]
         hs = args["hidden_size"]
         n_layers = args["n_layers"]
+        self.log_std_bounds = args["log_std_bounds"]
         hidden_layers = [nn.Linear(hs,hs),nn.SiLU()] * (n_layers - 1) if n_layers >1 else nn.Identity()
         self.model = nn.Sequential(
             nn.Linear(input_size, hs), nn.SiLU(), *hidden_layers,nn.Linear(hs, self.num_outputs * 2)
@@ -48,23 +55,30 @@ class PPOMLPActionVarianceAgent(TAgent):
 
     def forward(self, t, replay, action_variance, **args):
         input = self.get(("env/env_obs", t))
-        mean, var = torch.split( self.model(input), self.num_outputs, dim = -1)
-        mean = torch.tanh(mean)
-        var = nn.Softplus()(var) + 0.001
-        print("\n\n----mean.abs().max():",mean.abs().max().item())
-        print("\n\n----var.min():",var.min().item())
-        dist = torch.distributions.Normal(mean, var)
-        self.set(("entropy", t), dist.entropy().sum(-1))
-        if not replay:
-            action = dist.sample()
-            action = torch.tanh(action)
-            action = torch.clip(action, min=-1.0, max=1.0)
-            self.set(("action", t), action)
-        _action = self.get(("action", t))
-        lp = dist.log_prob(_action)
-        tlp = lp.sum(-1)
-        self.set(("action_logprobs", t), tlp)
+        mu, log_std = self.model(input).chunk(2, dim=-1)
 
+        # constrain log_std inside [log_std_min, log_std_max]
+        mu = torch.tanh(mu)
+        log_std = torch.tanh(log_std)
+        log_std_min, log_std_max = self.log_std_bounds
+        log_std = log_std_min + 0.5 * (log_std_max - log_std_min) * (log_std + 1)
+        std = log_std.exp()
+        dist = Normal(mu, std)
+
+        #if replay:
+        #    self.set(("entropy", t), torch.Tensor([0.]).to(mu.device))
+        if not replay:
+            action = dist.sample() # if action_variance > 0 else dist.mean
+            action = torch.tanh(action)
+            logp_pi = dist.log_prob(action).sum(axis=-1)
+            logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
+            self.set(("action", t), action)
+            self.set(("old_action_logprobs", t), logp_pi)
+        else:
+            action = self.get(("action", t))
+            logp_pi = dist.log_prob(action).sum(axis=-1)
+            logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
+            self.set(("action_logprobs", t), logp_pi)
 
 class PPOMLPActionAgent(TAgent):
     def __init__(self, **args):
@@ -86,17 +100,21 @@ class PPOMLPActionAgent(TAgent):
         input = self.get(("env/env_obs", t))
         mean = torch.tanh(self.model(input))
         var = torch.ones_like(mean) * action_variance + 0.000001
-        dist = torch.distributions.Normal(mean, var)
-        self.set(("entropy", t), dist.entropy().sum(-1))
+        dist = Normal(mean, var)
 
         if not replay:
-            action = dist.sample()
-            action = torch.clip(action, min=-1.0, max=1.0)
+            action = dist.sample() # if action_variance > 0 else dist.mean
+            #action = torch.clip(action, min=-1.0, max=1.0)
+            action = torch.tanh(action)
+            logp_pi = dist.log_prob(action).sum(axis=-1)
+            logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
             self.set(("action", t), action)
-        _action = self.get(("action", t))
-        lp = dist.log_prob(_action)
-        tlp = lp.sum(-1)
-        self.set(("action_logprobs", t), tlp)
+            self.set(("old_action_logprobs", t), logp_pi)
+        else:
+            action = self.get(("action", t))
+            logp_pi = dist.log_prob(action).sum(axis=-1)
+            logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
+            self.set(("action_logprobs", t), logp_pi)
 
 
 class PPOMLPCriticAgent(TAgent):
@@ -119,3 +137,4 @@ class PPOMLPCriticAgent(TAgent):
 
         critic = self.model_critic(input).squeeze(-1)
         self.set(("critic", t), critic)
+

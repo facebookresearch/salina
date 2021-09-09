@@ -38,7 +38,7 @@ def temporal_difference(critic, reward, done, discount_factor):
         discount_factor * critic[1:].detach() * (1.0 - done[1:].float()) + reward[1:]
     )
     td = target - critic[:-1]
-    to_add = torch.zeros(1, td.size()[1])
+    to_add = torch.zeros(1, td.size()[1]).to(td.device)
     td = torch.cat([td, to_add], dim=0)
     return td
 
