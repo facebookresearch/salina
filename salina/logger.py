@@ -381,10 +381,10 @@ class Logs:
         for log in tqdm(self.logs):
             df = log.to_dataframe(with_hps=True)
             if rdf is None:
-                rdf = df
+                rdf = [df]
             else:
-                rdf = pd.concat([rdf, df])
-        return rdf
+                rdf.append(df)
+        return pd.concat(rdf)
 
     # def plot(self, y, x, hue=None, style=None, row=None, col=None, kind="line"):
 

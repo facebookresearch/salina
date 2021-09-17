@@ -260,6 +260,20 @@ class Workspace:
     def device(self):
         return self._device
 
+    # def sub_sample(self,dims_to_keep):
+    #     N=dims_to_keep.size()[0]
+    #     arangeT=torch.arange(self._time_size,device=dims_to_keep.device)
+    #     workspace = Workspace(batch_size=N, time_size=self._time_size)
+
+    #     for k,v in self.variables.items():
+    #         if isinstance(v,torch.Tensor):
+    #             workspace.variables[k] = self.variables[k][arangeT,dims_to_keep]
+    #         else:
+    #             workspace.variables[k]={}
+    #             for kk,vv in v.items():
+    #                 workspace.variables[k][kk]=vv[dims_to_keep]
+    #     workspace._device=self.device()
+    #     return workspace
 
 class SharedWorkspace:
     def __init__(self, workspace):
@@ -381,6 +395,7 @@ class SharedWorkspace:
             workspace.variables[k] = self.variables[k].clone()
         workspace._device = self.device()
         return workspace
+
 
     def to_dict(self, *keys, length=None):
         if length is None:
