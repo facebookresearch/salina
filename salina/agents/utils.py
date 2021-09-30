@@ -14,16 +14,15 @@ from salina import Agent, TAgent
 class Agents(Agent):
     """An agent composed of multiple agents. The agents are executed in sequence"""
 
-    def __init__(self, *agents):
-        super().__init__()
+    def __init__(self, *agents,name=None):
+        super().__init__(name=name)
         for a in agents:
             assert isinstance(a, Agent)
         self.agents = nn.ModuleList(agents)
 
     def __call__(self, workspace, **args):
         for a in self.agents:
-            workspace = a(workspace, **args)
-        return workspace
+            a(workspace, **args)
 
     def forward(**args):
         raise NotImplementedError
@@ -32,33 +31,46 @@ class Agents(Agent):
         for a in self.agents:
             a.seed(seed)
 
+    def __getitem__(self,k):
+        return self.agents[k]
+
+    def get_by_name(self,n):
+        r=[]
+        for a in self.agents:
+            r=r+a.get_by_name(n)
+        if n==self._name:
+            r=r+[self]
+        return r
+
 
 class TemporalAgent(Agent):
     """Execute an agent over multiple time steps
     the stop_variable (if any) is used to force the stop of the agent when all the values are equal to True at the particular timestep
     """
 
-    def __init__(self, agent, stop_variable=None):
-        super().__init__()
+    def __init__(self, agent,name=None):
+        super().__init__(name=name)
         self.agent = agent
-        self.stop_variable = stop_variable
 
-    def __call__(self, workspace, t=0, n_steps=None, **args):
+    def __call__(self, workspace, t=0, n_steps=None, stop_variable=None,**args):
         """
         :param t: The start timestep
         :type t: int, optional
         :param n_steps: number of timesteps to execute the agent on (None means 'until the end of the workspace')
         :type n_steps: [type], optional
         """
-        if n_steps is None:
-            n_steps = workspace.time_size() - t
-        for _t in range(t, t + n_steps):
-            workspace = self.agent(workspace, t=_t, **args)
-            if not self.stop_variable is None:
+        assert not n_steps is None and stop_variable is None
+        _t=t
+        while True:
+            self.agent(workspace, t=_t, **args)
+            if not stop_variable is None:
                 s = workspace.get(self.stop_variable, _t)
                 if s.all():
                     break
-        return workspace
+            _t+=1
+            if not n_steps is None:
+                if _t>=t+n_steps:
+                    break
 
     def forward(self, **args):
         raise NotImplementedError
@@ -66,11 +78,16 @@ class TemporalAgent(Agent):
     def seed(self, seed):
         self.agent.seed(seed)
 
+    def get_by_name(self,n):
+        r=self.agent.get_by_name(n)
+        if n==self._name:
+            r=r+[self]
+        return r
+
 class CopyTAgent(TAgent):
     """a TAgent that copies one variable to another. The variable can be copied with or without gradient."""
-
-    def __init__(self, input_name, output_name, detach=False):
-        super().__init__()
+    def __init__(self, input_name, output_name, detach=False,name=None):
+        super().__init__(name=name)
         self.input_name = input_name
         self.output_name = output_name
         self.detach = detach
@@ -87,9 +104,9 @@ class IfTAgent(TAgent):
     """A 'If' Agent"""
 
     def __init__(
-        self, input_true, input_false, output_name, detach=False, condition_name=None
+        self, input_true, input_false, output_name, detach=False, condition_name=None,name=None
     ):
-        super().__init__()
+        super().__init__(name=name)
         self.input_true = input_true
         self.input_false = input_false
         self.output_name = output_name
@@ -113,8 +130,8 @@ class IfTAgent(TAgent):
 class PrintAgent(Agent):
     """A TAgent that print variables values to console"""
 
-    def __init__(self, *names):
-        super().__init__()
+    def __init__(self, *names,name=None):
+        super().__init__(name=name)
         self.names = names
 
     def forward(self, t, **args):

@@ -18,8 +18,8 @@ from omegaconf import DictConfig, OmegaConf
 
 import salina
 import salina.rl.functional as RLF
-from salina import TAgent, get_arguments, get_class, instantiate_class
-from salina.agents import Agents, RemoteAgent, TemporalAgent
+from salina import TAgent, AgentArray,get_arguments, get_class, instantiate_class, create_shared_workspaces_array,Workspace
+from salina.agents import Agents, TemporalAgent, RemoteAgentArray
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
 
@@ -41,7 +41,7 @@ class ProbAgent(TAgent):
     """
 
     def __init__(self, observation_size, hidden_size, n_actions):
-        super().__init__()
+        super().__init__(name="prob_agent")
         self.model = nn.Sequential(
             nn.Linear(observation_size, hidden_size),
             nn.ReLU(),
@@ -93,48 +93,39 @@ def make_cartpole(max_episode_steps):
 
 
 def run_a2c(cfg):
-    # 1)  Build the  logger
+    # Build the  logger
     logger = instantiate_class(cfg.logger)
 
-    # 2) Create the environment agent
-    # This agent implements N gym environments with auto-reset
-    env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env)
-    )
-
-    # 3) Create the A2C Agent
+    # Get info on the environment
     env = instantiate_class(cfg.algorithm.env)
     observation_size = env.observation_space.shape[0]
     n_actions = env.action_space.n
     del env
-    prob_agent = ProbAgent(
-        observation_size, cfg.algorithm.architecture.hidden_size, n_actions
+
+    assert cfg.algorithm.n_envs%cfg.algorithm.n_processes==0
+
+    # Create the agents
+    acq_env_agent = AutoResetGymAgent(
+        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env),n_envs=int(cfg.algorithm.n_envs/cfg.algorithm.n_processes)
     )
-    action_agent = ActionAgent()
-    critic_agent = CriticAgent(
-        observation_size, cfg.algorithm.architecture.hidden_size, n_actions
-    )
+    prob_agent= ProbAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
+    acq_prob_agent = copy.deepcopy(prob_agent)
+    acq_action_agent = ActionAgent()
+    acq_agent=TemporalAgent(Agents(acq_env_agent,acq_prob_agent,acq_action_agent))
+    acq_remote_agents=[copy.deepcopy(acq_agent) for k in range(cfg.algorithm.n_processes)]
+    critic_agent = CriticAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
 
-    # 4) Combine env and policy agents
-    agent = Agents(env_agent, prob_agent, action_agent)
-
-    # 5) Get an agent that is executed on a complete workspace
-    agent = TemporalAgent(agent)
-
-    # 5 bis) The agent is transformed to a remoteagent working on multiple cpus
-    agent = RemoteAgent(agent, num_processes=cfg.algorithm.n_processes)
-    agent.seed(cfg.algorithm.env_seed)
+    acq_agents=RemoteAgentArray(acq_remote_agents)
+    #acq_agents=RemoteAgentArray(acq_remote_agents)
+    acq_agents.seed(cfg.algorithm.env_seed)
+    acq_agent.seed(0)
+    acq_workspaces=create_shared_workspaces_array(acq_agent,t=0,n_steps=cfg.algorithm.n_timesteps,stochastic=True,n_workspaces=cfg.algorithm.n_processes)
 
     # 5 bis) Create the temporal critic agent to compute critic values over the workspace
     # Create the agent to recompute action probabilities
     tprob_agent = TemporalAgent(prob_agent)
     tcritic_agent = TemporalAgent(critic_agent)
 
-    # 6) Configure the workspace to the right dimension
-    workspace = salina.Workspace(
-        batch_size=cfg.algorithm.n_envs,
-        time_size=cfg.algorithm.n_timesteps,
-    )
 
     # 7) Confgure the optimizer over the a2c agent
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -144,22 +135,26 @@ def run_a2c(cfg):
     # 8) Training loop
     epoch = 0
     for epoch in range(cfg.algorithm.max_epochs):
-
+        for a in acq_remote_agents:
+            pagent=a.get_by_name("prob_agent")
+            pagent[0].load_state_dict(prob_agent.state_dict())
         # Execute the agent on the workspace
         if epoch > 0:
             # To avoid to loose a transition, the last element of the workspace is copied at the first timestep (see README)
-            workspace.copy_time(from_time=-1, to_time=0)
-            agent(workspace, t=1, stochastic=True)
+            acq_workspaces.copy_n_last_steps(1)
+            acq_agents(acq_workspaces, t=1, n_steps=cfg.algorithm.n_timesteps-1,stochastic=True)
         else:
-            workspace = agent(workspace, stochastic=True)
+            acq_agents(acq_workspaces, t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True)
 
         # Since agent is a RemoteAgent, it computes a SharedWorkspace without gradient
         # First this sharedworkspace has to be converted to a classical workspace
-        replay_workspace = workspace.convert_to_workspace()
-
+        # print("ICI")
+        # print(acq_workspaces["env/timestep"])
+        # time.sleep(1.0)
+        replay_workspace = acq_workspaces.to_workspace()
         # Then probabilities and critic have to be (re) computed to get gradient
-        tprob_agent(replay_workspace)
-        tcritic_agent(replay_workspace)
+        tprob_agent(replay_workspace,t=0, n_steps=cfg.algorithm.n_timesteps)
+        tcritic_agent(replay_workspace,t=0, n_steps=cfg.algorithm.n_timesteps)
 
         # Remaining code is exactly the same
         # Get relevant tensors (size are timestep x n_envs x ....)

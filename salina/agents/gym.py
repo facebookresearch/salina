@@ -54,13 +54,13 @@ def _torch_cat_dict(d):
 
 class GymAgent(TAgent):
     def __init__(
-        self, make_env_fn=None, make_env_args={}, input="action", output="env/"
+        self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/"
     ):
         super().__init__()
         self.envs = None
         self.env_args = make_env_args
         self._seed = 0
-        self.n_envs = None
+        self.n_envs = n_envs
         self.output = output
         self.input = input
         self.make_env_fn = make_env_fn
@@ -70,7 +70,6 @@ class GymAgent(TAgent):
         self.envs = [self.make_env_fn(**self.env_args) for k in range(n)]
         for k in range(n):
             self.envs[k].seed(self._seed + k)
-        self.n_envs = n
         self.timestep = 0
         self.finished = torch.tensor([True for e in self.envs])
         self.timestep = torch.tensor([0 for e in self.envs])
@@ -156,10 +155,7 @@ class GymAgent(TAgent):
 
     def forward(self, t=0, save_render=False, **args):
         if self.envs is None:
-            self._initialize_envs(self.workspace.batch_size())
-        assert (
-            self.n_envs == self.workspace.batch_size()
-        ), "[GymEnv] cannot be used on workspace of different batch size"
+            self._initialize_envs(self.n_envs)
 
         if t == 0:
             self.timestep = torch.tensor([0 for e in self.envs])
@@ -170,11 +166,12 @@ class GymAgent(TAgent):
             observations = _torch_cat_dict(observations)
             for k in observations:
                 self.set(
-                    (self.output + k, t), observations[k], use_workspace_device=True
+                    (self.output + k, t), observations[k]
                 )
         else:
             assert t > 0
             action = self.get((self.input, t - 1))
+            assert action.size()[0]==self.n_envs,"Incompatible number of envs"
             observations = []
             for k, e in enumerate(self.envs):
                 obs = self._step(k, action[k], save_render)
@@ -182,7 +179,7 @@ class GymAgent(TAgent):
             observations = _torch_cat_dict(observations)
             for k in observations:
                 self.set(
-                    (self.output + k, t), observations[k], use_workspace_device=True
+                    (self.output + k, t), observations[k]
                 )
 
     def seed(self, seed):
@@ -194,13 +191,13 @@ class GymAgent(TAgent):
 
 class AutoResetGymAgent(TAgent):
     def __init__(
-        self, make_env_fn=None, make_env_args={}, input="action", output="env/"
+        self, make_env_fn=None, make_env_args={}, n_envs=None,input="action", output="env/"
     ):
         super().__init__()
         self.envs = None
         self.env_args = make_env_args
         self._seed = None
-        self.n_envs = None
+        self.n_envs = n_envs
         self.output = output
         self.input = input
         self.make_env_fn = make_env_fn
@@ -284,10 +281,7 @@ class AutoResetGymAgent(TAgent):
 
     def forward(self, t=0, save_render=False, **args):
         if self.envs is None:
-            self._initialize_envs(self.workspace.batch_size())
-        assert (
-            self.n_envs == self.workspace.batch_size()
-        ), "[GymEnv] cannot be used on workspace of different batch size"
+            self._initialize_envs(self.n_envs)
 
         observations = []
         for k, env in enumerate(self.envs):
@@ -296,11 +290,12 @@ class AutoResetGymAgent(TAgent):
             else:
                 assert t > 0
                 action = self.get((self.input, t - 1))
+                assert action.size()[0]==self.n_envs,"Incompatible number of envs"
                 observations.append(self._step(k, action[k], save_render))
 
         observations = _torch_cat_dict(observations)
         for k in observations:
-            self.set((self.output + k, t), observations[k], use_workspace_device=True)
+            self.set((self.output + k, t), observations[k])
 
     def seed(self, seed):
         self._seed = seed

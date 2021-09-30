@@ -99,7 +99,7 @@ def run_a2c(cfg):
     # 2) Create the environment agent
     # This agent implements N gym environments with auto-reset
     env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env)
+        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env), n_envs=cfg.algorithm.n_envs
     )
 
     # 3) Create the A2C Agent
@@ -126,10 +126,7 @@ def run_a2c(cfg):
     tcritic_agent = TemporalAgent(critic_agent)
 
     # 6) Configure the workspace to the right dimension
-    workspace = salina.Workspace(
-        batch_size=cfg.algorithm.n_envs,
-        time_size=cfg.algorithm.n_timesteps,
-    )
+    workspace = salina.Workspace()
 
     # 7) Confgure the optimizer over the a2c agent
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -139,17 +136,16 @@ def run_a2c(cfg):
     # 8) Training loop
     epoch = 0
     for epoch in range(cfg.algorithm.max_epochs):
-
+        workspace.zero_grad()
         # Execute the agent on the workspace
         if epoch > 0:
-            # To avoid to loose a transition, the last element of the workspace is copied at the first timestep (see README)
-            workspace.copy_time(from_time=-1, to_time=0)
-            agent(workspace, t=1, stochastic=True)
+            workspace.copy_n_last_steps(1)
+            agent(workspace, t=1, n_steps=cfg.algorithm.n_timesteps-1,stochastic=True)
         else:
-            agent(workspace, stochastic=True)
+            agent(workspace, t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True)
 
         # Compute the critic value over the whole workspace
-        tcritic_agent(workspace)
+        tcritic_agent(workspace,n_steps=cfg.algorithm.n_timesteps)
 
         # Get relevant tensors (size are timestep x n_envs x ....)
         critic, done, action_probs, reward, action = workspace[

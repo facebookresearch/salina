@@ -16,443 +16,232 @@ from graphviz import Digraph
 
 import salina
 
+class SlicedTemporalTensor:
+    def __init__(self):
+        self.tensors=[]
+        self.size=None
+        self.device=None
+        self.dtype=None
+
+    def set(self,t,value):
+        if self.size is None:
+            self.size=value.size()
+            self.device=value.device
+            self.dtype=value.dtype
+
+        assert self.size==value.size(),"Incompatible size"
+        assert self.device==value.device,"Incompatible device"
+        assert self.dtype==value.dtype,"Incompatible type"
+        while (len(self.tensors)<=t):
+            self.tensors.append(torch.zeros(*self.size,device=self.device,dtype=self.dtype))
+        self.tensors[t]=value
+
+    def get(self,t):
+        assert t<len(self.tensors),"Temporal index out of bouds"
+        return self.tensors[t]
+
+    def get_all(self):
+        return torch.cat([a.unsqueeze(0) for a in self.tensors],dim=0)
+
+    def set_all(self,value):
+        for t in range(value.size()[0]):
+            self.set(t,value[t])
+
+    def time_size(self):
+        return len(self.tensors)
+
+    def clear(self):
+        self.tensors=[]
+        self.size=None
+        self.device=None
+        self.dtype=None
+
+    def copy_time(self,from_time,to_time,n_steps):
+        for t in range(n_steps):
+            v=self.get(from_time+t)
+            self.set(to_time+t,v)
+
+    def zero_grad(self):
+        self.tensors=[v.detach() for v in self.tensors]
+
+class CompactSharedTensor:
+    def __init__(self,_tensor):
+        self.tensor=_tensor.get_all().detach()
+        self.tensor.share_memory_()
+
+    def set(self,t,value):
+        self.tensor[t]=value.detach()
+
+    def get(self,t):
+        assert t<self.tensor.size()[0],"Temporal index out of bouds"
+        return self.tensor[t]
+
+    def get_all(self):
+        return self.tensor
+
+    def time_size(self):
+        return self.tensor.size()[0]
+
+    def set_all(self,value):
+        self.tensor=value.detach()
+
+    def clear(self):
+        assert False,"Cannot clear a shared tensor"
+
+    def copy_time(self,from_time,to_time,n_steps):
+        self.tensor[to_time:to_time+n_steps]=self.tensor[from_time:from_time+n_steps]
+
+
+    def zero_grad(self):
+        pass
+
+class CompactTemporalTensor:
+    def __init__(self,value=None):
+        self.size=None
+        self.device=None
+        self.dtype=None
+        self.tensor=None
+        if not value is None:
+            self.tensor=value
+            self.device=value.device
+            self.size=value.size()
+            self.dtype=value.dtype
+
+    def set(self,t,value):
+        assert not self.tensor is None,"Tensor must be initialized"
+        assert self.size[1:]==value.size(),"Incompatible size"
+        assert self.device==value.device,"Incompatible device"
+        assert self.dtype==value.dtype,"Incompatible type"
+        assert t<self.tensor.size()[0],"Temporal index out of bounds"
+        self.tensor[t]=value
+
+    def get(self,t):
+        assert t<self.tensor.size()[0],"Temporal index out of bouds"
+        return self.tensor[t]
+
+    def get_all(self):
+        return self.tensor
+
+    def time_size(self):
+        return self.tensor.size()[0]
+
+
+    def set_all(self,value):
+        if self.tensor is None:
+            self.size=value.size()
+            self.dtype=value.dtype
+            self.device=value.device
+        self.tensor=value
+
+    def clear(self):
+        self.size=None
+        self.device=None
+        self.dtype=None
+        self.tensor=None
+
+    def copy_time(self,from_time,to_time,n_steps):
+        self.tensor[to_time:to_time+n_steps]=self.tensor[from_time:from_time+n_steps]
+
+    def zero_grad(self):
+        self.tensor=self.tensor.detach()
 
 class Workspace:
     """A workspace is a collection of tensors indexed by name and time. The first dimension of each tensor is the batch dimension"""
-
-    def __init__(self, batch_size, time_size, device=torch.device("cpu")):
+    def __init__(self):
         self.variables = {}
-        self._batch_size = batch_size
-        self._time_size = time_size
-        self._device = torch.device(device)
-        self.trace = []
-
-    def split(self):
-        """Returns a list of workspace of batch_size==1"""
-        ws = []
-        for b in range(self._batch_size):
-            w = Workspace(1, self._time_size, device=self._device)
-            _v = {}
-            for k, v in self.variables.items():
-                if isinstance(v, torch.Tensor):
-                    _v[k] = v[:, b].unsqueeze(1)
-                else:
-                    _v[k] = {}
-                    for kk, vv in v.items():
-                        _v[k][kk] = vv[b].unsqueeze(0)
-            w.variables = _v
-            ws.append(w)
-        return ws
+        self.is_shared=False
 
     def set(self, var_name, t, v):
-        """Set a variable in the workspace, and erase previously existing vaariable if any
-        :param var_name: the name of the variable
-        :type var_name: str
-        :param t: time index in 0,workspace.time_size()-1
-        :type t: int
-        :param v: a Bx.... torch Tensor
-        :type v: torch.Tensor
-        """
-        assert v.device == self._device
-        assert isinstance(var_name, str) and isinstance(t, int)
-        assert (
-            v.size()[0] == self._batch_size
-        ), "[workspace.set] batch_size is not matching"
-        assert t < self._time_size
-
         if not var_name in self.variables:
-            self.variables[var_name] = {}
-        if isinstance(self.variables[var_name], torch.Tensor):
-            # print(" [DEBUG] Unfolding variable '"+var_name+"' for time size "+str(self.variables[var_name].size()[0]))
-            assert self.variables[var_name].size()[0] == self._time_size
-            self.variables[var_name] = {
-                t: self.variables[var_name][t]
-                for t in range(self.variables[var_name].size()[0])
-            }
-
-        self.variables[var_name][t] = v
-
-    def clear(self):
-        """Remove all variables in the workspace"""
-        self.variables = {}
-
-    def _put_in_trace(self, v):
-        self.trace.append(v)
-        if len(self.trace) == salina.trace_maximum_size:
-            self.trace.pop(0)
-
-    def _save_trace_graph(self, filename=None, timestep=None):
-        dot = Digraph()
-        for t in self.trace:
-            if timestep is None or len(t[2]) == 2 and t[2][1] == timestep:
-                var = str(t[2])
-                dot.node(var, var)
-                agent = str(t[1])
-                dot.node(agent)
-                if t[0] == "get":
-                    dot.edge(var, agent)
-                else:
-                    dot.edge(agent, var)
-        if not filename is None:
-            f = open(filename, "wt")
-            f.write(dot.source)
-            f.close()
-
-        return dot.source
+            assert not self.is_shared,"Cannot add new variable into a shared workspace"
+            self.variables[var_name]=SlicedTemporalTensor()
+        self.variables[var_name].set(t,v)
 
     def get(self, var_name, t):
-        """Get the value of a variable
+        assert var_name in self.variables,"Unknoanw variable '"+var_name+"'"
+        return self.variables[var_name].get(t)
 
-        :param var_name: the name of the variable
-        :type var_name: str
-        :param t: time index in 0,workspace.time_size()-1
-        :type t: int
-        :rtype: torch.Tensor  (of size batch_size x .....)
-        """
-        assert isinstance(var_name, str) and isinstance(t, int)
-        assert t < self._time_size
-        assert var_name in self.variables and t < self._time_size, (
-            "[workspace.get] variable (" + var_name + "," + str(t) + ") does not exist"
-        )
-        return self.variables[var_name][t]
+    def clear(self):
+        for k,v in self.variables.items():
+            v.clear()
 
-    def _set_sequence(self, var_name, value):
-        assert value.device == self._device
+    def set_all(self, var_name, value):
+        if not var_name in self.variables:
+            assert not self.is_shared,"Cannot add new variable into a shared workspace"
+            self.variables[var_name]=CompactTemporalTensor()
+        self.variables[var_name].set_all(value)
 
-        assert value.size()[0] == self.time_size()
-        assert value.size()[1] == self.batch_size()
-        self.variables[var_name] = value
-
-    def _get_sequence(self, var_name, length=None):
+    def get_all(self, var_name):
         assert var_name in self.variables, (
-            "[Workspace.get_sequence] unnknown variable '" + var_name + "'"
+            "[Workspace.get_all] unnknown variable '" + var_name + "'"
         )
-        if length is None:
-            length = self._time_size
-        if isinstance(self.variables[var_name], torch.Tensor):
-            assert self.variables[var_name].size()[0] == self._time_size
-            return self.variables[var_name][:length]
-
-        v = next(self.variables[var_name].values().__iter__())
-        empty = torch.zeros_like(v).unsqueeze(0)
-        array = []
-        for t in range(length):
-            if t in self.variables[var_name]:
-                array.append(self.variables[var_name][t].unsqueeze(0))
-            else:
-                array.append(empty)
-
-        value = torch.cat(array, dim=0)
-        return value
-
-    def batch_size(self):
-        return self._batch_size
-
-    def time_size(self):
-        return self._time_size
-
-    def clone(self):
-        return copy.deepcopy(self)
+        return self.variables[var_name].get_all()
 
     def keys(self):
         return self.variables.keys()
 
-    def to_dict(self, *keys, length=None):
-        if length is None:
-            length = self._time_size
-        return {
-            k: self._get_sequence(k, length)
-            for k in self.variables
-            if len(keys) == 0 or k in keys
-        }
-
     def __getitem__(self, key):
         if isinstance(key, str):
-            return self._get_sequence(key)
+            return self.get_all(key)
         else:
-            return (self._get_sequence(k) for k in key)
+            return (self.get_all(k) for k in key)
+
+    def time_size(self,var_name):
+        return self.variables[var__name].time_size()
+
+    def copy_time(self, from_time, to_time,n_steps,var_names=None):
+        for k,v in self.variables.items():
+            if var_names is None or k in var_names:
+                v.copy_time(from_time,to_time,n_steps)
+
+    def copy_n_last_steps(self, n,var_names=None):
+        _ts=None
+        for k,v in self.variables.items():
+            if var_names is None or k in var_names:
+                if _ts is None: _ts=v.time_size()
+                assert _ts==v.time_size(),"Variables must have the same time size"
+
+        for k,v in self.variables.items():
+            if var_names is None or k in var_names:
+                self.copy_time(_ts-n,0,n)
+
+    def zero_grad(self):
+        for k,v in self.variables.items():
+            v.zero_grad()
+
+    def _convert_to_shared_workspace(self):
+        workspace=Workspace()
+        for k,v in self.variables.items():
+            workspace.variables[k]=CompactSharedTensor(v)
+            workspace.is_shared=True
+        return workspace
+
+class WorkspaceArray:
+    def __init__(self,workspaces):
+        self.workspaces=workspaces
+
+    def __getitem__(self,k):
+        if isinstance(k,int):
+            return self.workspaces[k]
+        else:
+            return [w[k] for w in self.workspaces]
+
+    def __len__(self):
+        return len(self.workspaces)
 
     def to_workspace(self):
-        return self
+        w=Workspace()
+        for k,v in self.workspaces[0].variables.items():
+            tensors=[w.variables[k].get_all().clone() for w in self.workspaces]
+            tensor=torch.cat(tensors,dim=1)
+            w.set_all(k,tensor)
+        return w
 
-    def to(self, device):
-        device = torch.device(device)
-        if device == self._device:
-            return self
-        else:
-            workspace = Workspace(
-                time_size=self.time_size(), batch_size=self.batch_size(), device=device
-            )
-            for k, v in self.variables.items():
-                if isinstance(v, torch.Tensor):
-                    workspace.variables[k] = v.to(device)
-                else:
-                    workspace.variables[k] = {}
-                    for kk, vv in v.items():
-                        workspace.variables[k][kk] = vv.to(device)
-            return workspace
-
-    def to_multiple_devices(self, devices):
-        if len(devices) == 1:
-            return [self.to(devices[0])]
-
-        n_devices = len(devices)
-        assert self.batch_size() % n_devices == 0
-        bs = int(self.batch_size() / n_devices)
-        pos = 0
-        workspaces = []
-        for nd in range(n_devices):
-            workspace = Workspace(
-                time_size=self.time_size(), batch_size=bs, device=devices[nd]
-            )
-            for k, v in self.variables.items():
-                if isinstance(v, torch.Tensor):
-                    workspace.variables[k] = v[:, pos : pos + bs].to(devices[nd])
-                else:
-                    workspace.variables[k] = {}
-                    for kk, vv in v.items():
-                        workspace.variables[k][kk] = vv[pos : pos + bs].to(devices[nb])
-            workspaces.append(workspace)
-            pos += bs
-        return workspaces
-
-    def subtime(self, from_t, to_t, clone=False):
-        workspace = Workspace(self.batch_size(), to_t - from_t)
-        for k, v in self.variables.items():
-            if isinstance(v, torch.Tensor):
-                if not clone:
-                    workspace.variables[k] = v[from_t:to_t]
-                else:
-                    workspace.variables[k] = v[from_t:to_t].clone()
-            else:
-                workspace.variables[k] = {}
-                if not clone:
-                    for kk, vv in v.items():
-                        if kk >= from_t and kk < to_t:
-                            workspace.variables[k][kk-from_t] = vv
-                else:
-                    for kk, vv in v.items():
-                        if kk >= from_t and kk < to_t:
-                            workspace.variables[k][kk-from_t] = vv.clone()
-
-        workspace._device = self.device()
-        return workspace
-
-    def copy_time(self, from_time, to_time):
-        if from_time == -1:
-            from_time = self._time_size - 1
-        if to_time == -1:
-            to_time = self._time_size - 1
-        for k in self.variables:
-            self.variables[k][to_time] = self.variables[k][from_time].detach()
-
-    def copy_n_last_steps(self, n):
-        ts = self.time_size()
-        for tt in range(n):
-            self.copy_time(
-                from_time=ts - n + tt,
-                to_time=tt,
-            )
-
-    def device(self):
-        return self._device
-
-    def sub_sample(self,dims_to_keep):
-            N=dims_to_keep.size()[0]
-            arangeT=torch.arange(self._time_size,device=dims_to_keep.device)
-            workspace = Workspace(batch_size=N, time_size=self._time_size)
-
-            for k,v in self.variables.items():
-                if isinstance(v,torch.Tensor):
-                    workspace.variables[k] = self.variables[k][arangeT,dims_to_keep]
-                else:
-                    workspace.variables[k]={}
-                    for kk,vv in v.items():
-                        workspace.variables[k][kk]=vv[dims_to_keep]
-            workspace._device=self.device()
-            return workspace
+    def copy_n_last_steps(self, n,var_names=None):
+        [w.copy_n_last_steps(n,var_names=var_names) for w in self.workspaces]
 
 
-class SharedWorkspace:
-    def __init__(self, workspace):
-        self.variables = {}
-        self._batch_size = workspace.batch_size()
-        self._time_size = workspace.time_size()
-        print("[SharedWorkspace] Building Shared workspace")
-        for k in workspace.variables:
-            v = workspace._get_sequence(k, self._time_size)
-            print(
-                "[SharedWorkspace]\t Variable ",
-                k,
-                " of size ",
-                v.size(),
-                " type=",
-                v.dtype,
-            )
-            self.variables[k] = v.detach().clone().share_memory_()
-        self.trace = []
-        self._device = workspace.device()
-
-    def split(self):
-        """Returns a list of workspace of batch_size==1"""
-
-        ws = []
-        for b in range(self._batch_size):
-            w = Workspace(1, self._time_size, device=self._device)
-            _v = {}
-            for k, v in self.variables.items():
-                _v[k] = v[:, b].unsqueeze(1)
-            w.variables = _v
-            ws.append(w)
-        return ws
-
-    def subtime(self, from_t, to_t, clone=False):
-        workspace = Workspace(self.batch_size(), to_t - from_t)
-        for k in self.variables:
-            if not clone:
-                workspace.variables[k] = self.variables[k][from_t:to_t]
-            else:
-                workspace.variables[k] = self.variables[k][from_t:to_t].clone()
-        workspace._device = self.device()
-        return workspace
-
-    def _put_in_trace(self, v):
-        pass
-
-    def set(self, var_name, t, v):
-        assert v.device == self._device
-
-        assert isinstance(var_name, str) and isinstance(t, int)
-        assert (
-            v.size()[0] == self._batch_size
-        ), "[workspace.set] batch_size is not matching"
-        assert t < self._time_size
-        assert var_name in self.variables, (
-            "[SharedWorkspace.set] variable '" + var_name + "' is unkwnown"
-        )
-        self.variables[var_name][t].copy_(v.detach())
-
-    def _set_batch_slice(self, var_name, t, v, batch_from, batch_to):
-        assert v.device == self._device
-
-        assert isinstance(var_name, str) and isinstance(t, int)
-        assert (
-            v.size()[0] == batch_to - batch_from
-        ), "[workspace.set] batch_size is not matching"
-        assert t < self._time_size
-        assert var_name in self.variables, (
-            "[SharedWorkspace.set] variable '" + var_name + "' is unkwnown"
-        )
-        self.variables[var_name][t, batch_from:batch_to].copy_(v.detach())
-
-    def get(self, var_name, t):
-        assert isinstance(var_name, str) and isinstance(t, int)
-        assert t < self._time_size
-        assert var_name in self.variables and t < self._time_size, (
-            "[workspace.get] variable (" + var_name + "," + str(t) + ") does not exist"
-        )
-        return self.variables[var_name][t]
-
-    def _get_batch_slice(self, var_name, t, batch_from, batch_to):
-        assert isinstance(var_name, str) and isinstance(t, int)
-        assert t < self._time_size
-        assert var_name in self.variables and t < self._time_size, (
-            "[workspace.get] variable (" + var_name + "," + str(t) + ") does not exist"
-        )
-        return self.variables[var_name][t, batch_from:batch_to]
-
-    def _get_sequence(self, var_name, length=None):
-        if length is None:
-            length = self._time_size
-        assert var_name in self.variables, (
-            "[Workspace.get_as_tensor] unnknown variable '" + var_name + "'"
-        )
-        return self.variables[var_name][:length]
-
-    def keys(self):
-        return self.variables.keys()
-
-    def batch_size(self):
-        return self._batch_size
-
-    def time_size(self):
-        return self._time_size
-
-    def clear(self):
-        pass
-
-    def to_workspace(self):
-        print(
-            "[SharedWorkspace] to_workspace is deprecated. use 'convert_to_workspace'"
-        )
-        return self.convert_to_workspace()
-
-    def convert_to_workspace(self):
-        workspace = Workspace(batch_size=self._batch_size, time_size=self._time_size)
-        for k in self.variables:
-            workspace.variables[k] = self.variables[k].clone()
-        workspace._device = self.device()
-        return workspace
-
-    def to_dict(self, *keys, length=None):
-        if length is None:
-            length = self._time_size
-        return {
-            k: self._get_sequence(k, length)
-            for k in self.variables
-            if len(keys) == 0 or k in keys
-        }
-
-    def copy_time(self, from_time, to_time):
-        if from_time == -1:
-            from_time = self._time_size - 1
-        if to_time == -1:
-            to_time = self._time_size - 1
-        for k in self.variables:
-            self.variables[k][to_time] = self.variables[k][from_time]
-
-    def copy_n_last_steps(self, n):
-        for k in self.variables:
-            self.variables[k][:n] = self.variables[k][-n:].detach()
-
-    def __getitem__(self, key):
-        if isinstance(key, str):
-            return self._get_sequence(key)
-        else:
-            return (self._get_sequence(k) for k in key)
-
-    def device(self):
-        return self._device
-
-
-class SharedSubWorkspace:
-    def __init__(self, workspace, batch_idx, batch_size):
-        assert isinstance(workspace, SharedWorkspace)
-        self.workspace = workspace
-        self.batch_idx = batch_idx
-        self._batch_size = batch_size
-        self.batch_to = batch_idx + batch_size
-        assert self.batch_idx + self._batch_size <= workspace.batch_size()
-
-    def _put_in_trace(self, v):
-        pass
-
-    def get(self, var_name, t):
-        return self.workspace._get_batch_slice(
-            var_name, t, self.batch_idx, self.batch_to
-        )
-
-    def set(self, var_name, t, v):
-        self.workspace._set_batch_slice(var_name, t, v, self.batch_idx, self.batch_to)
-
-    def batch_size(self):
-        return self._batch_size
-
-    def time_size(self):
-        return self.workspace.time_size()
-
-    def keys(self):
-        return self.workspace.keys()
-
-    def device(self):
-        return self.workspace.device()
+def create_shared_workspaces_array(agent,n_workspaces=1,**args):
+    workspace=Workspace()
+    agent(workspace,**args)
+    return WorkspaceArray([workspace._convert_to_shared_workspace() for k in range(n_workspaces)])
