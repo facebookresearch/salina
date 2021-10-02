@@ -35,17 +35,6 @@ def _index(tensor_3d, tensor_2d):
 
 
 class A2CAgent(TAgent):
-    """This agent outputs:
-        - action_probs: the lob probabilities of each action
-        - action: a randomly sampled action
-        - critic: the critic value V(s)
-
-    It works in two models: the stochastic mode where action are sampled, and the non-stochastic mode where action are taken using the argmax of the probability
-    It is a simple MLP
-    Args:
-        TAgent ([type]): [description]
-    """
-
     def __init__(self, observation_size, hidden_size, n_actions):
         super().__init__()
         self.model = nn.Sequential(

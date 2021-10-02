@@ -55,20 +55,36 @@ def make_gym_env(**env_args):
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e
 
+class MLP(nn.Module):
+    def __init__(self,sizes, activation, output_activation=nn.Identity):
+        super().__init__()
+        layers = []
+        for j in range(len(sizes) - 1):
+            act = activation if j < len(sizes) - 2 else output_activation
+            layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
+        self.layers=layers
+        self.model=nn.Sequential(*self.layers)
+
+    def forward(self,x):
+        return self.model(x)
+
 
 class A2CMLPAgent(TAgent):
-    def __init__(self, **args):
+    def __init__(self, env,hidden_size,n_layers):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(env)
         input_size = env.observation_space.shape[0]
         num_outputs = env.action_space.n
-        hs = args["hidden_size"]
-        self.model = nn.Sequential(
-            nn.Linear(input_size, hs), nn.ReLU(), nn.Linear(hs, num_outputs)
+        hidden_sizes = [hidden_size for _ in range(n_layers)]
+        self.model = MLP(
+            [input_size] + list(hidden_sizes) + [num_outputs],
+            activation=nn.ReLU,
         )
-        self.model_critic = nn.Sequential(
-            nn.Linear(input_size, hs), nn.ReLU(), nn.Linear(hs, 1)
+        self.model_critic = MLP(
+            [input_size] + list(hidden_sizes) + [1],
+            activation=nn.ReLU,
         )
+
 
     def forward(self, t, replay, stochastic, **args):
         input = self.get(("env/env_obs", t))

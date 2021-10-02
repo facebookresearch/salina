@@ -18,8 +18,8 @@ from omegaconf import DictConfig, OmegaConf
 
 import salina
 import salina.rl.functional as RLF
-from salina import TAgent, AgentArray,get_arguments, get_class, instantiate_class, create_shared_workspaces_array,Workspace
-from salina.agents import Agents, TemporalAgent, RemoteAgentArray
+from salina import TAgent, get_arguments, get_class, instantiate_class, Workspace
+from salina.agents import Agents, TemporalAgent, NRemoteAgent
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
 
@@ -35,11 +35,6 @@ def _index(tensor_3d, tensor_2d):
 
 
 class ProbAgent(TAgent):
-    """This agent outputs:
-    - action_probs: the lob probabilities of each action
-
-    """
-
     def __init__(self, observation_size, hidden_size, n_actions):
         super().__init__(name="prob_agent")
         self.model = nn.Sequential(
@@ -56,8 +51,6 @@ class ProbAgent(TAgent):
 
 
 class ActionAgent(TAgent):
-    """This agent chooses which action to output depending on the probabilities"""
-
     def __init__(self):
         super().__init__()
 
@@ -72,8 +65,6 @@ class ActionAgent(TAgent):
 
 
 class CriticAgent(TAgent):
-    """This agent outputs the critic value"""
-
     def __init__(self, observation_size, hidden_size, n_actions):
         super().__init__()
         self.critic_model = nn.Sequential(
@@ -112,17 +103,10 @@ def run_a2c(cfg):
     acq_prob_agent = copy.deepcopy(prob_agent)
     acq_action_agent = ActionAgent()
     acq_agent=TemporalAgent(Agents(acq_env_agent,acq_prob_agent,acq_action_agent))
-    acq_remote_agents=[copy.deepcopy(acq_agent) for k in range(cfg.algorithm.n_processes)]
+    acq_remote_agent,acq_workspace=NRemoteAgent.create(acq_agent,num_processes=cfg.algorithm.n_processes,t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True)
+    acq_remote_agent.seed(cfg.algorithm.env_seed)
+
     critic_agent = CriticAgent(observation_size, cfg.algorithm.architecture.hidden_size, n_actions)
-
-    acq_agents=RemoteAgentArray(acq_remote_agents)
-    #acq_agents=RemoteAgentArray(acq_remote_agents)
-    acq_agents.seed(cfg.algorithm.env_seed)
-    acq_agent.seed(0)
-    acq_workspaces=create_shared_workspaces_array(acq_agent,t=0,n_steps=cfg.algorithm.n_timesteps,stochastic=True,n_workspaces=cfg.algorithm.n_processes)
-
-    # 5 bis) Create the temporal critic agent to compute critic values over the workspace
-    # Create the agent to recompute action probabilities
     tprob_agent = TemporalAgent(prob_agent)
     tcritic_agent = TemporalAgent(critic_agent)
 
@@ -135,52 +119,37 @@ def run_a2c(cfg):
     # 8) Training loop
     epoch = 0
     for epoch in range(cfg.algorithm.max_epochs):
-        for a in acq_remote_agents:
-            pagent=a.get_by_name("prob_agent")
-            pagent[0].load_state_dict(prob_agent.state_dict())
-        # Execute the agent on the workspace
-        if epoch > 0:
-            # To avoid to loose a transition, the last element of the workspace is copied at the first timestep (see README)
-            acq_workspaces.copy_n_last_steps(1)
-            acq_agents(acq_workspaces, t=1, n_steps=cfg.algorithm.n_timesteps-1,stochastic=True)
-        else:
-            acq_agents(acq_workspaces, t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True)
+        pagent=acq_remote_agent.get_by_name("prob_agent")
+        for a in pagent: a.load_state_dict(prob_agent.state_dict())
 
-        # Since agent is a RemoteAgent, it computes a SharedWorkspace without gradient
-        # First this sharedworkspace has to be converted to a classical workspace
-        # print("ICI")
-        # print(acq_workspaces["env/timestep"])
-        # time.sleep(1.0)
-        replay_workspace = acq_workspaces.to_workspace()
-        # Then probabilities and critic have to be (re) computed to get gradient
+        if epoch > 0:
+            acq_workspace.copy_n_last_steps(1)
+            acq_remote_agent(acq_workspace, t=1, n_steps=cfg.algorithm.n_timesteps-1,stochastic=True)
+        else:
+            acq_remote_agent(acq_workspace, t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True)
+
+        replay_workspace = Workspace(acq_workspace)
         tprob_agent(replay_workspace,t=0, n_steps=cfg.algorithm.n_timesteps)
         tcritic_agent(replay_workspace,t=0, n_steps=cfg.algorithm.n_timesteps)
 
-        # Remaining code is exactly the same
-        # Get relevant tensors (size are timestep x n_envs x ....)
         critic, done, action_probs, reward, action = replay_workspace[
             "critic", "env/done", "action_probs", "env/reward", "action"
         ]
 
-        # Compute temporal difference
         target = reward[1:] + cfg.algorithm.discount_factor * critic[1:].detach() * (
             1 - done[1:].float()
         )
         td = target - critic[:-1]
 
-        # Compute critic loss
         td_error = td ** 2
         critic_loss = td_error.mean()
 
-        # Compute entropy loss
         entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
 
-        # Compute A2C loss
         action_logp = _index(action_probs, action).log()
         a2c_loss = action_logp[:-1] * td.detach()
         a2c_loss = a2c_loss.mean()
 
-        # Log losses
         logger.add_scalar("critic_loss", critic_loss.item(), epoch)
         logger.add_scalar("entropy_loss", entropy_loss.item(), epoch)
         logger.add_scalar("a2c_loss", a2c_loss.item(), epoch)
@@ -194,7 +163,6 @@ def run_a2c(cfg):
         loss.backward()
         optimizer.step()
 
-        # Compute the cumulated reward on final_state
         creward = replay_workspace["env/cumulated_reward"]
         creward = creward[done]
         if creward.size()[0] > 0:

@@ -17,7 +17,7 @@ a2c_agent:
 algorithm:
   env_seed: 432
   n_envs: 8
-  n_processes: 4
+  n_processes: 1
   n_timesteps: 16
   overlapping_timesteps: 1
   burning_timesteps: 0
@@ -38,3 +38,10 @@ algorithm:
   optimizer:
     classname: torch.optim.Adam
     lr: 0.01
+
+  evaluation:
+    message: "evaluation is needed if using the evaluation version of A2C"
+    env_seed: 23
+    n_envs: 32
+    n_processes: 1
+    n_timesteps: 1000

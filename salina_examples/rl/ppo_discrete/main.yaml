@@ -1,9 +1,9 @@
 logger:
   classname: salina.logger.TFLogger
   log_dir: ./a2c
-  cache_size: 10000
+  every_n_seconds: 10
   modulo: 10
-  verbose: False
+  verbose: True
 
 action_agent:
   classname: salina_examples.rl.ppo_discrete.agents.PPOMLPActionAgent
@@ -23,18 +23,18 @@ critic_agent:
 
 algorithm:
   env_seed: 432
-  n_envs: 8
+  n_envs: 32
   n_processes: 4
-  n_timesteps: 50
+  n_timesteps: 5
   overlapping_timesteps: 1
   max_epochs: 10000
-  discount_factor: 0.95
-  entropy_coef: 0.001
+  discount_factor: 0.99
+  entropy_coef: 0.01
   critic_coef: 1.0
   clip_ratio: 0.2
-  pi_epochs: 80
-  v_epochs: 80
-  gae: 0.9
+  pi_epochs: 1
+  v_epochs: 1
+  gae: 0.7
 
   device: cpu
 
@@ -46,10 +46,3 @@ algorithm:
   optimizer:
     classname: torch.optim.Adam
     lr: 0.01
-
-  evaluation:
-    message: "evaluation is needed if using the evaluation version of A2C"
-    env_seed: 23
-    n_envs: 32
-    n_processes: 4
-    n_timesteps: 1000

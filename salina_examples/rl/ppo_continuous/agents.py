@@ -73,7 +73,7 @@ class PPOMLPActionVarianceAgent(TAgent):
             logp_pi = dist.log_prob(action).sum(axis=-1)
             logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
             self.set(("action", t), action)
-            self.set(("old_action_logprobs", t), logp_pi)
+            self.set(("action_logprobs", t), logp_pi)
         else:
             action = self.get(("action", t))
             logp_pi = dist.log_prob(action).sum(axis=-1)
@@ -101,7 +101,7 @@ class PPOMLPActionAgent(TAgent):
         mean = torch.tanh(self.model(input))
         var = torch.ones_like(mean) * action_variance + 0.000001
         dist = Normal(mean, var)
-
+        self.set(("entropy", t), dist.entropy())
         if not replay:
             action = dist.sample() # if action_variance > 0 else dist.mean
             #action = torch.clip(action, min=-1.0, max=1.0)
@@ -109,7 +109,7 @@ class PPOMLPActionAgent(TAgent):
             logp_pi = dist.log_prob(action).sum(axis=-1)
             logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
             self.set(("action", t), action)
-            self.set(("old_action_logprobs", t), logp_pi)
+            self.set(("action_logprobs", t), logp_pi)
         else:
             action = self.get(("action", t))
             logp_pi = dist.log_prob(action).sum(axis=-1)
@@ -137,4 +137,3 @@ class PPOMLPCriticAgent(TAgent):
 
         critic = self.model_critic(input).squeeze(-1)
         self.set(("critic", t), critic)
-

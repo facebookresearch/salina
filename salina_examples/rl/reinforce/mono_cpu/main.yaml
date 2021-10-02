@@ -1,7 +1,7 @@
 logger:
   classname: salina.logger.TFLogger
   log_dir: ./tmp
-  cache_size: 10000
+  every_n_seconds: 10
   modulo: 1
   verbose: True
 

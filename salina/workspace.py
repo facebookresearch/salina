@@ -23,7 +23,8 @@ class SlicedTemporalTensor:
         self.device=None
         self.dtype=None
 
-    def set(self,t,value):
+    def set(self,t,value,batch_dims):
+        assert batch_dims is None,"Unable to use batch dimensions with SlicedTemporalTensor"
         if self.size is None:
             self.size=value.size()
             self.device=value.device
@@ -36,19 +37,31 @@ class SlicedTemporalTensor:
             self.tensors.append(torch.zeros(*self.size,device=self.device,dtype=self.dtype))
         self.tensors[t]=value
 
-    def get(self,t):
+    def to(self,device):
+        s=SlicedTemporalTensor()
+        for k in range(len(self.tensors)):
+            s.set(k,self.tensors[k].to(device))
+        return s
+
+    def get(self,t,batch_dims):
+        assert batch_dims is None,"Unable to use batch dimensions with SlicedTemporalTensor"
         assert t<len(self.tensors),"Temporal index out of bouds"
         return self.tensors[t]
 
-    def get_all(self):
+    def get_full(self,batch_dims):
+        assert batch_dims is None,"Unable to use batch dimensions with SlicedTemporalTensor"
         return torch.cat([a.unsqueeze(0) for a in self.tensors],dim=0)
 
-    def set_all(self,value):
+    def set_full(self,value,batch_dims):
+        assert batch_dims is None,"Unable to use batch dimensions with SlicedTemporalTensor"
         for t in range(value.size()[0]):
-            self.set(t,value[t])
+            self.set(t,value[t],batch_dims=batch_dims)
 
     def time_size(self):
         return len(self.tensors)
+
+    def batch_size(self):
+        return self.tensors[0].size()[0]
 
     def clear(self):
         self.tensors=[]
@@ -58,35 +71,65 @@ class SlicedTemporalTensor:
 
     def copy_time(self,from_time,to_time,n_steps):
         for t in range(n_steps):
-            v=self.get(from_time+t)
-            self.set(to_time+t,v)
+            v=self.get(from_time+t,batch_dims=None)
+            self.set(to_time+t,v,batch_dims=None)
+
+    def subtime(self,from_t,to_t):
+        return CompactTemporalTensor(torch.cat([a.unsqueeze(0) for a in self.tensors[from_t:to_t]],dim=0))
 
     def zero_grad(self):
         self.tensors=[v.detach() for v in self.tensors]
 
 class CompactSharedTensor:
     def __init__(self,_tensor):
-        self.tensor=_tensor.get_all().detach()
+        self.tensor=_tensor
         self.tensor.share_memory_()
 
-    def set(self,t,value):
-        self.tensor[t]=value.detach()
+    def set(self,t,value,batch_dims):
+        if batch_dims is None:
+            self.tensor[t]=value.detach()
+        else:
+            self.tensor[t,batch_dims[0]:batch_dims[1]]=value.detach()
 
-    def get(self,t):
+    def get(self,t,batch_dims):
         assert t<self.tensor.size()[0],"Temporal index out of bouds"
-        return self.tensor[t]
+        if batch_dims is None:
+            return self.tensor[t]
+        else:
+            return self.tensor[t,batch_dims[0]:batch_dims[1]]
 
-    def get_all(self):
-        return self.tensor
+    def to(self,device):
+        if device==self.tensor.device: return self
+        t=self.tensor.to(device)
+        t.share_memory_()
+        return CompactSharedTensor(t)
+
+    def get_full(self,batch_dims):
+        if batch_dims is None:
+            return self.tensor
+        else:
+            return self.tensor[:,batch_dims[0]:batch_dims[1]]
 
     def time_size(self):
         return self.tensor.size()[0]
 
-    def set_all(self,value):
-        self.tensor=value.detach()
+    def batch_size(self):
+        return self.tensor.size()[1]
+
+
+    def set_full(self,value,batch_dims):
+        if batch_dims is None:
+            self.tensor=value.detach()
+        else:
+            self.tensor[:,batch_dims[0]:batch_dims[1]]=value.detach()
 
     def clear(self):
         assert False,"Cannot clear a shared tensor"
+
+    def subtime(self,from_t,to_t):
+        t=self.tensor[from_t:to_t]
+        t.share_memory_()
+        return CompactSharedTensor(t)
 
     def copy_time(self,from_time,to_time,n_steps):
         self.tensor[to_time:to_time+n_steps]=self.tensor[from_time:from_time+n_steps]
@@ -107,31 +150,57 @@ class CompactTemporalTensor:
             self.size=value.size()
             self.dtype=value.dtype
 
-    def set(self,t,value):
+    def set(self,t,value,batch_dims):
         assert not self.tensor is None,"Tensor must be initialized"
         assert self.size[1:]==value.size(),"Incompatible size"
         assert self.device==value.device,"Incompatible device"
         assert self.dtype==value.dtype,"Incompatible type"
         assert t<self.tensor.size()[0],"Temporal index out of bounds"
-        self.tensor[t]=value
+        if batch_dims is None:
+            self.tensor[t]=value
+        else:
+            self.tensor[t,batch_dims[0]:batch_dims[1]]=value
 
-    def get(self,t):
+
+    def to(self,device):
+        if device==self.tensor.device: return self
+        t=self.tensor.to(device)
+        return CompactTemporalTensor(t)
+
+    def get(self,t,batch_dims):
         assert t<self.tensor.size()[0],"Temporal index out of bouds"
-        return self.tensor[t]
+        if batch_dims is None:
+            return self.tensor[t]
+        else:
+            return self.tensor[t,batch_dims[0]:batch_dims[1]]
 
-    def get_all(self):
-        return self.tensor
+    def get_full(self,batch_dims):
+        if batch_dims is None:
+            return self.tensor
+        else:
+            return self.tensor[:,batch_dims[0]:batch_dims[1]]
 
     def time_size(self):
         return self.tensor.size()[0]
 
+    def batch_size(self):
+        return self.tensor.size()[1]
 
-    def set_all(self,value):
+
+    def set_full(self,value,batch_dims):
         if self.tensor is None:
+            assert batch_dims is None
             self.size=value.size()
             self.dtype=value.dtype
             self.device=value.device
-        self.tensor=value
+        if batch_dims is None:
+            self.tensor=value
+        else:
+            self.tensor[:,batch_dims[0]:batch_dims[1]]=value
+
+    def subtime(self,from_t,to_t):
+        return CompactTemporalTensor(self.tensor[from_t:to_t])
+
 
     def clear(self):
         self.size=None
@@ -147,47 +216,68 @@ class CompactTemporalTensor:
 
 class Workspace:
     """A workspace is a collection of tensors indexed by name and time. The first dimension of each tensor is the batch dimension"""
-    def __init__(self):
+    def __init__(self,workspace=None):
         self.variables = {}
         self.is_shared=False
+        if not workspace is None:
+            for k in workspace.keys():
+                self.set_full(k,workspace[k].clone())
 
-    def set(self, var_name, t, v):
+    def set(self, var_name, t, v,batch_dims=None):
         if not var_name in self.variables:
             assert not self.is_shared,"Cannot add new variable into a shared workspace"
             self.variables[var_name]=SlicedTemporalTensor()
-        self.variables[var_name].set(t,v)
+        self.variables[var_name].set(t,v,batch_dims=batch_dims)
 
-    def get(self, var_name, t):
+    def get(self, var_name, t,batch_dims=None):
         assert var_name in self.variables,"Unknoanw variable '"+var_name+"'"
-        return self.variables[var_name].get(t)
+        return self.variables[var_name].get(t,batch_dims=batch_dims)
 
     def clear(self):
         for k,v in self.variables.items():
             v.clear()
 
-    def set_all(self, var_name, value):
+    def set_full(self, var_name, value,batch_dims=None):
         if not var_name in self.variables:
             assert not self.is_shared,"Cannot add new variable into a shared workspace"
             self.variables[var_name]=CompactTemporalTensor()
-        self.variables[var_name].set_all(value)
+        self.variables[var_name].set_full(value,batch_dims=batch_dims)
 
-    def get_all(self, var_name):
+    def get_full(self, var_name,batch_dims=None):
         assert var_name in self.variables, (
-            "[Workspace.get_all] unnknown variable '" + var_name + "'"
+            "[Workspace.get_full] unnknown variable '" + var_name + "'"
         )
-        return self.variables[var_name].get_all()
+        return self.variables[var_name].get_full(batch_dims=batch_dims)
 
     def keys(self):
         return self.variables.keys()
 
     def __getitem__(self, key):
         if isinstance(key, str):
-            return self.get_all(key)
+            return self.get_full(key,None)
         else:
-            return (self.get_all(k) for k in key)
+            return (self.get_full(k,None) for k in key)
 
-    def time_size(self,var_name):
-        return self.variables[var__name].time_size()
+    def _all_variables_same_time_size(self):
+        _ts=None
+        for k,v in self.variables.items():
+            if _ts is None: _ts=v.time_size()
+            if _ts!=v.time_size(): return False
+        return True
+
+    def time_size(self):
+        _ts=None
+        for k,v in self.variables.items():
+            if _ts is None: _ts=v.time_size()
+            assert _ts==v.time_size(),"Variables must have the same time size"
+        return _ts
+
+    def batch_size(self):
+        _bs=None
+        for k,v in self.variables.items():
+            if _bs is None: _bs=v.batch_size()
+            assert _bs==v.batch_size(),"Variables must have the same batch size"
+        return _bs
 
     def copy_time(self, from_time, to_time,n_steps,var_names=None):
         for k,v in self.variables.items():
@@ -209,39 +299,49 @@ class Workspace:
         for k,v in self.variables.items():
             v.zero_grad()
 
-    def _convert_to_shared_workspace(self):
+    def to(self,device):
         workspace=Workspace()
         for k,v in self.variables.items():
-            workspace.variables[k]=CompactSharedTensor(v)
+            workspace.variables[k]=v.to(device)
+        return workspace
+
+    def _convert_to_shared_workspace(self,n_repeat=1):
+        workspace=Workspace()
+        for k,v in self.variables.items():
+            value=v.get_full(None).detach()
+            ts=[value for t in range(n_repeat)]
+            value=torch.cat(ts,dim=1)
+            workspace.variables[k]=CompactSharedTensor(value)
             workspace.is_shared=True
         return workspace
 
-class WorkspaceArray:
-    def __init__(self,workspaces):
-        self.workspaces=workspaces
+    def subtime(self,from_t,to_t):
+        assert self._all_variables_same_time_size(),"All variables must have the same time size"
+        workspace=Workspace()
+        for k,v in self.variables.items():
+            workspace.variables[k]=v.subtime(from_t,to_t)
+        return workspace
 
-    def __getitem__(self,k):
-        if isinstance(k,int):
-            return self.workspaces[k]
-        else:
-            return [w[k] for w in self.workspaces]
+    def __str__(self):
+        r=["Workspace:"]
+        for k,v in self.variables.items():
+            r.append("\t"+k+": time_size = "+str(v.time_size())+", batch_size = "+str(v.batch_size()))
+        return  "\n".join(r)
 
-    def __len__(self):
-        return len(self.workspaces)
+class _SplitSharedWorkspace:
+    def __init__(self,workspace,batch_dims):
+        self.workspace=workspace
+        self.batch_dims=batch_dims
+        self.is_shared=self.workspace.is_shared
 
-    def to_workspace(self):
-        w=Workspace()
-        for k,v in self.workspaces[0].variables.items():
-            tensors=[w.variables[k].get_all().clone() for w in self.workspaces]
-            tensor=torch.cat(tensors,dim=1)
-            w.set_all(k,tensor)
-        return w
+    def set(self, var_name, t, v):
+        self.workspace.set(var_name,t,v,batch_dims=self.batch_dims)
 
-    def copy_n_last_steps(self, n,var_names=None):
-        [w.copy_n_last_steps(n,var_names=var_names) for w in self.workspaces]
+    def get(self, var_name, t):
+        return self.workspace.get(var_name,t,batch_dims=self.batch_dims)
 
+    def set_full(self, var_name, value):
+        self.workspace.set_full(var_name,value,batch_dims=self.batch_dims)
 
-def create_shared_workspaces_array(agent,n_workspaces=1,**args):
-    workspace=Workspace()
-    agent(workspace,**args)
-    return WorkspaceArray([workspace._convert_to_shared_workspace() for k in range(n_workspaces)])
+    def get_full(self, var_name):
+        return self.workspace.get_full(var_name,batch_dims=self.batch_dims)

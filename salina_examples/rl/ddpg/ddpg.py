@@ -13,15 +13,16 @@ import hydra
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
+import numpy as np
 
 import salina
 import salina.rl.functional as RLF
 from salina import get_arguments, get_class, instantiate_class
-from salina.agents import Agents, RemoteAgent, TemporalAgent
+from salina.agents import TemporalAgent,Agents,NRemoteAgent
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
-from salina.salina_examples.rl.ddpg.agents import OUNoise
+from salina_examples.rl.ddpg.agents import OUNoise
 
 
 def soft_update_params(net, target_net, tau):
@@ -37,16 +38,21 @@ def _state_dict(agent, device):
 
 
 def run_ddpg(q_agent, action_agent, logger, cfg):
+    q_agent.set_name("q_agent")
+    action_agent.set_name("action_agent")
     modulo = 1
 
     env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env)
+        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env),n_envs=int(cfg.algorithm.n_envs/cfg.algorithm.n_processes)
     )
 
     q_target_agent = copy.deepcopy(q_agent)  # Create target agent
     action_target_agent = copy.deepcopy(action_agent)
 
-    action_acquisition_agent = copy.deepcopy(action_agent)
+
+    acq_agent=TemporalAgent(Agents(env_agent,copy.deepcopy(action_agent)))
+    acq_remote_agent,acq_workspace=NRemoteAgent.create(acq_agent,num_processes=cfg.algorithm.n_processes,t=0,n_steps=cfg.algorithm.n_timesteps,epsilon=1.0)
+    acq_remote_agent.seed(cfg.algorithm.env_seed)
 
     # == Setting up the training agents
     train_temporal_q_agent = TemporalAgent(q_agent)
@@ -59,36 +65,16 @@ def run_ddpg(q_agent, action_agent, logger, cfg):
     train_temporal_q_target_agent.to(cfg.algorithm.loss_device)
     train_temporal_action_target_agent.to(cfg.algorithm.loss_device)
 
-    remote_train_agent = RemoteAgent(
-        TemporalAgent(Agents(env_agent, action_acquisition_agent)),
-        num_processes=cfg.algorithm.n_processes,
-    )
-    remote_train_agent.seed(cfg.algorithm.env_seed)
-
-    workspace = salina.Workspace(
-        batch_size=cfg.algorithm.n_envs,
-        time_size=cfg.algorithm.n_timesteps,
-    )
-    workspace = remote_train_agent(workspace, epsilon=cfg.algorithm.action_noise)
-
-    # == Setting up & initializing the replay buffer for DQN
     replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size)
-    # replay_buffer.put(workspace)
 
-    print("[DDPG] Initializing replay buffer")
+    acq_remote_agent(acq_workspace,t=0,n_steps=cfg.algorithm.n_timesteps,epsilon=cfg.algorithm.action_noise)
+    replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
+    logger.message("[DDQN] Initializing replay buffer")
     while replay_buffer.size() < cfg.algorithm.initial_buffer_size:
-        ts = workspace.time_size()
-        for tt in range(cfg.algorithm.overlapping_timesteps):
-            workspace.copy_time(
-                from_time=ts - cfg.algorithm.overlapping_timesteps + tt,
-                to_time=tt,
-            )
-        workspace = remote_train_agent(
-            workspace,
-            t=cfg.algorithm.overlapping_timesteps,
-            epsilon=cfg.algorithm.action_noise,
-        )
-        replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
+        acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
+        acq_remote_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,n_steps=cfg.algorithm.n_timesteps-cfg.algorithm.overlapping_timesteps,epsilon=cfg.algorithm.action_noise)
+        replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
+
 
     print("[DDPG] Learning")
     _epoch_start_time = time.time()
@@ -102,31 +88,17 @@ def run_ddpg(q_agent, action_agent, logger, cfg):
     )
 
     for epoch in range(cfg.algorithm.max_epoch):
-        ts = workspace.time_size()
+        for a in acq_remote_agent.get_by_name("action_agent"): a.load_state_dict(_state_dict(action_agent,"cpu"))
 
-        # For having sliding windows
-        for tt in range(cfg.algorithm.overlapping_timesteps):
-            workspace.copy_time(
-                from_time=ts - cfg.algorithm.overlapping_timesteps + tt,
-                to_time=tt,
-            )
+        acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
+        acq_remote_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,n_steps=cfg.algorithm.n_timesteps-cfg.algorithm.overlapping_timesteps,epsilon=cfg.algorithm.action_noise)
+        replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
-        workspace = remote_train_agent(
-            workspace,
-            t=cfg.algorithm.overlapping_timesteps,
-            epsilon=cfg.algorithm.action_noise,
-        )
-        done, cumulated_reward, timestep = workspace[
-            "env/done", "env/cumulated_reward", "env/timestep"
-        ]
-        end_reward = cumulated_reward[done]
-        if end_reward.size()[0] > 0:
-            logger.add_scalar(
-                "monitor/training_cumulated_reward", end_reward.mean().item(), epoch
-            )
-
-        replay_buffer.put(workspace, time_size=cfg.algorithm.buffer_time_size)
-
+        # Get cumulated reward over terminated episodes
+        done,creward = acq_workspace["env/done","env/cumulated_reward"]
+        creward = creward[done]
+        if creward.size()[0] > 0:
+            logger.add_scalar("monitor/reward", creward.mean().item(), epoch)
         logger.add_scalar("monitor/replay_buffer_size", replay_buffer.size(), epoch)
 
         # Inner loop to minimize the TD
@@ -137,17 +109,18 @@ def run_ddpg(q_agent, action_agent, logger, cfg):
             )
             done, reward = replay_workspace["env/done", "env/reward"]
 
-            replay_workspace = train_temporal_q_agent(
-                replay_workspace, detach_action=True
+            train_temporal_q_agent(
+                replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size, detach_action=True
             )
             q = replay_workspace["q"].squeeze(-1)
 
             with torch.no_grad():
-                replay_workspace = train_temporal_action_target_agent(
+                train_temporal_action_target_agent(
                     replay_workspace,
+                    t=0,n_steps=cfg.algorithm.buffer_time_size,
                     epsilon=0.0,
                 )  # epsilon = cfg.algorithm.target_noise
-                replay_workspace = train_temporal_q_target_agent(replay_workspace)
+                train_temporal_q_target_agent(replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size)
                 q_target = replay_workspace["q"]
 
             q_target = q_target.squeeze(-1)
@@ -179,10 +152,10 @@ def run_ddpg(q_agent, action_agent, logger, cfg):
             optimizer_q.step()
 
             # Update policy
-            replay_workspace = train_temporal_action_agent(
-                replay_workspace, epsilon=0.0
+            train_temporal_action_agent(
+                replay_workspace, epsilon=0.0, t=0,n_steps=cfg.algorithm.buffer_time_size
             )
-            replay_workspace = train_temporal_q_agent(replay_workspace)
+            train_temporal_q_agent(replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size)
             q = replay_workspace["q"].squeeze(-1)
             burning = torch.zeros_like(q)
             burning[cfg.algorithm.burning_timesteps :] = 1.0
@@ -205,8 +178,6 @@ def run_ddpg(q_agent, action_agent, logger, cfg):
             tau = cfg.algorithm.update_target_tau
             soft_update_params(q_agent, q_target_agent, tau)
             soft_update_params(action_agent, action_target_agent, tau)
-
-        action_acquisition_agent.load_state_dict(_state_dict(action_agent, "cpu"))
 
 
 @hydra.main(config_path=".", config_name="gym.yaml")

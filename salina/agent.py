@@ -21,12 +21,24 @@ class Agent(nn.Module):
     def seed(self, seed):
         print("[", type(self), "] Seed not implemented")
 
+    def set_name(self,n):
+        self._name=n
+
+    def get_name(self):
+        return self._name
+
     def __call__(self, workspace, **args):
         assert not workspace is None, "[Agent.__call__] workspace must not be None"
         self.workspace = workspace
         self.forward(**args)
         w = self.workspace
         self.workspace = None
+
+    def _asynchronous_call(self,workspace,**args):
+        return self.__call__(workspace,**args)
+
+    def is_running(self):
+        return False
 
     def forward(self, **args):
         raise NotImplemetedError
@@ -38,15 +50,15 @@ class Agent(nn.Module):
 
     def get(self, index):
         if isinstance(index, str):
-            return self.workspace[index]
+            return self.workspace.get_full(index)
         else:
             return self.workspace.get(index[0], index[1])
 
     def set(self, index, value):
         if isinstance(index, str):
-            self.workspace.set_all(index, value)
+            self.workspace.set_full(index, value)
         else:
-            self.workspace.set(index[0], index[1], value)
+            self.workspace.set(index[0], index[1],value)
 
     def get_by_name(self,n):
         if n==self._name:
@@ -58,22 +70,3 @@ class TAgent(Agent):
 
     def forward(self, t, **args):
         raise NotImplemetedError
-
-class AgentArray:
-    """A set of multiple agents"""
-    def __init__(self,agents_list):
-        self.agents=agents_list
-
-    def __call__(self,workspaces,**args):
-        assert len(workspaces)==len(self.agents)
-        for k in range(len(self.agents)):
-            self.agents[k](workspaces[k],**args)
-
-    def seed(self, seed, inc=1):
-        s=seed
-        for a in self.agents:
-            a.seed(s)
-            s+=inc
-
-    def __iter__(self):
-        return self.agents.__iter__()

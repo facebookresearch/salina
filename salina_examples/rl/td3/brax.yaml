@@ -1,8 +1,8 @@
 logger:
   classname: salina.logger.TFLogger
-  log_dir: /private/home/jbgaya/Work/jb_stuff/generalization/experiments/test/td3_salina/${hydra:job.id}
+  log_dir: brax
   modulo: 100
-  cache_size: 10000
+  every_n_seconds: 10
   verbose: True
 
 n_envs: 32
@@ -47,10 +47,9 @@ algorithm:
   inner_epochs: 1
   discount_factor: 0.995
   update_target_tau: 0.005
-  device: cuda:0
+  loss_device: cpu
 
   n_envs: ${n_envs}
-  n_processes: 0
   n_timesteps: ${n_timesteps}
   overlapping_timesteps: 1
   buffer_time_size: 2

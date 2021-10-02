@@ -7,8 +7,8 @@
 
 import os
 
-from .agent import Agent, TAgent, AgentArray
-from .workspace import Workspace,WorkspaceArray,create_shared_workspaces_array
+from .agent import Agent, TAgent
+from .workspace import Workspace
 
 trace_workspace = False
 trace = []

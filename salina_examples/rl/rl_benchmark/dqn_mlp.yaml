@@ -1,27 +1,21 @@
 logger:
   classname: salina.logger.TFLogger
-  log_dir: ./ddqn
-  modulo: 10
-  every_n_seconds: 10
-  verbose: True
+  log_dir: ./dqn_mlp
+  modulo: 100
+  every_n_seconds: 60
+  verbose: False
 
 n_envs: 16
-env_name: CartPole-v0
+n_processes: 2
+loss_device: cpu
 
 q_agent:
   classname: salina_examples.rl.dqn.agents.DQNMLPAgent
   hidden_size: 32
-  n_layers: 2
-  env:
-    classname: salina_examples.rl.dqn.agents.make_gym_env
-    env_name: ${env_name}
-    max_episode_steps: 100
+  env: ${env}
 
 algorithm:
-  env:
-    classname: salina_examples.rl.dqn.agents.make_gym_env
-    env_name: ${env_name}
-    max_episode_steps: 100
+  env: ${env}
 
   env_seed: 432
   batch_size: 64
@@ -41,11 +35,29 @@ algorithm:
   hard_target_update: False
   update_target_epochs: 1000
   update_target_tau: 0.005
-  loss_device: cpu
+  loss_device: ${loss_device}
   n_envs: ${n_envs}
-  n_processes: 4
+  n_processes: ${n_processes}
   n_timesteps: 2
   overlapping_timesteps: 1
   buffer_size: 100000
   initial_buffer_size: 1000
   buffer_time_size: 2
+
+hydra:
+  launcher:
+    nodes: 1
+    mem_gb: 64
+    max_num_timeout: 0
+    cpus_per_task: ${plus:${n_processes},1}
+    signal_delay_s: 30
+    timeout_min: 180
+    gpus_per_node: ${n_gpus:${loss_device}}
+    tasks_per_node: 1
+    partition: learnfair
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - hydra/launcher: submitit_slurm

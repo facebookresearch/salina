@@ -64,6 +64,7 @@ class GymAgent(TAgent):
         self.output = output
         self.input = input
         self.make_env_fn = make_env_fn
+        self.ghost_params = torch.nn.Parameter(torch.randn(()))
 
     def _initialize_envs(self, n):
         assert self._seed is not None, "[GymAgent] seeds must be specified"
@@ -166,7 +167,7 @@ class GymAgent(TAgent):
             observations = _torch_cat_dict(observations)
             for k in observations:
                 self.set(
-                    (self.output + k, t), observations[k]
+                    (self.output + k, t), observations[k].to(self.ghost_params.device)
                 )
         else:
             assert t > 0
@@ -179,7 +180,7 @@ class GymAgent(TAgent):
             observations = _torch_cat_dict(observations)
             for k in observations:
                 self.set(
-                    (self.output + k, t), observations[k]
+                    (self.output + k, t), observations[k].to(self.ghost_params.device)
                 )
 
     def seed(self, seed):
@@ -201,6 +202,7 @@ class AutoResetGymAgent(TAgent):
         self.output = output
         self.input = input
         self.make_env_fn = make_env_fn
+        self.ghost_params = torch.nn.Parameter(torch.randn(()))
 
     def _initialize_envs(self, n):
         assert self._seed is not None, "[GymAgent] seeds must be specified"
@@ -295,7 +297,7 @@ class AutoResetGymAgent(TAgent):
 
         observations = _torch_cat_dict(observations)
         for k in observations:
-            self.set((self.output + k, t), observations[k])
+            self.set((self.output + k, t), observations[k].to(self.ghost_params.device))
 
     def seed(self, seed):
         self._seed = seed

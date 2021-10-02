@@ -59,12 +59,12 @@ class TemporalAgent(Agent):
         :param n_steps: number of timesteps to execute the agent on (None means 'until the end of the workspace')
         :type n_steps: [type], optional
         """
-        assert not n_steps is None and stop_variable is None
+        assert not (n_steps is None and stop_variable is None)
         _t=t
         while True:
             self.agent(workspace, t=_t, **args)
             if not stop_variable is None:
-                s = workspace.get(self.stop_variable, _t)
+                s = workspace.get(stop_variable, _t)
                 if s.all():
                     break
             _t+=1

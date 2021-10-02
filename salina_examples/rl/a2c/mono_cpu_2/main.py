@@ -35,11 +35,6 @@ def _index(tensor_3d, tensor_2d):
 
 
 class ProbAgent(TAgent):
-    """This agent outputs:
-    - action_probs: the lob probabilities of each action
-
-    """
-
     def __init__(self, observation_size, hidden_size, n_actions):
         super().__init__()
         self.model = nn.Sequential(
@@ -56,8 +51,6 @@ class ProbAgent(TAgent):
 
 
 class ActionAgent(TAgent):
-    """This agent chooses which action to output depending on the probabilities"""
-
     def __init__(self):
         super().__init__()
 
@@ -72,8 +65,6 @@ class ActionAgent(TAgent):
 
 
 class CriticAgent(TAgent):
-    """This agent outputs the critic value"""
-
     def __init__(self, observation_size, hidden_size, n_actions):
         super().__init__()
         self.critic_model = nn.Sequential(

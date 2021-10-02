@@ -6,6 +6,7 @@ logger:
   verbose: False
 
 n_envs: 1
+n_processes: 1
 env_name: PongNoFrameskip-v4
 
 q_agent:
@@ -41,16 +42,9 @@ algorithm:
   update_target_tau: 0.005
   loss_device: cpu
   n_envs: ${n_envs}
-  n_processes: ${n_envs}
+  n_processes: ${n_processes}
   n_timesteps: 2
   overlapping_timesteps: 1
   buffer_size: 100000
   initial_buffer_size: 10000
   buffer_time_size: 2
-
-  evaluation:
-    message: "evaluation is needed if using the evaluation version of DQN"
-    env_seed: 23
-    n_envs: 4
-    n_processes: 4
-    n_timesteps: 1000

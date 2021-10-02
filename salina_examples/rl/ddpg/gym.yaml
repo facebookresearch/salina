@@ -2,11 +2,12 @@ logger:
   classname: salina.logger.TFLogger
   log_dir: ./ddpg
   modulo: 10
-  cache_size: 10000
-  verbose: False
+  every_n_seconds: 10
+  verbose: True
 
-n_envs: 1
-env_name: LunarLanderContinuous-v2
+n_envs: 8
+#env_name: LunarLanderContinuous-v2
+env_name: Pendulum-v0
 
 q_agent:
   classname: salina_examples.rl.ddpg.agents.QMLPAgent
@@ -15,7 +16,7 @@ q_agent:
   env:
     classname: salina_examples.rl.ddpg.agents.make_gym_env
     env_name: ${env_name}
-    max_episode_steps: 1000
+    max_episode_steps: 200
 
 action_agent:
   classname: salina_examples.rl.ddpg.agents.ActionMLPAgent
@@ -24,13 +25,13 @@ action_agent:
   env:
     classname: salina_examples.rl.ddpg.agents.make_gym_env
     env_name: ${env_name}
-    max_episode_steps: 1000
+    max_episode_steps: 200
 
 algorithm:
   env:
     classname: salina_examples.rl.ddpg.agents.make_gym_env
     env_name: ${env_name}
-    max_episode_steps: 1000
+    max_episode_steps: 200
 
   env_seed: 432
   batch_size: 128
@@ -49,15 +50,9 @@ algorithm:
   loss_device: cpu
 
   n_envs: ${n_envs}
-  n_processes: ${n_envs}
+  n_processes: 2
   n_timesteps: 50
   overlapping_timesteps: 1
   buffer_time_size: 2
   buffer_size: 100000
   initial_buffer_size: 10000
-
-  evaluation:
-    env_seed: 23
-    n_envs: 16
-    n_processes: 4
-    n_timesteps: 100
