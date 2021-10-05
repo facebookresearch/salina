@@ -11,11 +11,7 @@ import torch.nn as nn
 from gym.wrappers import TimeLimit
 
 from salina import TAgent, instantiate_class
-from salina_examples.rl.atari_wrappers import (
-    make_atari,
-    wrap_deepmind,
-    wrap_pytorch,
-)
+from salina_examples.rl.atari_wrappers import make_atari, wrap_deepmind, wrap_pytorch
 
 
 def make_gym_env(**env_args):
@@ -31,21 +27,23 @@ def make_atari_env(**env_args):
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e
 
+
 class MLP(nn.Module):
-    def __init__(self,sizes, activation, output_activation=nn.Identity):
+    def __init__(self, sizes, activation, output_activation=nn.Identity):
         super().__init__()
         layers = []
         for j in range(len(sizes) - 1):
             act = activation if j < len(sizes) - 2 else output_activation
             layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
-        self.layers=layers
-        self.model=nn.Sequential(*self.layers)
+        self.layers = layers
+        self.model = nn.Sequential(*self.layers)
 
-    def forward(self,x):
+    def forward(self, x):
         return self.model(x)
 
+
 class DQNMLPAgent(TAgent):
-    def __init__(self, env, hidden_size,n_layers):
+    def __init__(self, env, hidden_size, n_layers):
         super().__init__()
         env = instantiate_class(env)
         input_size = env.observation_space.shape[0]
@@ -55,7 +53,6 @@ class DQNMLPAgent(TAgent):
             [input_size] + list(hidden_sizes) + [num_outputs],
             activation=nn.ReLU,
         )
-
 
     def forward(self, t, replay=False, epsilon=0.0, **args):
         input = self.get(("env/env_obs", t))
@@ -123,7 +120,7 @@ class DQNAtariAgent(TAgent):
         return qvals
 
     def forward(self, t, replay=False, epsilon=0.0, **args):
-        input = self.get(("env/env_obs", t))
+        input = self.get(("env/env_obs", t)).float()
         q = self._forward_nn(input)
 
         if not replay:
