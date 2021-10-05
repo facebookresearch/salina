@@ -1,13 +1,10 @@
+# Use with a2c/complete/a2c.py
 logger:
   classname: salina.logger.TFLogger
   log_dir: ./a2c_mlp
   every_n_seconds: 5
   modulo: 10
   verbose: True
-
-n_envs: 1
-n_processes: 1
-loss_device: cpu
 
 a2c_agent:
   classname: salina_examples.rl.a2c.complete.agents.A2CMLPAgent
@@ -17,8 +14,8 @@ a2c_agent:
 
 algorithm:
   env_seed: 432
-  n_envs: ${n_envs}
-  n_processes: ${n_processes}
+  n_envs: 16
+  n_processes: 4
   n_timesteps: 16
   overlapping_timesteps: 1
   burning_timesteps: 0
@@ -29,7 +26,7 @@ algorithm:
   a2c_coef: 0.1
   gae: 0.3
 
-  device: ${loss_device}
+  device: cpu
 
   env: ${env}
 
@@ -43,9 +40,9 @@ hydra:
     mem_gb: 64
     max_num_timeout: 0
     cpus_per_task: ${plus:${n_processes},1}
+    gpus_per_node: ${n_gpus:${device}}
     signal_delay_s: 30
     timeout_min: 180
-    gpus_per_node: ${n_gpus:${loss_device}}
     tasks_per_node: 1
     partition: learnfair
   job_logging:
@@ -54,3 +51,4 @@ hydra:
 
 defaults:
   - hydra/launcher: submitit_slurm
+  - env: gym_cartpole

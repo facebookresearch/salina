@@ -12,17 +12,20 @@ import torch.nn as nn
 
 import salina
 
+
 class Agent(nn.Module):
     """The core class in salina. It describes an agent that read and write into a workspace"""
-    def __init__(self,name=None):
+
+    def __init__(self, name=None):
         super().__init__()
-        self._name=name
+        self._name = name
 
     def seed(self, seed):
-        print("[", type(self), "] Seed not implemented")
+        pass
+        # print("[", type(self), "] Seed not implemented")
 
-    def set_name(self,n):
-        self._name=n
+    def set_name(self, n):
+        self._name = n
 
     def get_name(self):
         return self._name
@@ -34,8 +37,8 @@ class Agent(nn.Module):
         w = self.workspace
         self.workspace = None
 
-    def _asynchronous_call(self,workspace,**args):
-        return self.__call__(workspace,**args)
+    def _asynchronous_call(self, workspace, **args):
+        return self.__call__(workspace, **args)
 
     def is_running(self):
         return False
@@ -58,12 +61,13 @@ class Agent(nn.Module):
         if isinstance(index, str):
             self.workspace.set_full(index, value)
         else:
-            self.workspace.set(index[0], index[1],value)
+            self.workspace.set(index[0], index[1], value)
 
-    def get_by_name(self,n):
-        if n==self._name:
+    def get_by_name(self, n):
+        if n == self._name:
             return [self]
         return []
+
 
 class TAgent(Agent):
     """A specific agent that uses a timestep as an input"""

@@ -78,7 +78,7 @@ Alfredo de la Fuente, Ludovic Denoyer, Song Duong, Jean-Baptiste Gaya, Daniel H.
 Please use this bibtex if you want to cite this repository in your publications:
 
 ```
-    @misc{rlstructures,
+    @misc{salina,
         author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Daniel H. Thompson},
         title = {salina - a library for sequential learning agents},
         year = {2021},

@@ -3,14 +3,12 @@ logger:
   log_dir: ./dqn_mlp
   modulo: 100
   every_n_seconds: 60
-  verbose: False
+  verbose: True
 
-n_envs: 16
-n_processes: 2
-loss_device: cpu
 
 q_agent:
   classname: salina_examples.rl.dqn.agents.DQNMLPAgent
+  n_layers: 2
   hidden_size: 32
   env: ${env}
 
@@ -35,9 +33,9 @@ algorithm:
   hard_target_update: False
   update_target_epochs: 1000
   update_target_tau: 0.005
-  loss_device: ${loss_device}
-  n_envs: ${n_envs}
-  n_processes: ${n_processes}
+  loss_device: cpu
+  n_envs: 16
+  n_processes: 4
   n_timesteps: 2
   overlapping_timesteps: 1
   buffer_size: 100000
@@ -50,9 +48,9 @@ hydra:
     mem_gb: 64
     max_num_timeout: 0
     cpus_per_task: ${plus:${n_processes},1}
+    gpus_per_node: ${n_gpus:${loss_device}}
     signal_delay_s: 30
     timeout_min: 180
-    gpus_per_node: ${n_gpus:${loss_device}}
     tasks_per_node: 1
     partition: learnfair
   job_logging:
@@ -61,3 +59,4 @@ hydra:
 
 defaults:
   - hydra/launcher: submitit_slurm
+  - env: gym_cartpole
