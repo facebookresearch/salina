@@ -178,7 +178,7 @@ class NRemoteAgent(Agent):
             self.agents[k]._asynchronous_call(_workspace, **args)
         for a in self.agents:
             ok = a._running_queue().get()
-            assert o == "ok"
+            assert ok == "ok"
 
     def seed(self, seed, inc=1):
         s = seed
