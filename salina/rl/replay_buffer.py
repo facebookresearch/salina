@@ -30,7 +30,7 @@ class ReplayBuffer:
                 self.put(nworkspace)
             return
 
-        all_tensors={k:workspace.get_full(k).to(self.device) for k in workspace.keys()}
+        all_tensors={k:workspace.get_full(k).detach().to(self.device) for k in workspace.keys()}
         if self.variables is None:
             self.variables={}
             for k,v in all_tensors.items():

@@ -151,6 +151,7 @@ class CompactTemporalTensor:
             self.dtype=value.dtype
 
     def set(self,t,value,batch_dims):
+        assert False
         assert not self.tensor is None,"Tensor must be initialized"
         assert self.size[1:]==value.size(),"Incompatible size"
         assert self.device==value.device,"Incompatible device"
@@ -161,6 +162,11 @@ class CompactTemporalTensor:
         else:
             self.tensor[t,batch_dims[0]:batch_dims[1]]=value
 
+    def to_sliced(self):
+        v=SlicedTemporalTensor()
+        for t in range(self.tensor.size()[0]):
+            v.set(t,self.tensor[t],None)
+        return v
 
     def to(self,device):
         if device==self.tensor.device: return self
@@ -227,6 +233,8 @@ class Workspace:
         if not var_name in self.variables:
             assert not self.is_shared,"Cannot add new variable into a shared workspace"
             self.variables[var_name]=SlicedTemporalTensor()
+        elif isinstance(self.variables[var_name],CompactTemporalTensor):
+            self.variables[var_name]=self.variables[var_name].to_sliced()
         self.variables[var_name].set(t,v,batch_dims=batch_dims)
 
     def get(self, var_name, t,batch_dims=None):

@@ -45,11 +45,6 @@ def run_a2c(a2c_agent, logger, cfg):
     logger = instantiate_class(cfg.logger)
     a2c_agent.set_name("a2c_agent")
 
-    env = instantiate_class(cfg.algorithm.env)
-    observation_size = env.observation_space.shape[0]
-    n_actions = env.action_space.n
-    del env
-
     assert cfg.algorithm.n_envs%cfg.algorithm.n_processes==0
 
     acq_env_agent = AutoResetGymAgent(
@@ -61,7 +56,6 @@ def run_a2c(a2c_agent, logger, cfg):
     acq_remote_agent.seed(cfg.algorithm.env_seed)
 
     ta2c_agent = TemporalAgent(a2c_agent).to(device=cfg.algorithm.device)
-
 
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
     parameters =a2c_agent.parameters()

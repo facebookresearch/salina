@@ -48,9 +48,9 @@ hydra:
     nodes: 1
     mem_gb: 64
     max_num_timeout: 0
-    cpus_per_task: ${plus:${n_processes},1}
     signal_delay_s: 30
     timeout_min: 180
+    cpus_per_task: ${plus:${n_processes},1}
     gpus_per_node: ${n_gpus:${loss_device}}
     tasks_per_node: 1
     partition: learnfair

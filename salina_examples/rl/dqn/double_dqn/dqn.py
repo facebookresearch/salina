@@ -161,6 +161,6 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-    OmegaConf.register_resolver("plus", lambda x,y: float(x)+float(y))
-    OmegaConf.register_resolver("n_gpus", lambda x: 0 if x=="cpu" 0 else 1)
+    OmegaConf.register_new_resolver("plus", lambda x,y: float(x)+float(y))
+    OmegaConf.register_new_resolver("n_gpus", lambda x: 0 if x=="cpu" else 1)
     main()

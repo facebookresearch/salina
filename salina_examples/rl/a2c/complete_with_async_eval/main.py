@@ -45,11 +45,6 @@ def run_a2c(a2c_agent, logger, cfg):
     logger = instantiate_class(cfg.logger)
     a2c_agent.set_name("a2c_agent")
 
-    env = instantiate_class(cfg.algorithm.env)
-    observation_size = env.observation_space.shape[0]
-    n_actions = env.action_space.n
-    del env
-
     assert cfg.algorithm.n_envs%cfg.algorithm.n_processes==0
 
     acq_env_agent = AutoResetGymAgent(

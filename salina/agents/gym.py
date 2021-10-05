@@ -19,13 +19,17 @@ def _format_frame(frame):
         return r
     elif isinstance(frame, list):
         t = torch.tensor(frame).unsqueeze(0)
-        if t.dtype != torch.float32:
+        if t.dtype == torch.float64:
             t = t.float()
+        else:
+            t = t.long()
         return t
     elif isinstance(frame, np.ndarray):
         t = torch.from_numpy(frame).unsqueeze(0)
-        if t.dtype != torch.float32:
+        if t.dtype == torch.float64:
             t = t.float()
+        else:
+            t = t.long()
         return t
     elif isinstance(frame, torch.Tensor):
         return frame.unsqueeze(0)  # .float()
@@ -57,6 +61,7 @@ class GymAgent(TAgent):
         self, make_env_fn=None, make_env_args={}, n_envs=None, input="action", output="env/"
     ):
         super().__init__()
+        assert n_envs>0
         self.envs = None
         self.env_args = make_env_args
         self._seed = 0
@@ -195,6 +200,8 @@ class AutoResetGymAgent(TAgent):
         self, make_env_fn=None, make_env_args={}, n_envs=None,input="action", output="env/"
     ):
         super().__init__()
+        assert n_envs>0
+
         self.envs = None
         self.env_args = make_env_args
         self._seed = None
