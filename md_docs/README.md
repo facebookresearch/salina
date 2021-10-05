@@ -27,14 +27,12 @@ The typicaly use of an `Agent` is the following:
 
 ## Workspace
 
-A `Workspace` is a set of pytorch tensors organized by `name` and by `time`. Each of these tensors has a first dimension which corresponds to the `batch dimension` (as in pytorch -- the same for all the tensors in the workspace).
+A `Workspace` is a set of pytorch tensors organized by `name` and by `time`.
 
 Defining a new workspace is done as follows:
 ```
-    workspace = Workspace(batch_size=B, time_size=T)
+    workspace = Workspace()
 ```
-
-Note that a `Workspace` has a batch size and time size defined at creation time. It means to all the agents executed over this workspace will process `batch_size` elements together, and can write variables only for time `t=0` to `t=time_size-1`.
 
 A variable in the workspace can be accessed through `workspace[var_name]`. It returns a `T x B x ...` tensor corresponding to the value of this variable for all timesteps. One can also use `workspace.get(var_name,t)` to get a `B x ...` variable for timestep `t` in the workspace.
 
@@ -119,18 +117,14 @@ Note that a `TemporalAgent` can process a subset of the timesteps, and can also 
 
 ### RemoteAgent
 
-The `RemoteAgent` is used to execute an agent over multiple processes. It is usefull to speed-up computation. **Important: ** when using the `RemoteAgent`, there is no gradient computation (see reinforcement learning examples to see how gradient can be computed over multiple processes). At first call, the `RemoteAgent` is executed in the main process to initialize the workspace with shared memory. It thus returns a `SharedWorkspace` than can be reused for future calls
+A `RemoteAgent` allows to execute an agent in another process.
 
-```
-    agent=MyAgent()
-    agent=RemoteAgent(agent,num_processes=4)
-    agent.seed(50) #Seed must be specified for RemoteAgent
+### NRemoteAgent
 
-    shared_workspace=agent(workspace) # Executed in the main process
+A `NRemoteAgent` allows to paralellize an agent in multiple processess
 
-    #then one can use:
 
-    agent(shared_workspace) #Executed on 4 processes
-```
+(See white paper and examples)
+
 
 To better understand the library, take a look at the [A2C tutorial](/salina_examples/rl/a2c)
