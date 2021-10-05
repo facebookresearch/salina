@@ -1,3 +1,0 @@
-classname: salina_examples.rl.rl_benchmark.tools.make_atari_env
-env_name: Pong-v0
-max_episode_steps: 100000
