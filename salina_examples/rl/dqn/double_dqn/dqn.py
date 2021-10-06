@@ -10,15 +10,15 @@ import math
 import time
 
 import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
-import numpy as np
 
 import salina
 import salina.rl.functional as RLF
-from salina import get_arguments, get_class, instantiate_class,Workspace
-from salina.agents import Agents, RemoteAgent, TemporalAgent, NRemoteAgent
+from salina import Workspace, get_arguments, get_class, instantiate_class
+from salina.agents import Agents, NRemoteAgent, RemoteAgent, TemporalAgent
 from salina.agents.gym import AutoResetGymAgent
 from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
@@ -39,13 +39,21 @@ def _state_dict(agent, device):
 def run_dqn(q_agent, logger, cfg):
     q_agent.set_name("q_agent")
     env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env),n_envs=int(cfg.algorithm.n_envs/cfg.algorithm.n_processes)
+        get_class(cfg.algorithm.env),
+        get_arguments(cfg.algorithm.env),
+        n_envs=int(cfg.algorithm.n_envs / cfg.algorithm.n_processes),
     )
 
     q_target_agent = copy.deepcopy(q_agent)
 
-    acq_agent=TemporalAgent(Agents(env_agent,copy.deepcopy(q_agent)))
-    acq_remote_agent,acq_workspace=NRemoteAgent.create(acq_agent,num_processes=cfg.algorithm.n_processes,t=0,n_steps=cfg.algorithm.n_timesteps,epsilon=1.0)
+    acq_agent = TemporalAgent(Agents(env_agent, copy.deepcopy(q_agent)))
+    acq_remote_agent, acq_workspace = NRemoteAgent.create(
+        acq_agent,
+        num_processes=cfg.algorithm.n_processes,
+        t=0,
+        n_steps=cfg.algorithm.n_timesteps,
+        epsilon=1.0,
+    )
     acq_remote_agent.seed(cfg.algorithm.env_seed)
 
     # == Setting up the training agents
@@ -55,12 +63,17 @@ def run_dqn(q_agent, logger, cfg):
     train_temporal_q_target_agent.to(cfg.algorithm.loss_device)
 
     replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size)
-    acq_remote_agent(acq_workspace,t=0,n_steps=cfg.algorithm.n_timesteps,epsilon=1.0)
+    acq_remote_agent(acq_workspace, t=0, n_steps=cfg.algorithm.n_timesteps, epsilon=1.0)
     replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
     logger.message("[DDQN] Initializing replay buffer")
     while replay_buffer.size() < cfg.algorithm.initial_buffer_size:
         acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
-        acq_remote_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,n_steps=cfg.algorithm.n_timesteps-cfg.algorithm.overlapping_timesteps,epsilon=1.0)
+        acq_remote_agent(
+            acq_workspace,
+            t=cfg.algorithm.overlapping_timesteps,
+            n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps,
+            epsilon=1.0,
+        )
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
     logger.message("[DDQN] Learning")
@@ -78,14 +91,18 @@ def run_dqn(q_agent, logger, cfg):
         logger.add_scalar("monitor/epsilon", epsilon, iteration)
 
         for a in acq_remote_agent.get_by_name("q_agent"):
-            a.load_state_dict(_state_dict(q_agent,"cpu"))
-
+            a.load_state_dict(_state_dict(q_agent, "cpu"))
 
         acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
-        acq_remote_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,n_steps=cfg.algorithm.n_timesteps-cfg.algorithm.overlapping_timesteps,epsilon=epsilon)
+        acq_remote_agent(
+            acq_workspace,
+            t=cfg.algorithm.overlapping_timesteps,
+            n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps,
+            epsilon=epsilon,
+        )
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
-        done,creward = acq_workspace["env/done","env/cumulated_reward"]
+        done, creward = acq_workspace["env/done", "env/cumulated_reward"]
         creward = creward[done]
         if creward.size()[0] > 0:
             logger.add_scalar("monitor/reward", creward.mean().item(), epoch)
@@ -101,13 +118,21 @@ def run_dqn(q_agent, logger, cfg):
             # Batch size + Time_size
             action = replay_workspace["action"]
             train_temporal_q_agent(
-                replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size,replay=True, epsilon=0.0
+                replay_workspace,
+                t=0,
+                n_steps=cfg.algorithm.buffer_time_size,
+                replay=True,
+                epsilon=0.0,
             )
             q, done, reward = replay_workspace["q", "env/done", "env/reward"]
 
             with torch.no_grad():
                 train_temporal_q_target_agent(
-                    replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size, replay=True, epsilon=0.0
+                    replay_workspace,
+                    t=0,
+                    n_steps=cfg.algorithm.buffer_time_size,
+                    replay=True,
+                    epsilon=0.0,
                 )
                 q_target = replay_workspace["q"]
 
@@ -161,6 +186,6 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-    OmegaConf.register_new_resolver("plus", lambda x,y: float(x)+float(y))
-    OmegaConf.register_new_resolver("n_gpus", lambda x: 0 if x=="cpu" else 1)
+    OmegaConf.register_new_resolver("plus", lambda x, y: x + y)
+    OmegaConf.register_new_resolver("n_gpus", lambda x: 0 if x == "cpu" else 1)
     main()
