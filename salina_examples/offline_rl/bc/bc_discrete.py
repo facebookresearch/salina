@@ -21,8 +21,8 @@ from tqdm import tqdm
 
 import salina
 import salina.rl.functional as RLF
-from salina import get_arguments, get_class, instantiate_class
-from salina.agents import Agents, RemoteAgent, TemporalAgent
+from salina import Workspace, get_arguments, get_class, instantiate_class
+from salina.agents import Agents, NRemoteAgent, TemporalAgent
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
@@ -41,31 +41,20 @@ def _state_dict(agent, device):
 
 
 def run_bc(action_agent, logger, cfg):
+    action_agent.set_name("action_agent")
     env_evaluation_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env)
+        get_class(cfg.algorithm.env),
+        get_arguments(cfg.algorithm.env),
+        n_envs=int(
+            cfg.algorithm.evaluation.n_envs / cfg.algorithm.evaluation.n_processes
+        ),
     )
     action_evaluation_agent = copy.deepcopy(action_agent)
 
-    # == Setting up the training agents
     train_temporal_action_agent = TemporalAgent(action_agent)
     train_temporal_action_agent.to(cfg.algorithm.loss_device)
 
-    evaluation_agent = RemoteAgent(
-        TemporalAgent(Agents(env_evaluation_agent, action_evaluation_agent)),
-        num_processes=cfg.algorithm.evaluation.n_processes,
-    )
-    evaluation_agent.seed(cfg.algorithm.evaluation.env_seed)
-    evaluation_workspace = salina.Workspace(
-        batch_size=cfg.algorithm.evaluation.n_envs,
-        time_size=cfg.algorithm.evaluation.n_timesteps,
-    )
-    evaluation_workspace = evaluation_agent(
-        evaluation_workspace,
-        epsilon=0.0,
-    )
-
-    # == Setting up & initializing the replay buffer for DQN
-    logger.message("[TD3] Creating replay_buffer")
+    logger.message("[BC] Creating replay_buffer")
     env = instantiate_class(cfg.algorithm.env)
     dataset = env.get_dataset()
     replay_buffer = d4rl_dataset_to_replaybuffer(
@@ -74,7 +63,22 @@ def run_bc(action_agent, logger, cfg):
         proportion=cfg.algorithm.dataset_proportion,
     )
 
-    logger.message("[DDQN] Learning")
+    evaluation_agent, evaluation_workspace = NRemoteAgent.create(
+        TemporalAgent(Agents(env_evaluation_agent, action_evaluation_agent)),
+        num_processes=cfg.algorithm.evaluation.n_processes,
+        t=0,
+        n_steps=cfg.algorithm.evaluation.n_timesteps,
+        epsilon=0.0,
+    )
+    evaluation_agent.seed(cfg.algorithm.evaluation.env_seed)
+    evaluation_agent._asynchronous_call(
+        evaluation_workspace,
+        t=0,
+        n_steps=cfg.algorithm.evaluation.n_timesteps,
+        epsilon=0.0,
+    )
+
+    logger.message("Learning")
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
     optimizer_action = get_class(cfg.algorithm.optimizer)(
         action_agent.parameters(), **optimizer_args
@@ -85,15 +89,14 @@ def run_bc(action_agent, logger, cfg):
             creward = creward[done]
             if creward.size()[0] > 0:
                 logger.add_scalar("evaluation/reward", creward.mean().item(), epoch)
-            action_evaluation_agent.load_state_dict(_state_dict(action_agent, "cpu"))
-            evaluation_workspace.copy_time(
-                from_time=-1,
-                to_time=0,
-            )
-            evaluation_agent.asynchronous_forward_(
+            for a in evaluation_agent.get_by_name("action_agent"):
+                a.load_state_dict(_state_dict(action_agent, "cpu"))
+            evaluation_workspace.copy_n_last_steps(1)
+            evaluation_agent._asynchronous_call(
                 evaluation_workspace,
-                epsilon=0.0,
                 t=1,
+                n_steps=cfg.algorithm.evaluation.n_timesteps - 1,
+                epsilon=0.0,
             )
 
         logger.add_scalar("monitor/replay_buffer_size", replay_buffer.size(), epoch)
@@ -101,7 +104,9 @@ def run_bc(action_agent, logger, cfg):
         batch_size = cfg.algorithm.batch_size
         replay_workspace = replay_buffer.get(batch_size).to(cfg.algorithm.loss_device)
         target_action = replay_workspace["action"].detach()
-        replay_workspace = train_temporal_action_agent(replay_workspace)
+        train_temporal_action_agent(
+            replay_workspace, t=0, n_steps=cfg.algorithm.buffer_time_size
+        )
         action, scores = replay_workspace["action", "action_scores"]
         s = scores.size()
         target_action = target_action.reshape(s[0] * s[1])

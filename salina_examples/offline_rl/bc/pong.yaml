@@ -2,8 +2,8 @@ logger:
   classname: salina.logger.TFLogger
   log_dir: ./td3
   modulo: 10
-  cache_size: 10000
-  verbose: False
+  every_n_seconds: 10
+  verbose: True
 
 n_envs: 1
 env_name: pong-expert-v0
@@ -38,4 +38,4 @@ algorithm:
     env_seed: 23
     n_envs: 32
     n_processes: 1
-    n_timesteps: 10
+    n_timesteps: 100
