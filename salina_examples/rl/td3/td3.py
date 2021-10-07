@@ -39,7 +39,9 @@ def _state_dict(agent, device):
 def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     action_agent.set_name("action_agent")
     env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env),n_envs=int(cfg.algorithm.n_envs/cfg.algorithm.n_processes)
+        get_class(cfg.algorithm.env),
+        get_arguments(cfg.algorithm.env),
+        n_envs=int(cfg.algorithm.n_envs / cfg.algorithm.n_processes),
     )
     q_target_agent_1 = copy.deepcopy(q_agent_1)
     q_target_agent_2 = copy.deepcopy(q_agent_2)
@@ -61,12 +63,20 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     train_temporal_action_target_agent.to(cfg.algorithm.loss_device)
 
     acq_action_agent = copy.deepcopy(action_agent)
-    acq_agent=TemporalAgent(Agents(env_agent, acq_action_agent))
-    acq_remote_agent,acq_workspace=NRemoteAgent.create(acq_agent,num_processes=cfg.algorithm.n_processes,t=0,n_steps=cfg.algorithm.n_timesteps,epsilon=1.0)
+    acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent))
+    acq_remote_agent, acq_workspace = NRemoteAgent.create(
+        acq_agent,
+        num_processes=cfg.algorithm.n_processes,
+        t=0,
+        n_steps=cfg.algorithm.n_timesteps,
+        epsilon=1.0,
+    )
     acq_remote_agent.seed(cfg.algorithm.env_seed)
 
     acq_remote_agent(
-        acq_workspace,t=0,n_steps=cfg.algorithm.n_timesteps,
+        acq_workspace,
+        t=0,
+        n_steps=cfg.algorithm.n_timesteps,
         epsilon=cfg.algorithm.action_noise,
     )
 
@@ -80,7 +90,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
         acq_remote_agent(
             acq_workspace,
             t=cfg.algorithm.overlapping_timesteps,
-            n_steps=cfg.algorithm.n_timesteps-cfg.algorithm.overlapping_timesteps,
+            n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps,
             epsilon=cfg.algorithm.action_noise,
         )
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
@@ -99,13 +109,19 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     )
     iteration = 0
     for epoch in range(cfg.algorithm.max_epoch):
-        for a in acq_remote_agent.get_by_name("action_agent"): a.load_state_dict(_state_dict(action_agent,"cpu"))
+        for a in acq_remote_agent.get_by_name("action_agent"):
+            a.load_state_dict(_state_dict(action_agent, "cpu"))
 
         acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
-        acq_remote_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,n_steps=cfg.algorithm.n_timesteps-cfg.algorithm.overlapping_timesteps,epsilon=cfg.algorithm.action_noise)
+        acq_remote_agent(
+            acq_workspace,
+            t=cfg.algorithm.overlapping_timesteps,
+            n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps,
+            epsilon=cfg.algorithm.action_noise,
+        )
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
-        done,creward = acq_workspace["env/done","env/cumulated_reward"]
+        done, creward = acq_workspace["env/done", "env/cumulated_reward"]
         creward = creward[done]
         if creward.size()[0] > 0:
             logger.add_scalar("monitor/reward", creward.mean().item(), epoch)
@@ -124,24 +140,39 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
             done, reward = replay_workspace["env/done", "env/reward"]
 
             train_temporal_q_agent_1(
-                replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size,detach_action=True
+                replay_workspace,
+                t=0,
+                n_steps=cfg.algorithm.buffer_time_size,
+                detach_action=True,
             )
             q_1 = replay_workspace["q"].squeeze(-1)
             train_temporal_q_agent_2(
-                replay_workspace,  t=0,n_steps=cfg.algorithm.buffer_time_size,detach_action=True
+                replay_workspace,
+                t=0,
+                n_steps=cfg.algorithm.buffer_time_size,
+                detach_action=True,
             )
             q_2 = replay_workspace["q"].squeeze(-1)
 
             with torch.no_grad():
                 train_temporal_action_target_agent(
                     replay_workspace,
-                    t=0,n_steps=cfg.algorithm.buffer_time_size,
+                    t=0,
+                    n_steps=cfg.algorithm.buffer_time_size,
                     epsilon=cfg.algorithm.target_noise,
                     epsilon_clip=cfg.algorithm.noise_clip,
                 )
-                train_temporal_q_target_agent_1(replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size,)
+                train_temporal_q_target_agent_1(
+                    replay_workspace,
+                    t=0,
+                    n_steps=cfg.algorithm.buffer_time_size,
+                )
                 q_target_1 = replay_workspace["q"]
-                train_temporal_q_target_agent_2(replay_workspace,  t=0,n_steps=cfg.algorithm.buffer_time_size,)
+                train_temporal_q_target_agent_2(
+                    replay_workspace,
+                    t=0,
+                    n_steps=cfg.algorithm.buffer_time_size,
+                )
                 q_target_2 = replay_workspace["q"]
 
             q_target = torch.min(q_target_1, q_target_2).squeeze(-1)
@@ -184,9 +215,16 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
             if inner_epoch % cfg.algorithm.policy_delay:
                 train_temporal_action_agent(
-                    replay_workspace, epsilon=0.0,t=0,n_steps=cfg.algorithm.buffer_time_size
+                    replay_workspace,
+                    epsilon=0.0,
+                    t=0,
+                    n_steps=cfg.algorithm.buffer_time_size,
                 )
-                train_temporal_q_agent_1(replay_workspace, t=0,n_steps=cfg.algorithm.buffer_time_size,)
+                train_temporal_q_agent_1(
+                    replay_workspace,
+                    t=0,
+                    n_steps=cfg.algorithm.buffer_time_size,
+                )
                 q = replay_workspace["q"].squeeze(-1)
                 burning = torch.zeros_like(q)
                 burning[cfg.algorithm.burning_timesteps :] = 1.0
@@ -212,6 +250,7 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
             iteration += 1
 
+
 @hydra.main(config_path=".", config_name="gym.yaml")
 def main(cfg):
     import torch.multiprocessing as mp
@@ -227,4 +266,6 @@ def main(cfg):
 
 
 if __name__ == "__main__":
+    OmegaConf.register_new_resolver("plus", lambda x, y: x + y)
+    OmegaConf.register_new_resolver("n_gpus", lambda x: 0 if x == "cpu" else 1)
     main()
