@@ -102,13 +102,13 @@ Executing one agent over multiple timesteps can be made through the `TemporalAge
 
     # Can be replaced by
 
-    agent=TemporalAgent(agent_1)
+    agent=TemporalAgent(agent_1,t=0,n_steps=T)
     agent(workspace)
 ```
 Note that a `TemporalAgent` can process a subset of the timesteps, and can also automatically stop its execution with conditions:
 
 ```
-    agent=TemporalAgent(agent_1,stop_variable='stop') # This agent stops processing if the variable 'stop' at time 't' is True
+    agent=TemporalAgent(agent_1,t=0,n_steps=T,stop_variable='stop') # This agent stops processing if the variable 'stop' at time 't' is True
     agent(workspace,t=5,n_steps=4) # Execute from timesteps t=5, and for 4 steps
 ```
 
@@ -124,7 +124,7 @@ A `RemoteAgent` allows to execute an agent in another process.
 A `NRemoteAgent` allows to paralellize an agent in multiple processess
 
 
-(See white paper and examples)
+(See Arxiv  paper and RL examples)
 
 
 To better understand the library, take a look at the [A2C tutorial](/salina_examples/rl/a2c)

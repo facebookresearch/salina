@@ -18,11 +18,13 @@ class ShuffledDataLoaderAgent(TAgent):
     def __init__(
         self,
         dataset,
-        output,
+        output_names,
+        batch_size,
     ):
         super().__init__()
-        self.output = output
+        self.output_names = output_names
         self.dataset = dataset
+        self.batch_size = batch_size
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
