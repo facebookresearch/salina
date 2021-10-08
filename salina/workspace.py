@@ -207,6 +207,20 @@ class CompactTemporalTensor:
     def subtime(self,from_t,to_t):
         return CompactTemporalTensor(self.tensor[from_t:to_t])
 
+    # def sub_sample(self,dims_to_keep):
+    #     N=dims_to_keep.size()[0]
+    #     arangeT=torch.arange(self._time_size,device=dims_to_keep.device)
+    #     workspace = Workspace(batch_size=N, time_size=self._time_size)
+
+    #     for k,v in self.variables.items():
+    #         if isinstance(v,torch.Tensor):
+    #             workspace.variables[k] = self.variables[k][arangeT,dims_to_keep]
+    #         else:
+    #             workspace.variables[k]={}
+    #             for kk,vv in v.items():
+    #                 workspace.variables[k][kk]=vv[dims_to_keep]
+    #     workspace._device=self.device()
+    #     return workspace
 
     def clear(self):
         self.size=None

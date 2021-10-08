@@ -131,6 +131,7 @@ class RemoteAgent(Agent):
         del self.o_queue
         self.process = None
 
+
     def __del__(self):
         self.close()
 

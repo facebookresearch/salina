@@ -63,8 +63,10 @@ class TFLogger(SummaryWriter):
         modulo=1,
         verbose=False,
         use_zip=True,
+        save_tensorboard=True,
     ):
         SummaryWriter.__init__(self, log_dir=log_dir)
+        self.save_tensorboard=save_tensorboard
         self.use_zip = use_zip
         self.save_every = cache_size
         self.modulo = modulo
@@ -168,7 +170,8 @@ class TFLogger(SummaryWriter):
             self.written_values[(name, iteration)] = True
 
         self._to_pickle(name, value, iteration)
-        SummaryWriter.add_images(self, name, value, iteration)
+        if self.save_tensorboard:
+            SummaryWriter.add_images(self, name, value, iteration)
 
     def add_scalar(self, name, value, iteration):
         iteration = int(iteration / self.modulo) * self.modulo
@@ -182,7 +185,8 @@ class TFLogger(SummaryWriter):
             print("['" + name + "' at " + str(iteration) + "] = " + str(value))
 
         if isinstance(value, int) or isinstance(value, float):
-            SummaryWriter.add_scalar(self, name, value, iteration)
+            if self.save_tensorboard:
+                SummaryWriter.add_scalar(self, name, value, iteration)
 
     def add_video(self, name, value, iteration, fps=10):
         iteration = int(iteration / self.modulo) * self.modulo
@@ -192,7 +196,8 @@ class TFLogger(SummaryWriter):
             self.written_values[(name, iteration)] = True
 
         self._to_pickle(name, value.numpy(), iteration)
-        SummaryWriter.add_video(self, name, value, iteration, fps=fps)
+        if self.save_tensorboard:
+            SummaryWriter.add_video(self, name, value, iteration, fps=fps)
 
     def close(self):
         if len(self.to_pickle) > 0:
@@ -376,10 +381,10 @@ class Logs:
         for log in tqdm(self.logs):
             df = log.to_dataframe(with_hps=True)
             if rdf is None:
-                rdf = df
+                rdf = [df]
             else:
-                rdf = pd.concat([rdf, df])
-        return rdf
+                rdf.append(df)
+        return pd.concat(rdf)
 
     # def plot(self, y, x, hue=None, style=None, row=None, col=None, kind="line"):
 
