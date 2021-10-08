@@ -1,6 +1,7 @@
+# Use with a2c/complete/a2c.py
 logger:
   classname: salina.logger.TFLogger
-  log_dir: ./a2c
+  log_dir: ./a2c_mlp
   every_n_seconds: 5
   modulo: 10
   verbose: True
@@ -9,14 +10,11 @@ a2c_agent:
   classname: salina_examples.rl.a2c.complete.agents.A2CMLPAgent
   hidden_size: 32
   n_layers: 2
-  env:
-    classname: salina_examples.rl.a2c.complete.agents.make_gym_env
-    env_name: CartPole-v0
-    max_episode_steps: 100
+  env: ${env}
 
 algorithm:
   env_seed: 432
-  n_envs: 8
+  n_envs: 16
   n_processes: 4
   n_timesteps: 16
   overlapping_timesteps: 1
@@ -30,11 +28,27 @@ algorithm:
 
   device: cpu
 
-  env:
-    classname: salina_examples.rl.a2c.complete.agents.make_gym_env
-    env_name: CartPole-v0
-    max_episode_steps: 100
+  env: ${env}
 
   optimizer:
     classname: torch.optim.Adam
     lr: 0.01
+
+hydra:
+  launcher:
+    nodes: 1
+    mem_gb: 64
+    max_num_timeout: 0
+    cpus_per_task: ${plus:${n_processes},1}
+    gpus_per_node: ${n_gpus:${device}}
+    signal_delay_s: 30
+    timeout_min: 180
+    tasks_per_node: 1
+    partition: learnfair
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - hydra/launcher: submitit_slurm
+  - env: gym_cartpole

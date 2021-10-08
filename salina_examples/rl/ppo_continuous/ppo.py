@@ -18,8 +18,8 @@ from omegaconf import DictConfig, OmegaConf
 
 import salina
 import salina.rl.functional as RLF
-from salina import TAgent, get_arguments, get_class, instantiate_class
-from salina.agents import Agents, RemoteAgent, TemporalAgent
+from salina import TAgent, get_arguments, get_class, instantiate_class,Workspace
+from salina.agents import Agents, NRemoteAgent, TemporalAgent
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
 
@@ -42,112 +42,43 @@ def _state_dict(agent, device):
 
 
 def run_ppo(ppo_action_agent, ppo_critic_agent, logger, cfg):
-    # 2) Create the environment agent
-    # This agent implements N gym environments with auto-reset
+    ppo_action_agent.set_name("ppo_action")
     env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env)
+        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env),n_envs=int(cfg.algorithm.n_envs/cfg.algorithm.n_processes)
     )
 
-    # 3) Create the A2C Agent
-    ppo_action_agent_learning = copy.deepcopy(ppo_action_agent)
-    ppo_evaluation = copy.deepcopy(ppo_action_agent)
-    # 4) Combine env and policy agents
-    agent = Agents(env_agent, ppo_action_agent)
+    acq_ppo_action = copy.deepcopy(ppo_action_agent)
+    acq_agent = Agents(env_agent, acq_ppo_action)
+    acq_agent = TemporalAgent(acq_agent)
+    acq_remote_agent,acq_workspace=NRemoteAgent.create(acq_agent,num_processes=cfg.algorithm.n_processes,t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True,action_variance=0.0,replay=False)
+    acq_remote_agent.seed(cfg.algorithm.env_seed)
 
-    # 5) Get an agent that is executed on a complete workspace
-    agent = TemporalAgent(agent)
-
-    # 5 bis) The agent is transformed to a remoteagent working on multiple cpus
-    agent = RemoteAgent(agent, num_processes=cfg.algorithm.n_processes)
-    agent.seed(cfg.algorithm.env_seed)
-
-    env_evaluation_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env)
-    )
-    t_evaluation_agent = TemporalAgent(Agents(env_evaluation_agent, ppo_evaluation))
-    evaluation_agent = RemoteAgent(
-        t_evaluation_agent, num_processes=cfg.algorithm.evaluation.n_processes
-    )
-    evaluation_agent.seed(cfg.algorithm.evaluation.env_seed)
-
-    # 5 bis) Create the temporal critic agent to compute critic values over the workspace
-    # Create the agent to recompute action probabilities
-    tppo_action_agent = TemporalAgent(ppo_action_agent_learning).to(
+    tppo_action_agent = TemporalAgent(ppo_action_agent).to(
         cfg.algorithm.device
     )
     tppo_critic_agent = TemporalAgent(ppo_critic_agent).to(cfg.algorithm.device)
 
-    # 6) Configure the workspace to the right dimension
-    workspace = salina.Workspace(
-        batch_size=cfg.algorithm.n_envs,
-        time_size=cfg.algorithm.n_timesteps,
-    )
-
-    evaluation_workspace = salina.Workspace(
-        batch_size=cfg.algorithm.evaluation.n_envs,
-        time_size=cfg.algorithm.evaluation.n_timesteps,
-    )
-
-    evaluation_workspace = evaluation_agent(
-        evaluation_workspace, replay=False, action_variance=0.0
-    )
-
-    # 7) Confgure the optimizer over the ppo agent
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
-    parameters = tppo_action_agent.parameters()
+    parameters = ppo_action_agent.parameters()
     optimizer_action = get_class(cfg.algorithm.optimizer)(parameters, **optimizer_args)
-    parameters = tppo_critic_agent.parameters()
+    parameters = ppo_critic_agent.parameters()
     optimizer_critic = get_class(cfg.algorithm.optimizer)(parameters, **optimizer_args)
 
-    # 8) Training loop
     epoch = 0
     iteration = 0
     for epoch in range(cfg.algorithm.max_epochs):
-        if not evaluation_agent.is_running():
-            creward, done = evaluation_workspace["env/cumulated_reward", "env/done"]
-            creward = creward[done]
-            if creward.size()[0] > 0:
-                logger.add_scalar("evaluation/reward", creward.mean().item(), epoch)
-            ppo_evaluation.load_state_dict(
-                _state_dict(ppo_action_agent_learning, "cpu")
-            )
-            evaluation_workspace.copy_time(
-                from_time=-1,
-                to_time=0,
-            )
-            evaluation_agent.asynchronous_forward_(
-                evaluation_workspace, t=1, replay=False, action_variance=0.0
-            )
+        for a in acq_remote_agent.get_by_name("ppo_action"): a.load_state_dict(_state_dict(ppo_action_agent, "cpu"))
 
-        # Before smapling, the acquisition agent has to be sync with the loss agent
-        ppo_action_agent.load_state_dict(_state_dict(ppo_action_agent_learning, "cpu"))
-
-        # Execute the agent on the workspace
         if epoch > 0:
-            ts = workspace.time_size()
-            for tt in range(cfg.algorithm.overlapping_timesteps):
-                workspace.copy_time(
-                    from_time=ts - cfg.algorithm.overlapping_timesteps + tt,
-                    to_time=tt,
-                )
-
-            agent(
-                workspace,
-                t=cfg.algorithm.overlapping_timesteps,
-                replay=False,
-                action_variance=cfg.algorithm.action_variance,
-            )
+            acq_workspace.copy_n_last_steps(1)
+            acq_remote_agent(acq_workspace, t=1, replay=False, n_steps=cfg.algorithm.n_timesteps-1,action_variance=cfg.algorithm.action_variance)
         else:
-            workspace = agent(
-                workspace,
-                replay=False,
-                action_variance=cfg.algorithm.action_variance,
-            )
+            acq_remote_agent(acq_workspace, t=0, replay=False, n_steps=cfg.algorithm.n_timesteps,action_variance=cfg.algorithm.action_variance)
 
-        replay_workspace = workspace.convert_to_workspace().to(cfg.algorithm.device)
+        replay_workspace = Workspace(acq_workspace).to(cfg.algorithm.device)
 
         with torch.no_grad():
-            tppo_critic_agent(replay_workspace)
+            tppo_critic_agent(replay_workspace,t=0, n_steps=cfg.algorithm.n_timesteps)
         critic, done, reward, action = replay_workspace[
             "critic", "env/done", "env/reward", "action"
         ]
@@ -159,10 +90,12 @@ def run_ppo(ppo_action_agent, ppo_critic_agent, logger, cfg):
         old_action_lp = replay_workspace["action_logprobs"]
 
         for _ in range(cfg.algorithm.pi_epochs):
+            replay_workspace.zero_grad()
             tppo_action_agent(
                 replay_workspace,
                 replay=True,
                 action_variance=cfg.algorithm.action_variance,
+                t=0, n_steps=cfg.algorithm.n_timesteps
             )
             action_lp = replay_workspace["action_logprobs"]
             entropy = replay_workspace["entropy"]
@@ -190,7 +123,8 @@ def run_ppo(ppo_action_agent, ppo_critic_agent, logger, cfg):
             iteration += 1
 
         for _ in range(cfg.algorithm.v_epochs):
-            tppo_critic_agent(replay_workspace)
+            replay_workspace.zero_grad()
+            tppo_critic_agent(replay_workspace,t=0, n_steps=cfg.algorithm.n_timesteps)
             critic = replay_workspace["critic"]
             gae = RLF.gae(
                 critic, reward, done, cfg.algorithm.discount_factor, cfg.algorithm.gae

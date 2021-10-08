@@ -7,8 +7,8 @@ logger:
 
 algorithm:
   env_seed: 432
-  n_envs: 8
-  n_processes: 4
+  n_envs: 4
+  n_processes: 2
   n_timesteps: 16
   max_epochs: 10000
   discount_factor: 0.95

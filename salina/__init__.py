@@ -47,5 +47,5 @@ def get_arguments(arguments):
     from importlib import import_module
 
     d = dict(arguments)
-    del d["classname"]
+    if "classname" in d: del d["classname"]
     return d

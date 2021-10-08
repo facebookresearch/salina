@@ -11,16 +11,17 @@ from salina import Workspace
 
 
 class ReplayBuffer:
-    def __init__(self, max_size):
+    def __init__(self, max_size,device=torch.device("cpu")):
         self.max_size = max_size
-        self.variables = {}
+        self.variables = None
         self.position = 0
         self.is_full = False
-        self.time_size = None
+        self.device=device
 
     def put(self, workspace, time_size=None, padding=None):
-        if not time_size is None and time_size != workspace.time_size():
-            T = workspace.time_size()
+        assert workspace._all_variables_same_time_size(),"Only works with workspace where all variables have the same time_size"
+        T = workspace.time_size()
+        if not time_size is None:
             n = T - time_size + 1
             if padding is None:
                 padding = 1
@@ -29,32 +30,32 @@ class ReplayBuffer:
                 self.put(nworkspace)
             return
 
-        dict_variables = workspace.to_dict()
-        self.time_size = workspace.time_size()
+        all_tensors={k:workspace.get_full(k).detach().to(self.device) for k in workspace.keys()}
+        if self.variables is None:
+            self.variables={}
+            for k,v in all_tensors.items():
+                s=list(v.size())
+                s[1]=self.max_size
+                tensor=torch.zeros(*s,dtype=v.dtype,device=self.device)
+                print("[ReplayBuffer] Var ",k," size=",s," dtype=",v.dtype," device=",self.device)
+                self.variables[k]=tensor
+            self.is_full=False
+            self.position=0
+
         B = None
-        indexes = None
-        arange = None
-        for k, v in dict_variables.items():
-            if not k in self.variables:
-                s = v.size()[2:]
-                print(
-                    "\t[ReplayBuffer] Creating variable ",
-                    k,
-                    " of size ",
-                    (self.time_size, self.max_size, *s),
-                    " and type ",
-                    v.dtype,
-                )
-                self.variables[k] = torch.zeros(
-                    self.time_size, self.max_size, *s, dtype=v.dtype
-                )
-            B = v.size()[1]
+        arange=None
+        indexes=None
+        for k, v in all_tensors.items():
+            if B is None:
+                B=v.size()[1]
             B = min(self.position + B, self.max_size)
             B = B - self.position
             if indexes is None:
                 indexes = torch.arange(B) + self.position
                 arange = torch.arange(B)
-            self.variables[k][:, indexes] = v[:, arange]
+            indexes=indexes.to(v.device)
+            arange=arange.to(v.device)
+            self.variables[k][:, indexes] = v[:, arange].detach()
 
         self.position = self.position + B
         if self.position >= self.max_size:
@@ -68,9 +69,9 @@ class ReplayBuffer:
             return self.position
 
     def get(self, B):
-        who = torch.randint(low=0, high=self.size(), size=(B,))
-        workspace = Workspace(batch_size=B, time_size=self.time_size)
+        who = torch.randint(low=0, high=self.size(), size=(B,),device=self.device)
+        workspace = Workspace()
         for k in self.variables:
-            workspace.variables[k] = self.variables[k][:, who]
+            workspace.set_full(k,self.variables[k][:, who])
 
         return workspace

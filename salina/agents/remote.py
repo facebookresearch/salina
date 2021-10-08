@@ -5,13 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+import copy
 import time
 
 import torch
 import torch.multiprocessing as mp
 
 from salina import Agent
-from salina.workspace import SharedSubWorkspace, SharedWorkspace, Workspace
+from salina.workspace import Workspace, _SplitSharedWorkspace
 
 
 def f(agent, in_queue, out_queue, seed):
@@ -22,16 +23,14 @@ def f(agent, in_queue, out_queue, seed):
     agent.seed(seed)
     while running:
         command = in_queue.get()
-        if command[0] == "go":
-            _, workspace, start_position, batch_size, args = command
-            if workspace is None:
-                sub_workspace = old_workspace
-            else:
-                sub_workspace = SharedSubWorkspace(
-                    workspace, start_position, batch_size
-                )
-                old_workspace = sub_workspace
-            agent(sub_workspace, **args)
+        if command[0] == "go_new_workspace":
+            _, workspace, args = command
+            old_workspace = workspace
+            agent(workspace, **args)
+            out_queue.put("ok")
+        elif command[0] == "go_reuse_workspace":
+            _, _, args = command
+            agent(old_workspace, **args)
             out_queue.put("ok")
         elif command[0] == "exit":
             out_queue.put("ok")
@@ -39,162 +38,163 @@ def f(agent, in_queue, out_queue, seed):
 
 
 class RemoteAgent(Agent):
-    """A agent that executes an agent over multiple threads
-    :param Agent: [description]
-    :type Agent: [type]
-    """
-
-    def __init__(self, agent, num_processes):
-        super().__init__()
-        self.num_processes = num_processes
+    def __init__(self, agent, name=None):
+        super().__init__(name=name)
         self.agent = agent
-        self.agent.share_memory()
-        self.seeds = []
+        self._is_running = False
+        self.process = None
         self.last_workspace = None
-        if self.num_processes > 0:
-            self.processes = []
-            self.running = [False for k in range(num_processes)]
-            self.num_processes = num_processes
-            self.workspace = None
 
-    def _forward(self, k, renv, start_position, batch_size, args):
-        self.processes[k][1].put(("go", renv, start_position, batch_size, args))
-
-    def seed(self, seed, _inc_seed=64):
-        self.agent.seed(seed)
-        self.seeds = [seed + _inc_seed * k for k in range(self.num_processes)]
+    def get_by_name(self, n):
+        if self._name == n:
+            return [self] + self.agent.get_by_name(n)
+        else:
+            return self.agent.get_by_name(n)
 
     def forward(self, **args):
         raise NotImplementedError
 
-    def asynchronous_forward_(self, workspace, **args):
-        if self.num_processes == 0:
-            print(
-                "[RemoteAgent] call with asynchronuous forward and num_processes==0: Executing in sychronous mode"
-            )
-            return self.__call__(workspace, **args)
-
-        if not isinstance(workspace, SharedWorkspace):
-            return self._first_forward(workspace, **args)
-
-        if self.num_processes > 0:
-            assert isinstance(
-                workspace, SharedWorkspace
-            ), "[RemoteAgent.asynchronous_forward_] Must be on a SharedWorkspace"
-
-            assert not self.is_running()
-            assert workspace.batch_size() % self.num_processes == 0
-            bs = int(workspace.batch_size() / self.num_processes)
-            sp = [bs * k for k in range(self.num_processes)]
-            self.running = [False for k in range(self.num_processes)]
-
-            if workspace == self.last_workspace:
-                for k in range(self.num_processes):
-                    self._forward(k, None, sp[k], bs, args)
-                    self.running[k] = True
-            else:
-                self.last_workspace = workspace
-                for k in range(self.num_processes):
-                    self._forward(k, workspace, sp[k], bs, args)
-                    self.running[k] = True
-
-            return workspace
-        else:
-            assert (
-                False
-            ), "[RemoteAgent] asynchronous_forward_ can be sed only if num_processes>0"
-
-    def _first_forward(self, workspace, **args):
-        with torch.no_grad():
-            for k in range(self.num_processes):
-                print("Creating process ", k, " over ", self.num_processes)
-                i_queue = mp.Queue()
-                o_queue = mp.Queue()
-                i_queue.cancel_join_thread()
-                o_queue.cancel_join_thread()
-                p = mp.Process(
-                    target=f, args=(self.agent, i_queue, o_queue, self.seeds[k])
-                )
-                p.daemon = True
-                p.start()
-                r = o_queue.get()
-                self.processes.append((p, i_queue, o_queue))
-
-            assert isinstance(workspace, Workspace)
-            print("[RemoteAgent] First call in main process for lazy initialization")
-            workspace = self.agent(workspace, **args)
-            self.workspace = SharedWorkspace(workspace)
-            assert (
-                len(self.seeds) == self.num_processes
-            ), "[RemoteAgent] Seeding needed before calling the agent"
-
-        return self.workspace
+    def _create_process(self):
+        print("[RemoteAgent] starting process...")
+        self.i_queue = mp.Queue()
+        self.o_queue = mp.Queue()
+        self.i_queue.cancel_join_thread()
+        self.o_queue.cancel_join_thread()
+        self.process = mp.Process(
+            target=f, args=(self.agent, self.i_queue, self.o_queue, self._seed)
+        )
+        self.process.daemon = False
+        self.process.start()
+        r = self.o_queue.get()
 
     def __call__(self, workspace, **args):
-        assert not workspace is None
-        if self.num_processes == 0:
-            return self.agent(workspace, **args)
-
-        if self.num_processes > 0:
-            assert not self.is_running()
-            if not isinstance(workspace, SharedWorkspace):
-                return self._first_forward(workspace, **args)
-
-            assert workspace.batch_size() % self.num_processes == 0
-            bs = int(workspace.batch_size() / self.num_processes)
-            sp = [bs * k for k in range(self.num_processes)]
-            self.running = [False for k in range(self.num_processes)]
-
-            if workspace == self.last_workspace:
-                for k in range(self.num_processes):
-                    self._forward(k, None, sp[k], bs, args)
-            else:
+        with torch.no_grad():
+            assert (
+                workspace.is_shared
+            ), "You must use a shared workspace when using a Remote Agent"
+            if self.process is None:
+                self._create_process()
+            if not workspace == self.last_workspace:
+                self.i_queue.put(("go_new_workspace", workspace, args))
                 self.last_workspace = workspace
-                for k in range(self.num_processes):
-                    self._forward(k, workspace, sp[k], bs, args)
+                r = self.o_queue.get()
+                assert r == "ok"
+            else:
+                self.i_queue.put(("go_reuse_workspace", workspace, args))
+                r = self.o_queue.get()
+                assert r == "ok"
 
-            for k in range(self.num_processes):
-                r = self.processes[k][2].get()
-                assert (
-                    r == "ok"
-                ), "[RemoteAgent.forward] Invalid answer from the process"
-            return workspace
+    def _asynchronous_call(self, workspace, **args):
+        with torch.no_grad():
+            self._is_running = True
+            assert (
+                workspace.is_shared
+            ), "You must use a shared workspace when using a Remote Agent"
+            if self.process is None:
+                self._create_process()
+            if not workspace == self.last_workspace:
+                self.i_queue.put(("go_new_workspace", workspace, args))
+                self.last_workspace = workspace
+            else:
+                self.i_queue.put(("go_reuse_workspace", workspace, args))
+
+    def seed(self, _seed):
+        self._seed = _seed
+
+    def _running_queue(self):
+        return self.o_queue
 
     def is_running(self):
-        if self.num_processes > 0:
-            for k in range(self.num_processes):
-                if self.running[k]:
-                    try:
-                        r = self.processes[k][2].get(False)
-                        self.running[k] = False
-                    except:
-                        pass
-
-            for r in self.running:
-                if r:
-                    return True
-            return False
-        else:
-            return False
+        if self._is_running:
+            try:
+                r = self.o_queue.get(False)
+                assert r == "ok"
+                self._is_running = False
+            except:
+                pass
+        return self._is_running
 
     def close(self):
-        if self.num_processes==0:
+        if self.process is None:
             return
-        print("[Remoteagent] closing processes")
-        if self.processes is None: return
-        if self.num_processes > 0:
-            for p, inq, outq in self.processes:
-                inq.put(("exit",))
-                outq.get()
-                time.sleep(0.1)
-                p.terminate()
-                p.join()
-                inq.close()
-                outq.close()
-                time.sleep(0.1)
-                del inq
-                del outq
-        self.processes=None
+
+        print("[RemoteAgent] closing process")
+        self.i_queue.put(("exit",))
+        self.o_queue.get()
+        time.sleep(0.1)
+        self.process.terminate()
+        self.process.join()
+        self.i_queue.close()
+        self.o_queue.close()
+        time.sleep(0.1)
+        del self.i_queue
+        del self.o_queue
+        self.process = None
+
 
     def __del__(self):
         self.close()
+
+
+class NRemoteAgent(Agent):
+    """A set of multiple agents"""
+
+    def __init__(self, agents, batch_dims):
+        super().__init__()
+        self.agents = agents
+        self.batch_dims = batch_dims
+
+    def get_by_name(self, name):
+        r = []
+        if self._name == name:
+            r = [self]
+        for a in self.agents:
+            r = r + a.get_by_name(name)
+        return r
+
+    def create(agent, num_processes=0, **extra_args):
+        agent.seed(0)
+        if num_processes == 0:
+            workspace = Workspace()
+            _agent = copy.deepcopy(agent)
+            agent(workspace, **extra_args)
+            shared_workspace = workspace._convert_to_shared_workspace(n_repeat=1)
+            return _agent, shared_workspace
+
+        workspace = Workspace()
+        agents = [copy.deepcopy(agent) for t in range(num_processes)]
+        agent(workspace, **extra_args)
+        b = workspace.batch_size()
+        batch_dims = [(k * b, k * b + b) for k, a in enumerate(agents)]
+        shared_workspace = workspace._convert_to_shared_workspace(
+            n_repeat=num_processes
+        )
+        agents = [RemoteAgent(a) for a in agents]
+        return NRemoteAgent(agents, batch_dims), shared_workspace
+
+    def __call__(self, workspace, **args):
+        assert workspace.is_shared
+        for k in range(len(self.agents)):
+            _workspace = _SplitSharedWorkspace(workspace, self.batch_dims[k])
+            self.agents[k]._asynchronous_call(_workspace, **args)
+        for a in self.agents:
+            ok = a._running_queue().get()
+            assert ok == "ok"
+
+    def seed(self, seed, inc=1):
+        s = seed
+        for a in self.agents:
+            a.seed(s)
+            s += inc
+
+    def _asynchronous_call(self, workspace, **args):
+        assert workspace.is_shared
+        for k in range(len(self.agents)):
+            _workspace = _SplitSharedWorkspace(workspace, self.batch_dims[k])
+            self.agents[k]._asynchronous_call(_workspace, **args)
+
+    def is_running(self):
+        for a in self.agents:
+            if a.is_running():
+                return True
+        return False

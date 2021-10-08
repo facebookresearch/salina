@@ -18,8 +18,8 @@ from omegaconf import DictConfig, OmegaConf
 
 import salina
 import salina.rl.functional as RLF
-from salina import TAgent, get_arguments, get_class, instantiate_class
-from salina.agents import Agents, RemoteAgent, TemporalAgent
+from salina import TAgent, get_arguments, get_class, instantiate_class, Workspace
+from salina.agents import Agents, TemporalAgent
 from salina.agents.gym import GymAgent
 from salina.logger import TFLogger
 
@@ -35,17 +35,6 @@ def _index(tensor_3d, tensor_2d):
 
 
 class REINFORCEAgent(TAgent):
-    """This agent outputs:
-        - action_probs: the lob probabilities of each action
-        - action: a randomly sampled action
-        - baseline: the baseline value
-
-    It works in two models: the stochastic mode where action are sampled, and the non-stochastic mode where action are taken using the argmax of the probability
-    It is a simple MLP
-    Args:
-        TAgent ([type]): [description]
-    """
-
     def __init__(self, observation_size, hidden_size, n_actions):
         super().__init__()
         self.model = nn.Sequential(
@@ -79,14 +68,10 @@ def make_cartpole(max_episode_steps):
 
 
 def run_reinforce(cfg):
-    # 1)  Build the  logger
     logger = instantiate_class(cfg.logger)
 
-    # 2) Create the environment agent
-    # This agent implements N gym environments
-    env_agent = GymAgent(get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env))
+    env_agent = GymAgent(get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env),n_envs=cfg.algorithm.n_envs)
 
-    # 3) Create the A2C Agent
     env = instantiate_class(cfg.algorithm.env)
     observation_size = env.observation_space.shape[0]
     n_actions = env.action_space.n
@@ -95,19 +80,13 @@ def run_reinforce(cfg):
         observation_size, cfg.algorithm.architecture.hidden_size, n_actions
     )
 
-    # 4) Combine env and a2c agents
     agent = Agents(env_agent, a2c_agent)
 
-    # 5) Get an agent that is executed on a complete workspace
-    # When env/done is True, then the agent will stop the forward and not compute the next timesteps
-    agent = TemporalAgent(agent, stop_variable="env/done")
+    agent = TemporalAgent(agent)
     agent.seed(cfg.algorithm.env_seed)
 
     # 6) Configure the workspace to the right dimension. The time size is greater than the naximum episode size to be able to store all episode states
-    workspace = salina.Workspace(
-        batch_size=cfg.algorithm.n_envs,
-        time_size=cfg.algorithm.env.max_episode_steps + 1,
-    )
+    workspace = salina.Workspace()
 
     # 7) Confgure the optimizer over the a2c agent
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -122,7 +101,7 @@ def run_reinforce(cfg):
         # Execute the agent on the workspace to sample complete episodes
         # Since not all the variables of workspace will be overwritten, it is better to clear the workspace
         workspace.clear()
-        agent(workspace, stochastic=True)
+        agent(workspace, stochastic=True,t=0, stop_variable="env/done")
 
         # Get relevant tensors (size are timestep x n_envs x ....)
         baseline, done, action_probs, reward, action = workspace[

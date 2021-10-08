@@ -78,12 +78,11 @@ Alfredo de la Fuente, Ludovic Denoyer, Song Duong, Jean-Baptiste Gaya, Daniel H.
 Please use this bibtex if you want to cite this repository in your publications:
 
 ```
-    @misc{rlstructures,
+    @misc{salina,
         author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Daniel H. Thompson},
-        title = {salina - a library for sequential learning agents},
+        title = {SaLinA - A Flexible and Simple Library for Learning Sequential Agents},
         year = {2021},
-        publisher = {GitHub},
-        journal = {GitHub repository},
+        publisher = {Arxiv},
         howpublished = {\url{https://gitHub.com/facebookresearch/salina}},
     }
 

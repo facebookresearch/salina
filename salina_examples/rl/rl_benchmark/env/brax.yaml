@@ -1,0 +1,2 @@
+classname: brax.envs.create_gym_env
+env_name: halfcheetah

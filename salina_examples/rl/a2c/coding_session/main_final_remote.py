@@ -1,3 +1,5 @@
+
+
 #
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
@@ -5,6 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+###### IMPORT
 import copy
 import time
 
@@ -34,109 +37,104 @@ def _index(tensor_3d, tensor_2d):
     return v
 
 
-class A2CAgent(TAgent):
-    def __init__(self, observation_size, hidden_size, n_actions):
+class MyAgent(TAgent):
+    def __init__(self):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Linear(observation_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, n_actions),
-        )
-        self.critic_model = nn.Sequential(
-            nn.Linear(observation_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1),
-        )
+        self.model=nn.Sequential(nn.Linear(4,16),nn.Tanh(),nn.Linear(16,2))
+        self.critic=nn.Sequential(nn.Linear(4,16),nn.Tanh(),nn.Linear(16,1))
 
-    def forward(self, t, stochastic, **args):
+    def forward(self, t, **args):
         observation = self.get(("env/env_obs", t))
         scores = self.model(observation)
         probs = torch.softmax(scores, dim=-1)
-        critic = self.critic_model(observation).squeeze(-1)
-        if stochastic:
-            action = torch.distributions.Categorical(probs).sample()
-        else:
-            action = probs.argmax(1)
-
-        self.set(("action", t), action)
+        critic = self.critic(observation).squeeze(-1)
         self.set(("action_probs", t), probs)
         self.set(("critic", t), critic)
 
+class ActionAgent(TAgent):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,t,stochastic,**args):
+        probs=self.get(("action_probs",t))
+        if stochastic:
+            action=torch.distributions.Categorical(probs).sample()
+        else:
+            action=probs.max(1)[1]
+        self.set(("action",t),action)
 
 def make_cartpole(max_episode_steps):
     return TimeLimit(gym.make("CartPole-v0"), max_episode_steps=max_episode_steps)
 
 
 def run_a2c(cfg):
-    # 1)  Build the  logger
+    ##### BUILD THE LOGGER (Salina provides a CSV+Tensroboard Logger that one is free to use or not)
     logger = instantiate_class(cfg.logger)
 
-    # 2) Create the environment agent
-    # This agent implements N gym environments with auto-reset
-    env_agent = AutoResetGymAgent(
-        get_class(cfg.algorithm.env), get_arguments(cfg.algorithm.env), n_envs=cfg.algorithm.n_envs
+    #### CREATE THE ENVIRONMENT Agent (Salina provides Gym Agents and Brax Agents)
+    env_agent = AutoResetGymAgent(make_cartpole,{"max_episode_steps":100})
+
+    ### CREATE THE POLICY
+    a2c_agent=MyAgent()
+    ta2c_agent=TemporalAgent(a2c_agent)
+    acquisition_a2c_agent=copy.deepcopy(a2c_agent) # Copy the model for other processes
+
+    action_agent=ActionAgent()
+
+    #### CREATE THE ACQUSITION AGENT
+    acquisition_agent=Agents(env_agent,acquisition_a2c_agent,action_agent)
+    acquisition_agent=TemporalAgent(acquisition_agent)
+    acquisition_agent=RemoteAgent(acquisition_agent,num_processes=2)
+    acquisition_agent.seed(123)
+
+    ### DEFINE A WORKSPACE
+    workspace = salina.Workspace(
+        batch_size=cfg.algorithm.n_envs,
+        time_size=cfg.algorithm.n_timesteps,
     )
 
-    # 3) Create the A2C Agent
-    env = instantiate_class(cfg.algorithm.env)
-    observation_size = env.observation_space.shape[0]
-    n_actions = env.action_space.n
-    del env
-    a2c_agent = A2CAgent(
-        observation_size, cfg.algorithm.architecture.hidden_size, n_actions
-    )
+    # CONFIGURE THE OPTIMIZER
+    optimizer = torch.optim.Adam(a2c_agent.parameters(),lr=cfg.algorithm.lr)
 
-    # 4) Combine env and a2c agents
-    agent = Agents(env_agent, a2c_agent)
-
-    # 5) Get an agent that is executed on a complete workspace
-    agent = TemporalAgent(agent)
-    agent.seed(cfg.algorithm.env_seed)
-
-    # 6) Configure the workspace to the right dimension
-    workspace = salina.Workspace()
-
-    # 7) Confgure the optimizer over the a2c agent
-    optimizer_args = get_arguments(cfg.algorithm.optimizer)
-    optimizer = get_class(cfg.algorithm.optimizer)(
-        a2c_agent.parameters(), **optimizer_args
-    )
-
+    # TEST FORWARD
+    workspace=acquisition_agent(workspace,stochastic=True)
     # 8) Training loop
     epoch = 0
     for epoch in range(cfg.algorithm.max_epochs):
-        workspace.zero_grad()
-        # Execute the agent on the workspace
-        if epoch > 0:
-            workspace.copy_n_last_steps(1)
-            agent(workspace, t=1, n_steps=cfg.algorithm.n_timesteps-1,stochastic=True)
-        else:
-            agent(workspace, t=0, n_steps=cfg.algorithm.n_timesteps,stochastic=True)
 
-        # Get relevant tensors (size are timestep x n_envs x ....)
-        critic, done, action_probs, reward, action = workspace[
+        acquisition_a2c_agent.load_state_dict(a2c_agent.state_dict())
+        workspace.copy_n_last_steps(1)
+        acquisition_agent(workspace, t=1, stochastic=True)
+
+        replay_workspace=workspace.convert_to_workspace()
+        ta2c_agent(replay_workspace,stochastic=True)
+
+        #### COMPUTE LOSS
+
+        ###### GET RELEVANT VARIABLES
+        critic, done, action_probs, reward, action = replay_workspace[
             "critic", "env/done", "action_probs", "env/reward", "action"
         ]
 
-        # Compute temporal difference
+        ### COMPUTE TEMPORAL DIFFERENCE
         target = reward[1:] + cfg.algorithm.discount_factor * critic[1:].detach() * (
             1 - done[1:].float()
         )
         td = target - critic[:-1]
 
-        # Compute critic loss
+        ### COMPUTE CRITIC LOSS
         td_error = td ** 2
         critic_loss = td_error.mean()
 
-        # Compute entropy loss
+        ### COMPUTE ENTROPY
         entropy_loss = torch.distributions.Categorical(action_probs).entropy().mean()
 
-        # Compute A2C loss
+        ### COMPUTE ACTION LOSS
         action_logp = _index(action_probs, action).log()
         a2c_loss = action_logp[:-1] * td.detach()
         a2c_loss = a2c_loss.mean()
 
-        # Log losses
+        #LOG
         logger.add_scalar("critic_loss", critic_loss.item(), epoch)
         logger.add_scalar("entropy_loss", entropy_loss.item(), epoch)
         logger.add_scalar("a2c_loss", a2c_loss.item(), epoch)
@@ -150,7 +148,7 @@ def run_a2c(cfg):
         loss.backward()
         optimizer.step()
 
-        # Compute the cumulated reward on final_state
+        ### LOG env/cumulated_reward FOR TERMINAL STATES
         creward = workspace["env/cumulated_reward"]
         creward = creward[done]
         if creward.size()[0] > 0:

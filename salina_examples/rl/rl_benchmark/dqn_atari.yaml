@@ -1,26 +1,16 @@
 logger:
   classname: salina.logger.TFLogger
-  log_dir: ./ddqn
+  log_dir: ./dqn_atari
   modulo: 100
-  every_n_seconds: 300
-  verbose: False
-
-n_envs: 1
-env_name: PongNoFrameskip-v4
-n_timesteps: 2
+  every_n_seconds: 60
+  verbose: True
 
 q_agent:
   classname: salina_examples.rl.dqn.agents.DQNAtariAgent
-  env:
-    classname: salina_examples.rl.dqn.agents.make_atari_env
-    env_name: ${env_name}
-    max_episode_steps: 100000
+  env: ${env}
 
 algorithm:
-  env:
-    classname: salina_examples.rl.dqn.agents.make_atari_env
-    env_name: ${env_name}
-    max_episode_steps: 100000
+  env: ${env}
 
   env_seed: 432
   batch_size: 64
@@ -35,36 +25,29 @@ algorithm:
   epsilon_exploration_decay: 30000
   burning_timesteps: 0
   clip_grad: 2
-  inner_epochs: ${n_timesteps}
+  inner_epochs: 16
   discount_factor: 0.99
   hard_target_update: True
   update_target_epochs: 1000
   update_target_tau: 0.005
-  loss_device: cuda:0
-  n_envs: ${n_envs}
-  n_processes: ${n_envs}
-  n_timesteps: ${n_timesteps}
+  loss_device: cpu
+  n_envs: 16
+  n_processes: 4
+  n_timesteps: 2
   overlapping_timesteps: 1
   buffer_size: 100000
   initial_buffer_size: 10000
   buffer_time_size: 2
-
-  evaluation:
-    message: "evaluation is needed if using the evaluation version of DQN"
-    env_seed: 23
-    n_envs: 16
-    n_processes: 2
-    n_timesteps: 10000
 
 hydra:
   launcher:
     nodes: 1
     mem_gb: 64
     max_num_timeout: 0
-    cpus_per_task: 12
     signal_delay_s: 30
     timeout_min: 180
-    gpus_per_node: 1
+    cpus_per_task: ${plus:${algorithm.n_processes},1}
+    gpus_per_node: ${n_gpus:${algorithm.loss_device}}
     tasks_per_node: 1
     partition: learnfair
   job_logging:
@@ -73,3 +56,4 @@ hydra:
 
 defaults:
   - hydra/launcher: submitit_slurm
+  - env: gym_cartpole
