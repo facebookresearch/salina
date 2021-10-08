@@ -47,6 +47,17 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     q_target_agent_2 = copy.deepcopy(q_agent_2)
     action_target_agent = copy.deepcopy(action_agent)
 
+    acq_action_agent = copy.deepcopy(action_agent)
+    acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent))
+    acq_remote_agent, acq_workspace = NRemoteAgent.create(
+        acq_agent,
+        num_processes=cfg.algorithm.n_processes,
+        t=0,
+        n_steps=cfg.algorithm.n_timesteps,
+        epsilon=1.0,
+    )
+    acq_remote_agent.seed(cfg.algorithm.env_seed)
+
     # == Setting up the training agents
     train_temporal_q_agent_1 = TemporalAgent(q_agent_1)
     train_temporal_q_agent_2 = TemporalAgent(q_agent_2)
@@ -61,17 +72,6 @@ def run_td3(q_agent_1, q_agent_2, action_agent, logger, cfg):
     train_temporal_q_target_agent_1.to(cfg.algorithm.loss_device)
     train_temporal_q_target_agent_2.to(cfg.algorithm.loss_device)
     train_temporal_action_target_agent.to(cfg.algorithm.loss_device)
-
-    acq_action_agent = copy.deepcopy(action_agent)
-    acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent))
-    acq_remote_agent, acq_workspace = NRemoteAgent.create(
-        acq_agent,
-        num_processes=cfg.algorithm.n_processes,
-        t=0,
-        n_steps=cfg.algorithm.n_timesteps,
-        epsilon=1.0,
-    )
-    acq_remote_agent.seed(cfg.algorithm.env_seed)
 
     acq_remote_agent(
         acq_workspace,
