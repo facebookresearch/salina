@@ -1,4 +1,4 @@
-# SaLinA: A library for Sequential Learning Agents (including Reinforcement Learning)
+# SaLinA: SaLinA - A Flexible and Simple Library for Learning Sequential Agents (including Reinforcement Learning)
 
 ## TL;DR
 

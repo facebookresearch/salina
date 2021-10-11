@@ -1,5 +1,3 @@
-
-
 #
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
@@ -40,8 +38,8 @@ def _index(tensor_3d, tensor_2d):
 class MyAgent(TAgent):
     def __init__(self):
         super().__init__()
-        self.model=nn.Sequential(nn.Linear(4,16),nn.Tanh(),nn.Linear(16,2))
-        self.critic=nn.Sequential(nn.Linear(4,16),nn.Tanh(),nn.Linear(16,1))
+        self.model = nn.Sequential(nn.Linear(4, 16), nn.Tanh(), nn.Linear(16, 2))
+        self.critic = nn.Sequential(nn.Linear(4, 16), nn.Tanh(), nn.Linear(16, 1))
 
     def forward(self, t, **args):
         observation = self.get(("env/env_obs", t))
@@ -51,17 +49,19 @@ class MyAgent(TAgent):
         self.set(("action_probs", t), probs)
         self.set(("critic", t), critic)
 
+
 class ActionAgent(TAgent):
     def __init__(self):
         super().__init__()
 
-    def forward(self,t,stochastic,**args):
-        probs=self.get(("action_probs",t))
+    def forward(self, t, stochastic, **args):
+        probs = self.get(("action_probs", t))
         if stochastic:
-            action=torch.distributions.Categorical(probs).sample()
+            action = torch.distributions.Categorical(probs).sample()
         else:
-            action=probs.max(1)[1]
-        self.set(("action",t),action)
+            action = probs.max(1)[1]
+        self.set(("action", t), action)
+
 
 def make_cartpole(max_episode_steps):
     return TimeLimit(gym.make("CartPole-v0"), max_episode_steps=max_episode_steps)
@@ -72,15 +72,15 @@ def run_a2c(cfg):
     logger = instantiate_class(cfg.logger)
 
     #### CREATE THE ENVIRONMENT Agent (Salina provides Gym Agents and Brax Agents)
-    env_agent = AutoResetGymAgent(make_cartpole,{"max_episode_steps":100})
+    env_agent = AutoResetGymAgent(make_cartpole, {"max_episode_steps": 100})
 
     ### CREATE THE POLICY
-    a2c_agent=MyAgent()
-    action_agent=ActionAgent()
+    a2c_agent = MyAgent()
+    action_agent = ActionAgent()
 
     #### CREATE THE ACQUSITION AGENT
-    acquisition_agent=Agents(env_agent,a2c_agent,action_agent)
-    acquisition_agent=TemporalAgent(acquisition_agent)
+    acquisition_agent = Agents(env_agent, a2c_agent, action_agent)
+    acquisition_agent = TemporalAgent(acquisition_agent)
     acquisition_agent.seed(123)
 
     ### DEFINE A WORKSPACE
@@ -90,10 +90,10 @@ def run_a2c(cfg):
     )
 
     # CONFIGURE THE OPTIMIZER
-    optimizer = torch.optim.Adam(a2c_agent.parameters(),lr=cfg.algorithm.lr)
+    optimizer = torch.optim.Adam(a2c_agent.parameters(), lr=cfg.algorithm.lr)
 
     # TEST FORWARD
-    acquisition_agent(workspace,stochastic=True)
+    acquisition_agent(workspace, stochastic=True)
 
     # 8) Training loop
     epoch = 0
@@ -101,7 +101,6 @@ def run_a2c(cfg):
 
         workspace.copy_n_last_steps(1)
         acquisition_agent(workspace, t=1, stochastic=True)
-
 
         #### COMPUTE LOSS
 
@@ -128,7 +127,7 @@ def run_a2c(cfg):
         a2c_loss = action_logp[:-1] * td.detach()
         a2c_loss = a2c_loss.mean()
 
-        #LOG
+        # LOG
         logger.add_scalar("critic_loss", critic_loss.item(), epoch)
         logger.add_scalar("entropy_loss", entropy_loss.item(), epoch)
         logger.add_scalar("a2c_loss", a2c_loss.item(), epoch)

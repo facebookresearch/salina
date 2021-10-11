@@ -7,31 +7,19 @@
 
 import argparse
 
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision
+import torchvision.transforms as transforms
 from torch import nn
+from torch.utils.data import DataLoader
+from torchvision import datasets
 
-from salina import TAgent, Workspace
-from salina.agents import (
-    Agents,
-    DataLoaderAgent,
-    ShuffledDataLoaderAgent,
-    TemporalAgent,
-)
+from salina import Agent, Workspace
+from salina.agents import Agents, DataLoaderAgent, ShuffledDatasetAgent
 from salina.logger import TFLogger
 
-plt.ion()  # interactive mode
 
-"""
-NN architecture and STN visualisation taken from
-https://pytorch.org/tutorials/intermediate/spatial_transformer_tutorial.html
-"""
-
-
-class STNAgent(TAgent):
+class STNAgent(Agent):
     def __init__(self, input, output, num_transforms):
         super().__init__()
         self.input = input
@@ -85,57 +73,46 @@ class STNAgent(TAgent):
 
         return x
 
-    def forward(self, t, **args):
-        assert 0 <= t <= self.num_transforms
-        x = self.get((self.input, t))
+    def forward(self, **args):
+        for t in range(self.num_transforms + 1):
+            x = self.get((self.input, t))
 
-        if t < self.num_transforms:
-            x = self.stn(x)
-            self.set((self.input, t + 1), x)
-        else:
-            logits = self.net(x)
-            self.set((self.output, t), logits)
+            if t < self.num_transforms:
+                x = self.stn(x)
+                self.set((self.input, t + 1), x)
+            else:
+                logits = self.net(x)
+                self.set((self.output, 0), logits)
 
 
-def test(agent, workspace, num_transforms):
-    agent.eval()
+def test(dataloader_agent, model_agent):
+    model_agent.eval()
     test_loss, correct = 0, 0
     n = 0
+    dataloader_agent.reset()
+
     with torch.no_grad():
         while True:
-            workspace = agent(workspace, t=0)
-            mask = workspace.get("x/mask", 0)
-            if mask.any():
-                n += mask.float().sum().item()
-                y = workspace.get("y", 0)
-                pred = workspace.get("pred", num_transforms)
-                loss = F.cross_entropy(pred, y, reduction="none")
-                loss = (loss * mask.float()).sum().item()
-                test_loss += loss
-                correct += pred.argmax(1).eq(y).float().sum().item()
-            else:
+            workspace = Workspace()
+            dataloader_agent(workspace)
+            if dataloader_agent.finished():
                 break
+            model_agent(workspace)
+            y = workspace.get("y", 0)
+            n += y.size()[0]
+            pred = workspace.get("py", 0)
+            loss = F.cross_entropy(pred, y, reduction="none")
+            loss = loss.sum()
+            test_loss += loss
+            correct += pred.argmax(1).eq(y).float().sum().item()
     test_loss /= n
     correct /= n
     return test_loss, correct
-    # print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-
-
-def convert_image_np(inp):
-    """Convert a Tensor to numpy image."""
-    inp = inp.numpy().transpose((1, 2, 0))
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inp = std * inp + mean
-    inp = np.clip(inp, 0, 1)
-    return inp
 
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(
-        description="Spatial Transformer Network (STN) Example"
-    )
+    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
     parser.add_argument(
         "--num-transforms",
         type=int,
@@ -162,14 +139,14 @@ def main():
         type=int,
         default=10000,
         metavar="N",
-        help="number of epochs to train (default: 10000)",
+        help="number of epochs to train (default: 14)",
     )
     parser.add_argument(
         "--lr",
         type=float,
         default=0.001,
         metavar="LR",
-        help="learning rate (default: 0.001)",
+        help="learning rate (default: 1.0)",
     )
     parser.add_argument(
         "--no-cuda", action="store_true", default=False, help="disables CUDA training"
@@ -201,55 +178,58 @@ def main():
         device = torch.device("cuda:0")
     torch.manual_seed(args.seed)
 
-    transform = torchvision.transforms.Compose(
-        [
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize((0.1307,), (0.3081,)),
-        ]
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
-    train_dataset = torchvision.datasets.MNIST(
+    train_dataset = datasets.MNIST(
         args.data_dir, train=True, download=True, transform=transform
     )
-    test_dataset = torchvision.datasets.MNIST(
-        args.data_dir, train=False, transform=transform
-    )
+    test_dataset = datasets.MNIST(args.data_dir, train=False, transform=transform)
 
-    train_dataloader = ShuffledDataLoaderAgent(train_dataset, output=("x", "y"))
-    test_dataloader = DataLoaderAgent(test_dataset, output=("x", "y"))
+    train_agent = ShuffledDatasetAgent(
+        train_dataset, batch_size=args.batch_size, output_names=("x", "y")
+    )
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=args.test_batch_size,
+        shuffle=False,
+        num_workers=4,
+        persistent_workers=True,
+    )
+    test_agent = DataLoaderAgent(test_dataloader, output_names=("x", "y"))
+    agent = STNAgent(input="x", output="py", num_transforms=args.num_transforms)
+    train_agent = Agents(train_agent, agent)
+    train_agent.seed(0)
+    test_agent.seed(1)
+
     logger = TFLogger(
         log_dir=args.log_dir,
         hps={k: v for k, v in args.__dict__.items()},
-        cache_size=10000,
+        every_n_seconds=10,
         verbose=not args.no_verbose,
     )
 
-    agent = STNAgent(input="x", output="pred", num_transforms=args.num_transforms)
-    temporal_agent = TemporalAgent(agent)
-    train_agent = Agents(train_dataloader, temporal_agent)
-    test_agent = Agents(test_dataloader, temporal_agent)
-    train_agent.seed(0)
-    test_agent.seed(1)
     optimizer = torch.optim.Adam(train_agent.parameters(), lr=args.lr)
 
     train_agent.to(device)
     test_agent.to(device)
 
-    train_workspace = Workspace(
-        batch_size=args.batch_size, time_size=args.num_transforms + 1
-    ).to(device)
-    test_workspace = Workspace(
-        batch_size=args.test_batch_size, time_size=args.num_transforms + 1
-    ).to(device)
+    train_workspace = Workspace()
 
     iteration = 0
+    avg_loss = None
     for epoch in range(args.max_epochs):
         print(f"-- Training, Epoch {epoch+1}")
 
+        loss, accuracy = test(test_agent, agent)
+        logger.add_scalar("test/loss", loss.item(), epoch)
+        logger.add_scalar("test/accuracy", accuracy, epoch)
+
         agent.train()
-        for _ in range(int(len(train_dataset) / args.batch_size)):
-            train_workspace = train_agent(train_workspace, t=0)
+        for k in range(int(len(train_dataset) / args.batch_size)):
+            train_agent(train_workspace)
             y = train_workspace.get("y", 0)
-            pred = train_workspace.get("pred", args.num_transforms)
+            pred = train_workspace.get("py", 0)
             loss = F.cross_entropy(pred, y, reduction="none")
             loss = loss.mean()
 
@@ -260,37 +240,7 @@ def main():
             optimizer.step()
             iteration += 1
 
-        loss, accuracy = test(test_agent, test_workspace, args.num_transforms)
-        logger.add_scalar("test/loss", loss, epoch)
-        logger.add_scalar("test/accuracy", accuracy, epoch)
-
     print("Done!")
-
-    # Visualize the STN transformation on some input batch
-    with torch.no_grad():
-        # Get a batch of training data
-        data = next(iter(test_dataloader.dataloader))[0].to(device)
-
-        input_tensor = data.cpu()[: args.batch_size, :]
-        in_grid = convert_image_np(torchvision.utils.make_grid(input_tensor))
-
-        # Plot the results side-by-side
-        f, axarr = plt.subplots(1, args.num_transforms + 1)
-        axarr[0].imshow(in_grid)
-        axarr[0].set_title("Dataset Images")
-
-        transformed_input_tensor = input_tensor
-        for i in range(1, args.num_transforms + 1):
-            transformed_input_tensor = agent.stn(transformed_input_tensor).cpu()
-            out_grid = convert_image_np(
-                torchvision.utils.make_grid(transformed_input_tensor)
-            )
-
-            axarr[i].imshow(out_grid)
-            axarr[i].set_title(f"Transformed Images {i}")
-
-    plt.ioff()
-    plt.show()
 
 
 if __name__ == "__main__":
