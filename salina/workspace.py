@@ -75,10 +75,10 @@ class SlicedTemporalTensor:
         return self.tensors[0].size()[0]
 
     def select_batch(self, batch_indexes):
-        v = SlicedTemporalTensor()
+        var = SlicedTemporalTensor()
         for t, v in enumerate(self.tensors):
-            v.set(t, v[batch_indexes], None)
-        return v
+            var.set(t, v[batch_indexes], None)
+        return var
 
     def clear(self):
         self.tensors = []
@@ -326,6 +326,7 @@ class Workspace:
 
     def select_batch(self, batch_indexes):
         # Select over the batch dimension
+        _bs = None
         for k, v in self.variables.items():
             if _bs is None:
                 _bs = v.batch_size()
