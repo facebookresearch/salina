@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-###### IMPORT
 import copy
 import time
 
@@ -19,10 +18,12 @@ from omegaconf import DictConfig, OmegaConf
 
 import salina
 import salina.rl.functional as RLF
-from salina import TAgent, get_arguments, get_class, instantiate_class
+from salina import Agent, TAgent, Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents, RemoteAgent, TemporalAgent
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
+
+# from salina_examples.rl.a2c.coding_session.tools import _index
 
 
 def _index(tensor_3d, tensor_2d):
@@ -34,58 +35,13 @@ def _index(tensor_3d, tensor_2d):
     v = v.reshape(x, y)
     return v
 
-#### DEFINE AGENTS
 
-
-
-
-### DEFINE ENVIRONMENT
-def make_cartpole(max_episode_steps):
+def make_env(max_episode_steps):
     return TimeLimit(gym.make("CartPole-v0"), max_episode_steps=max_episode_steps)
 
 
 def run_a2c(cfg):
-    ##### BUILD THE LOGGER (Salina provides a CSV+Tensroboard Logger that one is free to use or not)
-    logger = instantiate_class(cfg.logger)
-
-    #### CREATE THE ENVIRONMENT Agent (Salina provides Gym Agents and Brax Agents)
-
-    ### CREATE THE POLICY
-
-    #### CREATE THE ACQUSITION AGENT
-
-    ### DEFINE A WORKSPACE
-
-    # CONFIGURE THE OPTIMIZER
-
-    # TEST FORWARD
-
-    # TRAINING LOOP
-    epoch = 0
-    for epoch in range(cfg.algorithm.max_epochs):
-
-        ### CONTINUE ACQUISITION
-        workspace.copy_n_last_steps(1)
-        acquisition_agent(workspace, t=1, stochastic=True)
-
-
-        #### COMPUTE LOSS
-
-        ###### GET RELEVANT VARIABLES
-
-
-        ### COMPUTE TEMPORAL DIFFERENCE
-
-        ### COMPUTE CRITIC LOSS
-
-        ### COMPUTE ENTROPY
-
-        ### COMPUTE ACTION LOSS
-
-        #LOG
-
-
-        ### LOG env/cumulated_reward FOR TERMINAL STATES
+    pass
 
 
 @hydra.main(config_path=".", config_name="main.yaml")

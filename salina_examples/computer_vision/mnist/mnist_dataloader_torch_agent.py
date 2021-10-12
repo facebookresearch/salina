@@ -11,15 +11,16 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torch import nn
+from torch.utils.data import DataLoader
 from torchvision import datasets
 
-from salina import TAgent, Workspace
-from salina.agents import Agents, DataLoaderAgent, ShuffledDataLoaderAgent
+from salina import Agent, Workspace
+from salina.agents import Agents, DataLoaderAgent, ShuffledDatasetAgent
 from salina.logger import TFLogger
 
 
-class ConvNetAgent(TAgent):
-    def __init__(self, input, output):
+class ConvNetAgent(Agent):
+    def __init__(self, input="x", output="py"):
         super().__init__()
         self.input = input
         self.output = output
@@ -38,33 +39,34 @@ class ConvNetAgent(TAgent):
             nn.Linear(128, 10),
         )
 
-    def forward(self, t, **args):
+    def forward(self, t=0, **args):
         logits = self.net(self.get((self.input, t)))
         self.set((self.output, t), logits)
 
 
-def test(agent, workspace):
-    agent.eval()
+def test(dataloader_agent, model_agent):
+    model_agent.eval()
     test_loss, correct = 0, 0
     n = 0
+    dataloader_agent.reset()
+
     with torch.no_grad():
         while True:
-            workspace = agent(workspace, t=0)
-            mask = workspace.get("x/mask", 0)
-            if mask.any():
-                n += mask.float().sum().item()
-                y = workspace.get("y", 0)
-                pred = workspace.get("pred", 0)
-                loss = F.cross_entropy(pred, y, reduction="none")
-                loss = (loss * mask.float()).sum().item()
-                test_loss += loss
-                correct += pred.argmax(1).eq(y).float().sum().item()
-            else:
+            workspace = Workspace()
+            dataloader_agent(workspace)
+            if dataloader_agent.finished():
                 break
+            model_agent(workspace)
+            y = workspace.get("y", 0)
+            n += y.size()[0]
+            pred = workspace.get("py", 0)
+            loss = F.cross_entropy(pred, y, reduction="none")
+            loss = loss.sum()
+            test_loss += loss
+            correct += pred.argmax(1).eq(y).float().sum().item()
     test_loss /= n
     correct /= n
     return test_loss, correct
-    # print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
 
 def main():
@@ -136,38 +138,50 @@ def main():
     )
     test_dataset = datasets.MNIST(args.data_dir, train=False, transform=transform)
 
-    train_dataloader = ShuffledDataLoaderAgent(train_dataset, output=("x", "y"))
-    test_dataloader = DataLoaderAgent(test_dataset, output=("x", "y"))
+    train_agent = ShuffledDatasetAgent(
+        train_dataset, batch_size=args.batch_size, output_names=("x", "y")
+    )
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=args.test_batch_size,
+        shuffle=False,
+        num_workers=4,
+        persistent_workers=True,
+    )
+    test_agent = DataLoaderAgent(test_dataloader, output_names=("x", "y"))
+    agent = ConvNetAgent()
+    train_agent = Agents(train_agent, agent)
+    train_agent.seed(0)
+    test_agent.seed(1)
+
     logger = TFLogger(
         log_dir=args.log_dir,
         hps={k: v for k, v in args.__dict__.items()},
-        cache_size=10000,
+        every_n_seconds=10,
         verbose=not args.no_verbose,
     )
 
-    agent = ConvNetAgent(input="x", output="pred")
-    train_agent = Agents(train_dataloader, agent)
-    test_agent = Agents(test_dataloader, agent)
-    train_agent.seed(0)
-    test_agent.seed(1)
     optimizer = torch.optim.Adam(train_agent.parameters(), lr=args.lr)
 
     train_agent.to(device)
     test_agent.to(device)
 
-    train_workspace = Workspace(batch_size=args.batch_size, time_size=1).to(device)
-    test_workspace = Workspace(batch_size=args.test_batch_size, time_size=1).to(device)
+    train_workspace = Workspace()
 
     iteration = 0
     avg_loss = None
     for epoch in range(args.max_epochs):
         print(f"-- Training, Epoch {epoch+1}")
 
+        loss, accuracy = test(test_agent, agent)
+        logger.add_scalar("test/loss", loss.item(), epoch)
+        logger.add_scalar("test/accuracy", accuracy, epoch)
+
         agent.train()
         for k in range(int(len(train_dataset) / args.batch_size)):
-            train_workspace = train_agent(train_workspace, t=0)
+            train_agent(train_workspace)
             y = train_workspace.get("y", 0)
-            pred = train_workspace.get("pred", 0)
+            pred = train_workspace.get("py", 0)
             loss = F.cross_entropy(pred, y, reduction="none")
             loss = loss.mean()
 
@@ -177,10 +191,6 @@ def main():
             loss.backward()
             optimizer.step()
             iteration += 1
-
-        loss, accuracy = test(test_agent, test_workspace)
-        logger.add_scalar("test/loss", loss, epoch)
-        logger.add_scalar("test/accuracy", accuracy, epoch)
 
     print("Done!")
 

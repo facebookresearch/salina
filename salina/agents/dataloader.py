@@ -9,30 +9,31 @@ import torch
 from gym.utils import seeding
 from torch.utils.data import DataLoader
 
-from salina import TAgent
+from salina import Agent
 
 
-class ShuffledDataLoaderAgent(TAgent):
+class ShuffledDatasetAgent(Agent):
     """An agent that read a dataset in a shuffle order, in an infinte way."""
 
     def __init__(
         self,
         dataset,
-        output_names,
         batch_size,
+        output_names=("x", "y"),
     ):
         super().__init__()
         self.output_names = output_names
         self.dataset = dataset
         self.batch_size = batch_size
+        self.ghost_params = torch.nn.Parameter(torch.randn(()))
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def forward(self, t, **args):
+    def forward(self, **args):
         vs = []
-        for k in range(self.workspace.batch_size()):
+        for k in range(self.batch_size):
             idx = self.np_random.randint(len(self.dataset))
             x = self.dataset[idx]
             xs = []
@@ -49,11 +50,11 @@ class ShuffledDataLoaderAgent(TAgent):
             val = torch.cat(val, dim=0)
             vals.append(val)
 
-        for name, value in zip(self.output, vals):
-            self.set((name, t), value, use_workspace_device=True)
+        for name, value in zip(self.output_names, vals):
+            self.set((name, 0), value.to(self.ghost_params.device))
 
 
-class DataLoaderAgent(TAgent):
+class DataLoaderAgent(Agent):
     """An agent based on a DataLoader that read a single dataset
     It also output mask value to tell if finished
 
@@ -61,58 +62,27 @@ class DataLoaderAgent(TAgent):
         TAgent ([type]): [description]
     """
 
-    def __init__(self, dataset, output, **args):
+    def __init__(self, dataloader, output_names=("x", "y")):
         super().__init__()
-        self.output = output
-        self.args = args
-        self.iter = None
-        self.dataloader = None
-        self.dataset = dataset
-        self.batch_size = None
+        self.dataloader = dataloader
+        self.iter = iter(self.dataloader)
+        self.output_names = output_names
+        self._finished = False
+        self.ghost_params = torch.nn.Parameter(torch.randn(()))
 
-    def forward(self, t, **args):
+    def reset(self):
+        self.iter = iter(self.dataloader)
+        self._finished = False
 
-        if self.dataloader is None:
-            print(
-                "[DataLoaderAgent] Creating dataloader with batch size = ",
-                self.workspace.batch_size(),
-            )
-            self.batch_size = self.workspace.batch_size()
-            self.dataloader = DataLoader(
-                self.dataset, batch_size=self.batch_size, **self.args
-            )
+    def finished(self):
+        return self._finished
 
-        assert (
-            self.batch_size == self.workspace.batch_size()
-        ), "[DataLoaderAgent] Batch size cannot be changed."
-
-        if self.iter is None:
-            self.iter = iter(self.dataloader)
-
+    def forward(self, **args):
         try:
             output_values = next(self.iter)
         except StopIteration:
             self.iter = None
-            mask = torch.zeros(self.batch_size, dtype=torch.bool)
+            self._finished = True
         else:
-            if len(output_values[0]) < self.batch_size:
-                mask = torch.zeros(self.batch_size, dtype=torch.bool)
-                mask[: len(output_values[0])] = True
-
-                for idx, value in enumerate(output_values):
-                    output_values[idx] = torch.cat(
-                        (
-                            value,
-                            torch.zeros(
-                                (self.batch_size - value.shape[0], *value.shape[1:]),
-                                dtype=value.dtype,
-                            ),
-                        )
-                    )
-            else:
-                mask = torch.ones(self.batch_size, dtype=torch.bool)
-
-            for name, value in zip(self.output, output_values):
-                self.set((name, t), value, use_workspace_device=True)
-
-        self.set((self.output[0] + "/mask", t), mask, use_workspace_device=True)
+            for name, value in zip(self.output_names, output_values):
+                self.set((name, 0), value.to(self.ghost_params.device))
