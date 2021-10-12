@@ -36,116 +36,12 @@ def _index(tensor_3d, tensor_2d):
     return v
 
 
-class PAgent(Agent):
-    def __init__(self):
-        super().__init__()
-        self.model = nn.Sequential(nn.Linear(4, 32), nn.Tanh(), nn.Linear(32, 2))
-
-    def forward(self, t, **args):
-        observation = self.get(("env/env_obs", t))
-        scores = self.model(observation)
-        probs = torch.softmax(scores, dim=-1)
-        self.set(("probs", t), probs)
-
-
-class ActionAgent(Agent):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, t, stochastic, **args):
-        probs = self.get(("probs", t))
-        if stochastic:
-            action = torch.distributions.Categorical(probs).sample()
-            self.set(("action", t), action)
-        else:
-            action = probs.max(1)[1]
-            self.set(("action", t), action)
-
-
-class CriticAgent(Agent):
-    def __init__(self):
-        super().__init__()
-        self.model = nn.Sequential(nn.Linear(4, 32), nn.Tanh(), nn.Linear(32, 1))
-
-    def forward(self, t, **args):
-        observation = self.get(("env/env_obs", t))
-        critic = self.model(observation).squeeze(-1)
-        self.set(("critic", t), critic)
-
-
 def make_env(max_episode_steps):
     return TimeLimit(gym.make("CartPole-v0"), max_episode_steps=max_episode_steps)
 
 
 def run_a2c(cfg):
-
-    # Read: "action" at time t-1
-    # Write: "env/env_obs","env/reward","env/done","env/initial_state","env/timestep","env/cumulated_reward"
-    env_agent = AutoResetGymAgent(make_env, {"max_episode_steps": 100}, n_envs=4)
-
-    pagent = PAgent()
-    action_agent = ActionAgent()
-    critic_agent = CriticAgent()
-    tcritic_agent = TemporalAgent(critic_agent)
-    acquisition_agent = Agents(env_agent, pagent, action_agent)
-    acquisition_agent = TemporalAgent(acquisition_agent)
-    acquisition_agent.seed(0)
-
-    optimizer_prob_agent = torch.optim.Adam(pagent.parameters(), lr=cfg.lr)
-    optimizer_critic_agent = torch.optim.Adam(critic_agent.parameters(), lr=cfg.lr)
-    workspace = Workspace()
-
-    for epoch in range(cfg.max_epochs):
-        # 1: Get a new trajectory
-        if epoch == 0:
-            acquisition_agent(workspace, t=0, n_steps=cfg.n_timesteps, stochastic=True)
-        else:
-            workspace.copy_n_last_steps(1)
-            workspace.zero_grad()
-            acquisition_agent(
-                workspace, t=1, n_steps=cfg.n_timesteps - 1, stochastic=True
-            )
-
-        # Print the reward
-        done = workspace["env/done"]
-        cumulated_reward = workspace["env/cumulated_reward"]
-        cr = cumulated_reward[done]
-        if cr.size()[0]:
-            print("Reward : ", cr.mean().item())
-
-        # 1bis: Computing critic over the trajectories
-        tcritic_agent(workspace, t=0, n_steps=cfg.n_timesteps)
-
-        # 2: Compute the loss
-        entropy_loss = (
-            torch.distributions.Categorical(workspace["probs"]).entropy().mean()
-        )
-
-        critic = workspace["critic"]
-        done = workspace["env/done"].float()
-        reward = workspace["env/reward"]
-        td = (
-            cfg.discount_factor * critic[1:] * (1.0 - done[1:]) + reward[1:]
-        ) - critic[:-1]
-        critic_loss = (td ** 2).mean()
-
-        paction = _index(workspace["probs"], workspace["action"])
-        lpaction = paction.log()
-        a2c_loss = lpaction[:-1] * td.detach()
-        a2c_loss = a2c_loss.mean()
-
-        loss = (
-            -cfg.a2c_coef * a2c_loss
-            - cfg.entropy_coef * entropy_loss
-            + cfg.critic_coef * critic_loss
-        )
-        # print("Losses: ",a2c_loss,entropy_loss,critic_loss)
-
-        optimizer_prob_agent.zero_grad()
-        optimizer_critic_agent.zero_grad()
-        loss.backward()
-        optimizer_prob_agent.step()
-        optimizer_critic_agent.step()
+    pass
 
 
 @hydra.main(config_path=".", config_name="main.yaml")
