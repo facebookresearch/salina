@@ -4,6 +4,7 @@ We benchmarked PPO on several complex continuous control tasks coming from Brax 
 
 ## Results
 
+![alt text](results/halfcheetah_results.png)
 
 
 ## Running experiments
