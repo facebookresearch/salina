@@ -1,4 +1,9 @@
-# PPO benchmark on brax environments 
+# PPO benchmark on brax environments (in progress)
+
+We benchmarked PPO on several complex continuous control tasks coming from Brax suit (https://github.com/google/brax). We provide in this section results and hyperparameters to reproduce the experiments in GPU (both acquisition and loss computation).
+
+## Results
+
 
 
 ## Running experiments
