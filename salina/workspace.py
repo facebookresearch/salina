@@ -338,10 +338,29 @@ class Workspace:
             workspace.variables[k] = v
         return workspace
 
+    def select_batch_n(self, n):
+        who = torch.randint(low=0, high=self.batch_size(), size=(n,))
+        return self.select_batch(who)
+
     def copy_time(self, from_time, to_time, n_steps, var_names=None):
         for k, v in self.variables.items():
             if var_names is None or k in var_names:
                 v.copy_time(from_time, to_time, n_steps)
+
+    def cat_batch(self, workspaces):
+        # Concatenate workspaces among the batch_dimension
+        ts = None
+        for w in workspaces:
+            if ts is None:
+                ts = w.time_size()
+            assert ts == w.time_size(), "Workspaces must have the same time_size"
+
+        workspace = Workspace()
+        for k in workspaces[0].keys():
+            vals = [w[k] for w in workspaces]
+            v = torch.cat(vals, dim=1)
+            workspace.set_full(v)
+        return workspace
 
     def copy_n_last_steps(self, n, var_names=None):
         _ts = None
@@ -365,14 +384,20 @@ class Workspace:
             workspace.variables[k] = v.to(device)
         return workspace
 
-    def _convert_to_shared_workspace(self, n_repeat=1):
-        workspace = Workspace()
-        for k, v in self.variables.items():
-            value = v.get_full(None).detach()
-            ts = [value for t in range(n_repeat)]
-            value = torch.cat(ts, dim=1)
-            workspace.variables[k] = CompactSharedTensor(value)
-            workspace.is_shared = True
+    def _convert_to_shared_workspace(self, n_repeat=1, time_size=None):
+        # n_repeat: number of repetitions over the batch dimension
+        # time_size: if not None, use it as a time_size for all variables
+        with torch.no_grad():
+            workspace = Workspace()
+            for k, v in self.variables.items():
+                value = v.get_full(None).detach()
+                if not time_size is None:
+                    s = value.size()
+                    value = value.resize(time_size, *s[1:])
+                ts = [value for t in range(n_repeat)]
+                value = torch.cat(ts, dim=1)
+                workspace.variables[k] = CompactSharedTensor(value)
+                workspace.is_shared = True
         return workspace
 
     def subtime(self, from_t, to_t):

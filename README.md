@@ -16,6 +16,8 @@
 * [Examples and Algorithms](salina_examples/)
 * [Tutorial through multiple A2C implementations](salina_examples/rl/a2c)
 * [Reinforcement Learning Benchmark](salina_examples/rl/BENCHMARK.md)
+* Video Tutorials:
+
 
 **For development, set up [pre-commit](https://pre-commit.com) hooks:**
 
@@ -77,10 +79,12 @@ Alfredo de la Fuente, Ludovic Denoyer, Song Duong, Jean-Baptiste Gaya, Daniel H.
 
 Please use this bibtex if you want to cite this repository in your publications:
 
+Link to the paper: [SaLinA: Sequential Learning of Agents](salina_examples/rl/BENCHMARK.md)
+
 ```
     @misc{salina,
-        author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Daniel H. Thompson},
-        title = {SaLinA - A Flexible and Simple Library for Learning Sequential Agents},
+        author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Pierre-Alexandre Kamienny, Daniel H. Thompson},
+        title = {SaLinA: Sequential Learning of Agents},
         year = {2021},
         publisher = {Arxiv},
         howpublished = {\url{https://gitHub.com/facebookresearch/salina}},

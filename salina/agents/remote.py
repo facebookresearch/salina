@@ -131,7 +131,6 @@ class RemoteAgent(Agent):
         del self.o_queue
         self.process = None
 
-
     def __del__(self):
         self.close()
 
@@ -152,13 +151,15 @@ class NRemoteAgent(Agent):
             r = r + a.get_by_name(name)
         return r
 
-    def create(agent, num_processes=0, **extra_args):
+    def create(agent, num_processes=0, time_size=None, **extra_args):
         agent.seed(0)
         if num_processes == 0:
             workspace = Workspace()
             _agent = copy.deepcopy(agent)
             agent(workspace, **extra_args)
-            shared_workspace = workspace._convert_to_shared_workspace(n_repeat=1)
+            shared_workspace = workspace._convert_to_shared_workspace(
+                n_repeat=1, time_size=time_size
+            )
             return _agent, shared_workspace
 
         workspace = Workspace()
