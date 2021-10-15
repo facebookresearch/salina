@@ -1,0 +1,54 @@
+# Use with a2c/complete/a2c.py
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./a2c_mlp
+  every_n_seconds: 5
+  modulo: 10
+  verbose: True
+
+a2c_agent:
+  classname: salina_examples.rl.a2c.complete.agents.A2CMLPAgent
+  hidden_size: 32
+  n_layers: 2
+  env: ${env}
+
+algorithm:
+  env_seed: 432
+  n_envs: 16
+  n_processes: 4
+  n_timesteps: 16
+  overlapping_timesteps: 1
+  burning_timesteps: 0
+  max_epochs: 10000
+  discount_factor: 0.95
+  entropy_coef: 0.001
+  critic_coef: 1.0
+  a2c_coef: 0.1
+  gae: 0.3
+
+  device: cpu
+
+  env: ${env}
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.01
+
+hydra:
+  launcher:
+    nodes: 1
+    mem_gb: 64
+    max_num_timeout: 0
+    cpus_per_task: ${plus:${n_processes},1}
+    gpus_per_node: ${n_gpus:${device}}
+    signal_delay_s: 30
+    timeout_min: 180
+    tasks_per_node: 1
+    partition: learnfair
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - hydra/launcher: submitit_slurm
+  - env: gym_cartpole

@@ -1,0 +1,47 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
+#=====PONG DQN
+
+OMP_NUM_THREADS=1 PYTHONPATH=nsalina python nsalina/salina_examples/rl/dqn/double_dqn/dqn.py -cd nsalina/salina_examples/rl/rl_benchmark -cn dqn_atari \
+--multirun \
+algorithm.n_envs=1,4,8 \
+algorithm.n_processes=1 \
+algorithm.n_timesteps=2,3,10 \
+algorithm.batch_size=64,128 \
+algorithm.epsilon_start=1.0 \
+algorithm.epsilon_final=0.01 \
+algorithm.epsilon_exploration_decay=10000,30000 \
+algorithm.burning_timesteps=0 \
+algorithm.clip_grad=2 \
+algorithm.inner_epochs=2,5 \
+algorithm.discount_factor=0.99 \
+algorithm.hard_target_update=False \
+algorithm.update_target_epochs=1000 \
+algorithm.update_target_tau=0.005 \
+algorithm.loss_device=cuda:0 \
+algorithm.overlapping_timesteps=1 \
+algorithm.buffer_size=100000 \
+algorithm.initial_buffer_size=10000 \
+algorithm.buffer_time_size=2 \
+algorithm.optimizer.lr=0.0001 \
+hydra.launcher.timeout_min=360 \
+logger.verbose=False \
+env=gym_atari
+
+# ==== MUJOCO TD3
+
+OMP_NUM_THREADS=1 PYTHONPATH=nsalina python nsalina/salina_examples/rl/td3/td3.py -cd nsalina/salina_examples/rl/rl_benchmark -cn td3_mujoco \
+--multirun \
+env=gym_mujoco \
+env.env_name=HalfCheetah-v3,Hopper-v3,Walker2d-v3,Swimmer-v3,Ant-v3 \
+n_envs=1,2,4 \
+algorithm.n_timesteps=25,50,100 \
+algorithm.inner_epochs=25,100 \
+algorithm.batch_size=128 \
+logger.verbose=False \
+algorithm.loss_device=cuda:0

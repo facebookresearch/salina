@@ -1,0 +1,51 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./ddqn
+  modulo: 10
+  every_n_seconds: 10
+  verbose: True
+
+n_envs: 16
+env_name: CartPole-v0
+
+q_agent:
+  classname: salina_examples.rl.dqn.agents.DQNMLPAgent
+  hidden_size: 32
+  n_layers: 2
+  env:
+    classname: salina_examples.rl.dqn.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: 100
+
+algorithm:
+  env:
+    classname: salina_examples.rl.dqn.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: 100
+
+  env_seed: 432
+  batch_size: 64
+  max_epoch: 100000
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.001
+
+  epsilon_start: 1.0
+  epsilon_final: 0.1
+  epsilon_exploration_decay: 3000
+  burning_timesteps: 0
+  clip_grad: 2
+  inner_epochs: 1
+  discount_factor: 0.99
+  hard_target_update: False
+  update_target_epochs: 1000
+  update_target_tau: 0.005
+  loss_device: cpu
+  n_envs: ${n_envs}
+  n_processes: 4
+  n_timesteps: 2
+  overlapping_timesteps: 1
+  buffer_size: 100000
+  initial_buffer_size: 1000
+  buffer_time_size: 2

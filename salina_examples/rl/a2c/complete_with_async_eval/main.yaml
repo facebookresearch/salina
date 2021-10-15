@@ -1,0 +1,47 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./a2c
+  every_n_seconds: 5
+  modulo: 10
+  verbose: True
+
+a2c_agent:
+  classname: salina_examples.rl.a2c.complete.agents.A2CMLPAgent
+  hidden_size: 32
+  n_layers: 2
+  env:
+    classname: salina_examples.rl.a2c.complete.agents.make_gym_env
+    env_name: CartPole-v0
+    max_episode_steps: 100
+
+algorithm:
+  env_seed: 432
+  n_envs: 8
+  n_processes: 1
+  n_timesteps: 16
+  overlapping_timesteps: 1
+  burning_timesteps: 0
+  max_epochs: 10000
+  discount_factor: 0.95
+  entropy_coef: 0.001
+  critic_coef: 1.0
+  a2c_coef: 0.1
+  gae: 0.3
+
+  device: cpu
+
+  env:
+    classname: salina_examples.rl.a2c.complete.agents.make_gym_env
+    env_name: CartPole-v0
+    max_episode_steps: 100
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.01
+
+  evaluation:
+    message: "evaluation is needed if using the evaluation version of A2C"
+    env_seed: 23
+    n_envs: 32
+    n_processes: 1
+    n_timesteps: 1000

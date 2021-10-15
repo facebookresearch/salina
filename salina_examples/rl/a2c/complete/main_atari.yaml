@@ -1,0 +1,41 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./a2c
+  cache_size: 10000
+  modulo: 100
+  verbose: False
+
+env_name: PongNoFrameskip-v4
+n_envs: 4
+
+a2c_agent:
+  classname: salina_examples.rl.a2c.complete.agents.A2CAtariAgent
+  hidden_size: 32
+  env:
+    classname: salina_examples.rl.a2c.complete.agents.make_atari_env
+    env_name: ${env_name}
+    max_episode_steps: 100000
+
+algorithm:
+  env_seed: 432
+  n_envs: ${n_envs}
+  n_processes: ${n_envs}
+  n_timesteps: 16
+  overlapping_timesteps: 1
+  burning_timesteps: 0
+  max_epochs: 10000
+  discount_factor: 0.99
+  entropy_coef: 0.001
+  critic_coef: 1.0
+  a2c_coef: 0.1
+  gae: 0.3
+  device: cpu
+
+  env:
+    classname: salina_examples.rl.a2c.complete.agents.make_atari_env
+    env_name: ${env_name}
+    max_episode_steps: 100000
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.01

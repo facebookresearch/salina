@@ -1,0 +1,62 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./dqn_mlp
+  modulo: 100
+  every_n_seconds: 60
+  verbose: True
+
+
+q_agent:
+  classname: salina_examples.rl.dqn.agents.DQNMLPAgent
+  n_layers: 2
+  hidden_size: 32
+  env: ${env}
+
+algorithm:
+  env: ${env}
+
+  env_seed: 432
+  batch_size: 64
+  max_epoch: 100000
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.001
+
+  epsilon_start: 1.0
+  epsilon_final: 0.1
+  epsilon_exploration_decay: 3000
+  burning_timesteps: 0
+  clip_grad: 2
+  inner_epochs: 1
+  discount_factor: 0.99
+  hard_target_update: False
+  update_target_epochs: 1000
+  update_target_tau: 0.005
+  loss_device: cpu
+  n_envs: 16
+  n_processes: 4
+  n_timesteps: 2
+  overlapping_timesteps: 1
+  buffer_size: 10000
+  initial_buffer_size: 1000
+  buffer_time_size: 2
+
+hydra:
+  launcher:
+    nodes: 1
+    mem_gb: 64
+    max_num_timeout: 0
+    cpus_per_task: ${plus:${n_processes},1}
+    gpus_per_node: ${n_gpus:${loss_device}}
+    signal_delay_s: 30
+    timeout_min: 180
+    tasks_per_node: 1
+    partition: learnfair
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - hydra/launcher: submitit_slurm
+  - env: gym_cartpole

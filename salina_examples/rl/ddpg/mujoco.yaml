@@ -1,0 +1,63 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./ddpg
+  modulo: 100
+  cache_size: 10000
+  verbose: True
+
+n_envs: 1
+env_name: HalfCheetah-v3
+
+q_agent:
+  classname: salina_examples.rl.ddpg.agents.QMLPAgent
+  hidden_size: 256
+  n_layers: 2
+  env:
+    classname: salina_examples.rl.ddpg.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: 1000
+
+action_agent:
+  classname: salina_examples.rl.ddpg.agents.ActionMLPAgent
+  hidden_size: 256
+  n_layers: 2
+  env:
+    classname: salina_examples.rl.ddpg.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: 1000
+
+algorithm:
+  env:
+    classname: salina_examples.rl.ddpg.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: 1000
+
+  env_seed: 432
+  batch_size: 128
+  max_epoch: 10000
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.0001
+
+  action_noise: 0.1
+  burning_timesteps: 0
+  clip_grad: 2
+  inner_epochs: 50
+  discount_factor: 0.995
+  update_target_tau: 0.005
+  loss_device: cpu
+
+  n_envs: ${n_envs}
+  n_processes: 1
+  n_timesteps: 50
+  overlapping_timesteps: 1
+  buffer_time_size: 2
+  buffer_size: 100000
+  initial_buffer_size: 10000
+
+  evaluation:
+    env_seed: 23
+    n_envs: 16
+    n_processes: 4
+    n_timesteps: 100

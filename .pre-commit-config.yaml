@@ -1,0 +1,15 @@
+repos:
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.9.1
+    hooks:
+    -   id: isort
+        args: ["--profile", "black", "--filter-files"]
+-   repo: https://github.com/psf/black
+    rev: 21.6b0
+    hooks:
+    -   id: black
+-   repo: https://github.com/asottile/blacken-docs
+    rev: v1.10.0
+    hooks:
+    -   id: blacken-docs
+        additional_dependencies: [black==21.6b0]

@@ -1,0 +1,64 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: brax
+  modulo: 100
+  every_n_seconds: 10
+  verbose: True
+
+n_envs: 32
+env_name: halfcheetah
+n_timesteps: 2
+
+q_agent:
+  classname: salina_examples.rl.td3.agents.QMLPAgent
+  hidden_size: 256
+  n_layers: 2
+  env:
+    classname: brax.envs.create_gym_env
+    env_name: ${env_name}
+
+action_agent:
+  classname: salina_examples.rl.td3.agents.ActionMLPAgent
+  hidden_size: 256
+  n_layers: 2
+  env:
+    classname: brax.envs.create_gym_env
+    env_name: ${env_name}
+
+algorithm:
+  brax_env:
+    env_name: ${env_name}
+    episode_length: 1000
+
+  env_seed: 432
+  batch_size: 128
+  max_epoch: 10000000
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.001
+
+  target_noise: 0.2
+  action_noise: 0.1
+  noise_clip: 0.5
+  policy_delay: 2
+  burning_timesteps: 0
+  clip_grad: 2
+  inner_epochs: 1
+  discount_factor: 0.995
+  update_target_tau: 0.005
+  loss_device: cpu
+
+  n_envs: ${n_envs}
+  n_timesteps: ${n_timesteps}
+  overlapping_timesteps: 1
+  buffer_time_size: 2
+  buffer_size: 1000000
+  initial_buffer_size: 10000
+  reward_scaling: 10.0
+
+  evaluation:
+    evaluate_every: 100
+    n_envs: 1
+    n_timesteps: 1001
+    env_seed: 46

@@ -1,0 +1,50 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./ddqn
+  modulo: 100
+  cache_size: 10000
+  verbose: False
+
+n_envs: 1
+n_processes: 1
+env_name: PongNoFrameskip-v4
+
+q_agent:
+  classname: salina_examples.rl.dqn.agents.DQNAtariAgent
+  env:
+    classname: salina_examples.rl.dqn.agents.make_atari_env
+    env_name: ${env_name}
+    max_episode_steps: 100000
+
+algorithm:
+  env:
+    classname: salina_examples.rl.dqn.agents.make_atari_env
+    env_name: ${env_name}
+    max_episode_steps: 100000
+
+  env_seed: 432
+  batch_size: 64
+  max_epoch: 100000
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.0001
+
+  epsilon_start: 1.0
+  epsilon_final: 0.01
+  epsilon_exploration_decay: 30000
+  burning_timesteps: 0
+  clip_grad: 2
+  inner_epochs: 1
+  discount_factor: 0.99
+  hard_target_update: True
+  update_target_epochs: 1000
+  update_target_tau: 0.005
+  loss_device: cpu
+  n_envs: ${n_envs}
+  n_processes: ${n_processes}
+  n_timesteps: 2
+  overlapping_timesteps: 1
+  buffer_size: 100000
+  initial_buffer_size: 10000
+  buffer_time_size: 2

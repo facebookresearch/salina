@@ -1,0 +1,3 @@
+classname: salina_examples.rl.rl_benchmark.tools.make_gym_env
+env_name: CartPole-v0
+max_episode_steps: 100

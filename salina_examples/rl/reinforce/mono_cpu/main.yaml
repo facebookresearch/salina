@@ -1,0 +1,26 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./tmp
+  every_n_seconds: 10
+  modulo: 1
+  verbose: True
+
+algorithm:
+  env_seed: 432
+  n_envs: 8
+  max_epochs: 10000
+  discount_factor: 0.95
+  entropy_coef: 0.001
+  baseline_coef: 1.0
+  reinforce_coef: 0.1
+
+  architecture:
+    hidden_size: 32
+
+  env:
+    classname: salina_examples.rl.reinforce.mono_cpu.main.make_cartpole
+    max_episode_steps: 100
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.01
