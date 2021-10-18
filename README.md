@@ -75,11 +75,6 @@ We provide a simple Logger that logs in both tensorboard format, but also as pic
 * Yet another reinforcement learning framework: `salina` is focused on **sequential decision making in general**. It can be used for RL (which is our main current use-case), but also for supervised learning, attention models, multi-agent learning, planning, control, cascade models, recommender systems,...
 * A `library`: salina is just a small layer on top of pytorch that encourages good practices for implementing sequential models. It thus very simple to understand and to use, but very powerful.
 
-# Current Contributors (alphabetical order)
-
-Alfredo de la Fuente, Ludovic Denoyer, Song Duong, Jean-Baptiste Gaya, Daniel H. Thompson
-
-
 # Citing `salina`
 
 Please use this bibtex if you want to cite this repository in your publications:
