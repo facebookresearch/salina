@@ -68,7 +68,7 @@ We provide a simple Logger that logs in both tensorboard format, but also as pic
 *
  A set of **agents** that can be combined (like pytorch modules) to obtain complex behaviors
 
-* A set of references implementations and examples in different domains **Reinforcement learning**, **Imitation Learning**, **Computer Vision**, **Language Modelling**, ... (nore to come..)
+* A set of references implementations and examples in different domains **Reinforcement learning**, **Imitation Learning**, **Computer Vision**, ... (more to come..)
 
 ## What `salina` is not
 
