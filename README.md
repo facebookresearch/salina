@@ -21,6 +21,7 @@
 * * [Tutorial 2: Multi-CPUs](https://youtu.be/I-trJWUJDMo)
 * * [Tutorial 3: Implementing A2C](https://youtu.be/Mec8GEEQYhU)
 * * [Tutorial 4: A2C on multi-CPUs](https://youtu.be/euDqlmcC_1Q)
+* [Arxiv Paper](https://arxiv.org/abs/2110.07910)
 
 
 **For development, set up [pre-commit](https://pre-commit.com) hooks:**
@@ -83,7 +84,7 @@ Alfredo de la Fuente, Ludovic Denoyer, Song Duong, Jean-Baptiste Gaya, Daniel H.
 
 Please use this bibtex if you want to cite this repository in your publications:
 
-Link to the paper: [SaLinA: Sequential Learning of Agents](salina_examples/rl/BENCHMARK.md)
+Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs/2110.07910)
 
 ```
     @misc{salina,
