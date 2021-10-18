@@ -409,6 +409,9 @@ class Workspace:
             workspace.variables[k] = v.subtime(from_t, to_t)
         return workspace
 
+    def remove_variable(self,var_name):
+        del(self.variables[var_name])
+
     def __str__(self):
         r = ["Workspace:"]
         for k, v in self.variables.items():
