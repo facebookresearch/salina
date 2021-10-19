@@ -168,7 +168,7 @@ class NRemoteAgent(Agent):
         b = workspace.batch_size()
         batch_dims = [(k * b, k * b + b) for k, a in enumerate(agents)]
         shared_workspace = workspace._convert_to_shared_workspace(
-            n_repeat=num_processes
+            n_repeat=num_processes, time_size=time_size
         )
         agents = [RemoteAgent(a) for a in agents]
         return NRemoteAgent(agents, batch_dims), shared_workspace
