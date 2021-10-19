@@ -268,6 +268,7 @@ class Workspace:
             self.variables[var_name] = SlicedTemporalTensor()
         elif isinstance(self.variables[var_name], CompactTemporalTensor):
             self.variables[var_name] = self.variables[var_name].to_sliced()
+
         self.variables[var_name].set(t, v, batch_dims=batch_dims)
 
     def get(self, var_name, t, batch_dims=None):
@@ -393,7 +394,7 @@ class Workspace:
                 value = v.get_full(None).detach()
                 if not time_size is None:
                     s = value.size()
-                    value = value.resize(time_size, *s[1:])
+                    value=torch.zeros(time_size,*s[1:],dtype=value.dtype,device=value.device)
                 ts = [value for t in range(n_repeat)]
                 value = torch.cat(ts, dim=1)
                 workspace.variables[k] = CompactSharedTensor(value)

@@ -15,6 +15,7 @@ def _format_frame(frame):
     if isinstance(frame, dict):
         r = {}
         for k in frame:
+            print("Process ",k,frame[k].dtype)
             r[k] = _format_frame(frame[k])
         return r
     elif isinstance(frame, list):
@@ -47,6 +48,15 @@ def _format_frame(frame):
             return o
         except:
             assert False
+
+def _torch_type(d):
+    nd={}
+    for k in d:
+        if d[k].dtype==torch.float64:
+            nd[k]=d[k].float()
+        else:
+            nd[k]=d[k]
+    return nd
 
 
 def _torch_cat_dict(d):
@@ -117,7 +127,7 @@ class GymAgent(TAgent):
             "timestep": timestep,
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
         }
-        return ret
+        return _torch_type(ret)
 
     def _step(self, k, action, save_render):
         if self.finished[k]:
@@ -162,7 +172,7 @@ class GymAgent(TAgent):
             "timestep": torch.tensor([self.timestep[k]]),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
         }
-        return ret
+        return _torch_type(ret)
 
     def forward(self, t=0, save_render=False, **args):
         if self.envs is None:
@@ -264,7 +274,7 @@ class AutoResetGymAgent(TAgent):
             "timestep": timestep,
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
         }
-        return ret
+        return _torch_type(ret)
 
     def _step(self, k, action, save_render):
         self.timestep[k] += 1
@@ -296,7 +306,7 @@ class AutoResetGymAgent(TAgent):
             "timestep": torch.tensor([self.timestep[k]]),
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
         }
-        return ret
+        return _torch_type(ret)
 
     def forward(self, t=0, save_render=False, **args):
         if self.envs is None:
