@@ -107,12 +107,12 @@ class RemoteAgent(Agent):
     def train(self):
         self.i_queue.put(("train_mode"))
         a=self.o_queue.get()
-        assert =="ok"
+        assert a=="ok"
 
     def eval(self):
         self.i_queue.put(("eval_mode"))
         a=self.o_queue.get()
-        assert =="ok"
+        assert a=="ok"
 
 
     def seed(self, _seed):

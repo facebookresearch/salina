@@ -1,30 +1,26 @@
 
 env:
-  classname: salina_examples.rl.ppo_brax.agents.make_brax_env
   env_name: halfcheetah
-  max_episode_steps: 100
 
 device: cuda:0
 
 logger:
   classname: salina.logger.TFLogger
-  logdir: ./experiments/halfcheetah
-  cache_size: 10000
+  log_dir: ./experiments/halfcheetah
+  every_n_seconds: 10
   modulo: 1
   verbose: False
 
-policy_agent:
+action_agent:
   classname: salina_examples.rl.ppo_brax.agents.ActionAgent
   hidden_size: 64
   n_layers: 4
-  use_obs_normalization: True
   env: ${env}
 
 critic_agent:
   classname: salina_examples.rl.ppo_brax.agents.CriticAgent
   hidden_size: 256
   n_layers: 5
-  use_obs_normalization: True
   env: ${env}
 
 algorithm:
@@ -32,11 +28,11 @@ algorithm:
   n_timesteps: 20
   n_envs: 1024
   env: ${env}
+  use_observation_normalizer: True
 
   clip_grad: 100
   update_epochs: 16
   minibatch_size: 512
-  time_limit: 10000000
   max_epochs: 5001
   discount_factor: 0.99
   clip_ratio: 0.2
