@@ -126,6 +126,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
             all_actions_lp=workspace["action_logprobs"].detach()
 
             for minibatch_idx in minibatches_idx:
+                workspace.zero_grad()
                 miniworkspace = workspace.select_batch(minibatch_idx)
 
                 # === Update policy
