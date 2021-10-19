@@ -35,6 +35,12 @@ def f(agent, in_queue, out_queue, seed):
         elif command[0] == "exit":
             out_queue.put("ok")
             return
+        elif command[0] == "eval_mode":
+            agent.eval()
+            out_queue.put("ok")
+        elif command[0] == "train_mode":
+            agent.train()
+            out_queue.put("ok")
 
 
 class RemoteAgent(Agent):
@@ -97,6 +103,17 @@ class RemoteAgent(Agent):
                 self.last_workspace = workspace
             else:
                 self.i_queue.put(("go_reuse_workspace", workspace, args))
+
+    def train(self):
+        self.i_queue.put(("train_mode"))
+        a=self.o_queue.get()
+        assert =="ok"
+
+    def eval(self):
+        self.i_queue.put(("eval_mode"))
+        a=self.o_queue.get()
+        assert =="ok"
+
 
     def seed(self, _seed):
         self._seed = _seed
@@ -199,3 +216,11 @@ class NRemoteAgent(Agent):
             if a.is_running():
                 return True
         return False
+
+    def train(self):
+        for a in self.agents:
+            a.train()
+
+    def test(self):
+        for a in self.agents:
+            a.eval()

@@ -1,6 +1,11 @@
-env_name: halfcheetah
-env_maker: salina_examples.rl.ppo_brax.agents.make_brax_env
+
+env:
+  classname: salina_examples.rl.ppo_brax.agents.make_brax_env
+  env_name: halfcheetah
+  max_episode_steps: 100
+
 device: cuda:0
+
 logger:
   classname: salina.logger.TFLogger
   logdir: ./experiments/halfcheetah
@@ -8,46 +13,26 @@ logger:
   modulo: 1
   verbose: False
 
-acquisition:
-  seed: 432
-  n_timesteps: 20
-  env:
-    env_name: ${env_name}
-    n_envs: 1024
-    episode_length: 1000
-
-validation:
-  seed: 532
-  evaluate_every: 10
-  env:
-    env_name: ${env_name}
-    n_envs: 1
-    episode_length: 1000
-
 policy_agent:
   classname: salina_examples.rl.ppo_brax.agents.ActionAgent
   hidden_size: 64
   n_layers: 4
-  env:
-    classname: ${env_maker}
-    env_name: ${env_name}
+  use_obs_normalization: True
+  env: ${env}
 
 critic_agent:
   classname: salina_examples.rl.ppo_brax.agents.CriticAgent
   hidden_size: 256
   n_layers: 5
-  env:
-    classname: ${env_maker}
-    env_name: ${env_name}
-
-normalizer_agent:
-  classname: salina_examples.rl.ppo_brax.agents.Normalizer
-  device: ${device}
-  env:
-    classname: ${env_maker}
-    env_name: ${env_name}
+  use_obs_normalization: True
+  env: ${env}
 
 algorithm:
+  env_seed: 432
+  n_timesteps: 20
+  n_envs: 1024
+  env: ${env}
+
   clip_grad: 100
   update_epochs: 16
   minibatch_size: 512
@@ -60,7 +45,12 @@ algorithm:
   reward_scaling: 1
   lr_policy: 0.0003
   lr_critic: 0.0003
-  normalize_obs: True
+
+  validation:
+    env: ${env}
+    env_seed: 532
+    evaluate_every: 10
+    n_envs: 1
 
 
 hydra:
