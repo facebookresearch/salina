@@ -158,22 +158,19 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                     * gae
                 )
                 loss_policy = -(torch.min(ratio * gae, clip_adv)).mean()
-                optimizer_policy.zero_grad()
-                loss_policy.backward()
-                n = clip_grad(action_agent.parameters(), cfg.algorithm.clip_grad)
-                optimizer_policy.step()
-                logger.add_scalar("monitor/grad_norm_policy", n.item(), iteration)
-                logger.add_scalar("loss/policy", loss_policy.item(), iteration)
 
-                # === Update critic
                 td0 = RLF.temporal_difference(
                     critic, reward, done, cfg.algorithm.discount_factor
                 )
                 loss_critic = (td0 ** 2).mean()
                 optimizer_critic.zero_grad()
-                loss_critic.backward()
-                n = clip_grad(critic_agent.parameters(), cfg.algorithm.clip_grad)
+                optimizer_policy.zero_grad()
+                (loss_policy+loss_critic).backward()
+                n = clip_grad(action_agent.parameters(), cfg.algorithm.clip_grad)
+                optimizer_policy.step()
                 optimizer_critic.step()
+                logger.add_scalar("monitor/grad_norm_policy", n.item(), iteration)
+                logger.add_scalar("loss/policy", loss_policy.item(), iteration)
                 logger.add_scalar("loss/critic", loss_critic.item(), iteration)
                 logger.add_scalar("monitor/grad_norm_critic", n.item(), iteration)
                 iteration += 1
