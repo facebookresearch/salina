@@ -123,9 +123,9 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                 .to(cfg.device)
                 .split(cfg.algorithm.minibatch_size)
             )
+            all_actions_lp=workspace["action_logprobs"].detach()
 
             for minibatch_idx in minibatches_idx:
-                all_actions_lp=workspace["action_logprobs"].detach()
                 miniworkspace = workspace.select_batch(minibatch_idx)
 
                 # === Update policy
@@ -136,7 +136,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                     action_std=cfg.algorithm.action_std,
                 )
                 critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
-                old_action_lp = all_actions_lp[:,minibatch_idx]
+                old_action_lp = all_actions_lp[:,minibatch_idx].detach()
                 reward = reward * cfg.algorithm.reward_scaling
                 gae = RLF.gae(
                     critic,
