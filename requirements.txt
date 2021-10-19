@@ -3,4 +3,4 @@ torchvision
 gym
 tensorboard
 tqdm
-hydra
+hydra-core
