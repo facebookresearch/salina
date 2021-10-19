@@ -15,7 +15,6 @@ def _format_frame(frame):
     if isinstance(frame, dict):
         r = {}
         for k in frame:
-            print("Process ",k,frame[k].dtype)
             r[k] = _format_frame(frame[k])
         return r
     elif isinstance(frame, list):
