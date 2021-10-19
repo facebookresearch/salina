@@ -93,7 +93,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                 replay=False,
                 action_std=0.0,
             )
-            length=validation_workspace["env/done"].argmax(0)
+            length=validation_workspace["env/done"].float().argmax(0)
             creward = validation_workspace["env/cumulated_reward"][length].mean().item()
             logger.add_scalar("validation/reward", creward, epoch)
             print("reward at epoch", epoch, ":\t", round(creward, 0))
