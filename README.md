@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-`salina` is a lightweight library extending PyTorch modules for developping **sequential decision models**.  It can be used for **Reinforcement Learning** (including model-based with differentiable environments, multi-agent RL, ...), but also in a supervised/unsupervised learning settings (for instance for NLP, Computer Vision, etc..).
+`salina` is a lightweight library extending PyTorch modules for developping **sequential decision models**.  It can be used for **Reinforcement Learning** (including model-based with differentiable environments, multi-agent RL, etc...), but also in a supervised/unsupervised learning settings (for instance for NLP, Computer Vision, etc...).
 * It allows to write very complex sequential models (or policies) in few lines
 * It works on multiple CPUs and GPUs
 
@@ -36,20 +36,20 @@
 ## Organization of the repo
 
 * [salina](salina/) is the core library
-* * [salina.agents](salina/agents/) is the catalog of agents (the same than `torch.nn` but for agents)
+  * [salina.agents](salina/agents/) is the catalog of agents (the same as `torch.nn` but for agents)
 * [salina_examples](salina_examples/) provide many examples (in different domains)
 
 ## Dependencies
 
-`salina` is making use of `pytorch`, `hydra` for configuring experiments, and of `gym` for reinforcement learning algorithms.
+`salina` utilizes `pytorch`, `hydra` for configuring experiments, and `gym` for reinforcement learning algorithms.
 
-## Note on the Logger
+## Note on the logger
 
 We provide a simple Logger that logs in both tensorboard format, but also as pickle files that can be re-read to make tables and figures. See [logger](salina/logger.py). This logger can be easily replaced by any other logger.
 
 # Description
 
-**Sequential Decision Making is much more than Reinforcement learning**
+**Sequential Decision Making is much more than Reinforcement Learning**
 
 * Sequential Decision Making is about interactions:
  * Interaction with data (e.g attention-models, decision tree, cascade models, active sensing, active learning, recommendation, etc….)
@@ -64,16 +64,14 @@ We provide a simple Logger that logs in both tensorboard format, but also as pic
 * A sandbox for developping sequential models at scale.
 
 * A small (300 hundred lines) 'core' code that defines everything you will use to implement `agents` involved in sequential decision learning systems.
-* * It is easy to understand and to use since it keeps the main principles of pytorch, just extending `nn.Module` to `Agent` that handle tthe temporal dimension.
-*
- A set of **agents** that can be combined (like pytorch modules) to obtain complex behaviors
-
-* A set of references implementations and examples in different domains **Reinforcement learning**, **Imitation Learning**, **Computer Vision**, ... (more to come..)
+  * It is easy to understand and use since it keeps the main principles of pytorch, just extending `nn.Module` to `Agent` in order to handle the temporal dimension
+* A set of **agents** that can be combined (like pytorch modules) to obtain complex behaviors
+* A set of references implementations and examples in different domains **Reinforcement Learning**, **Imitation Learning**, **Computer Vision**, with more to come...
 
 ## What `salina` is not
 
-* Yet another reinforcement learning framework: `salina` is focused on **sequential decision making in general**. It can be used for RL (which is our main current use-case), but also for supervised learning, attention models, multi-agent learning, planning, control, cascade models, recommender systems,...
-* A `library`: salina is just a small layer on top of pytorch that encourages good practices for implementing sequential models. It thus very simple to understand and to use, but very powerful.
+* Yet another reinforcement learning framework: `salina` is focused on **sequential decision making in general**. It can be used for RL (which is our main current use-case), but also for supervised learning, attention models, multi-agent learning, planning, control, cascade models, recommender systems, among other use cases.
+* A `library`: salina is just a small layer on top of pytorch that encourages good practices for implementing sequential models. Accordingly, it is very simple to understand and use, while very powerful.
 
 # Citing `salina`
 
