@@ -36,13 +36,6 @@ class BatchNormalizer(Agent):
 
     def forward(self, t, update_normalizer=True, **args):
         assert self.training==self.bn.training
-        # if update_normalizer:
-        #     print("ici")
-        #     self.bn.train()
-        # else:
-        #     print("ici eval")
-        #     self.bn.eval()
-        print("-- ",self.training,self.bn.training)
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
 
