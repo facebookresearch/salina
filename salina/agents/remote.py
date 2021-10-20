@@ -50,6 +50,7 @@ class RemoteAgent(Agent):
         self._is_running = False
         self.process = None
         self.last_workspace = None
+        self.train_mode=True
 
     def get_by_name(self, n):
         if self._name == n:
@@ -80,6 +81,7 @@ class RemoteAgent(Agent):
             ), "You must use a shared workspace when using a Remote Agent"
             if self.process is None:
                 self._create_process()
+                self.train(self.train_mode)
             if not workspace == self.last_workspace:
                 self.i_queue.put(("go_new_workspace", workspace, args))
                 self.last_workspace = workspace
@@ -104,12 +106,21 @@ class RemoteAgent(Agent):
             else:
                 self.i_queue.put(("go_reuse_workspace", workspace, args))
 
-    def train(self):
-        self.i_queue.put(("train_mode"))
-        a=self.o_queue.get()
-        assert a=="ok"
+    def train(self,f=True):
+        self.train_mode=f
+        if self.process is None:
+            return
+        if f:
+            self.i_queue.put(("train_mode"))
+            a=self.o_queue.get()
+            assert a=="ok"
+        else:
+            self.eval()
 
     def eval(self):
+        self.train_mode=False
+        if self.process is None:
+            return
         self.i_queue.put(("eval_mode"))
         a=self.o_queue.get()
         assert a=="ok"
@@ -217,10 +228,10 @@ class NRemoteAgent(Agent):
                 return True
         return False
 
-    def train(self):
+    def train(self,f=True):
         for a in self.agents:
-            a.train()
+            a.train(f)
 
-    def test(self):
+    def eval(self):
         for a in self.agents:
             a.eval()
