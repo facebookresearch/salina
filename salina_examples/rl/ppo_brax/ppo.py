@@ -118,6 +118,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
         if epoch > 0:
             workspace.copy_n_last_steps(1)
         acquisition_agent.train()
+        print("===============================================")
         acquisition_agent(
             workspace,
             t=1 if epoch > 0 else 0,
