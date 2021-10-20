@@ -35,12 +35,12 @@ class BatchNormalizer(Agent):
         self.bn=nn.BatchNorm1d(input_size)
 
     def forward(self, t, update_normalizer=True, **args):
-        print(self.training)
+        print(self.training,self.bn.training)
         if update_normalizer:
             self.bn.train()
         else:
             self.bn.eval()
-        print("-- ",self.training)
+        print("-- ",self.training,self.bn.training)
         input = self.get(("env/env_obs", t))
         print("coucou ",input.size())
         self.set(("env/env_obs", t), self.bn(input))
