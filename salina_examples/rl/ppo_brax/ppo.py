@@ -28,11 +28,11 @@ def make_brax_env(
     return JaxToTorchWrapper(e)
 
 class BatchNormalizer(Agent):
-    def __init__(self, env):
+    def __init__(self, env,**args):
         super().__init__()
         env = make_brax_env(env.env_name)
         input_size = env.observation_space.shape[0]
-        self.bn=nn.BatchNorm1d(input_size)
+        self.bn=nn.BatchNorm1d(input_size,**args)
 
     def forward(self, t, update_normalizer=True, **args):
         assert self.training==self.bn.training
@@ -55,7 +55,7 @@ def clip_grad(parameters, grad):
 
 def run_ppo(action_agent, critic_agent, logger,cfg):
     if cfg.algorithm.use_observation_normalizer:
-        norm_agent=BatchNormalizer(cfg.algorithm.env)
+        norm_agent=BatchNormalizer(cfg.algorithm.env,momentum=None)
     else:
         norm_agent=NoAgent()
     env_acquisition_agent = BraxAgent(env_name=cfg.algorithm.env.env_name,n_envs=cfg.algorithm.n_envs)
@@ -111,7 +111,6 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
         if epoch > 0:
             workspace.copy_n_last_steps(1)
         acquisition_agent.train()
-        print("===============================================")
         acquisition_agent(
             workspace,
             t=1 if epoch > 0 else 0,
