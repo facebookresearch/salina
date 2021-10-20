@@ -27,6 +27,41 @@ def make_brax_env(
     e=create_gym_env(env_name)
     return JaxToTorchWrapper(e)
 
+class Normalizer(TAgent):
+    def __init__(self, env):
+        super().__init__()
+        env = make_brax_env(env.env_name)
+        n_features = env.observation_space.shape[0]
+
+    def forward(self, t, update_normalizer=False, **args):
+        input = self.get(("env/env_obs", t))
+        assert torch.isnan(input).sum() == 0.0, "problem"
+        if update_normalizer:
+            self.update(input)
+        input = self.normalize(input)
+        assert torch.isnan(input).sum() == 0.0, "problem"
+        self.set(("env/env_obs", t), input)
+
+    def update(self, x):
+        if self.n is None:
+            device=x.device
+            self.n = torch.zeros(n_features).to(device)
+            self.mean = torch.zeros(n_features).to(device)
+            self.mean_diff = torch.zeros(n_features).to(device)
+            self.var = torch.ones(n_features).to(device)
+        self.n += 1.0
+        last_mean = self.mean.clone()
+        self.mean += (x - self.mean).mean(dim=0) / self.n
+        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
+        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
+
+    def normalize(self, inputs):
+        obs_std = torch.sqrt(self.var)
+        return (inputs - self.mean) / obs_std
+
+    def seed(self, seed):
+        torch.manual_seed(seed)
+
 class BatchNormalizer(Agent):
     def __init__(self, env,**args):
         super().__init__()
@@ -55,7 +90,8 @@ def clip_grad(parameters, grad):
 
 def run_ppo(action_agent, critic_agent, logger,cfg):
     if cfg.algorithm.use_observation_normalizer:
-        norm_agent=BatchNormalizer(cfg.algorithm.env,momentum=None)
+        #norm_agent=BatchNormalizer(cfg.algorithm.env,momentum=None)
+        norm_agent=Normalizer(cfg.algorithm.env)
     else:
         norm_agent=NoAgent()
     env_acquisition_agent = BraxAgent(env_name=cfg.algorithm.env.env_name,n_envs=cfg.algorithm.n_envs)
