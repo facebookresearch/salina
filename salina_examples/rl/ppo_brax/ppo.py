@@ -42,7 +42,10 @@ class BatchNormalizer(Agent):
             self.bn.eval()
         print("-- ",self.training)
         input = self.get(("env/env_obs", t))
+        print("coucou ",input.size())
         self.set(("env/env_obs", t), self.bn(input))
+        print("la")
+
 
 class NoAgent(Agent):
     def __init__(self):
