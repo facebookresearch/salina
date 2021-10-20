@@ -31,7 +31,7 @@ class Normalizer(Agent):
     def __init__(self, env):
         super().__init__()
         env = make_brax_env(env.env_name)
-        n_features = env.observation_space.shape[0]
+        self.n_features = env.observation_space.shape[0]
         self.n=None
 
     def forward(self, t, update_normalizer=True, **args):
@@ -46,10 +46,10 @@ class Normalizer(Agent):
     def update(self, x):
         if self.n is None:
             device=x.device
-            self.n = torch.zeros(n_features).to(device)
-            self.mean = torch.zeros(n_features).to(device)
-            self.mean_diff = torch.zeros(n_features).to(device)
-            self.var = torch.ones(n_features).to(device)
+            self.n = torch.zeros(self.n_features).to(device)
+            self.mean = torch.zeros(self.n_features).to(device)
+            self.mean_diff = torch.zeros(self.n_features).to(device)
+            self.var = torch.ones(self.n_features).to(device)
         self.n += 1.0
         last_mean = self.mean.clone()
         self.mean += (x - self.mean).mean(dim=0) / self.n
