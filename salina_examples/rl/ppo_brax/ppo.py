@@ -38,16 +38,16 @@ class BatchNormalizer(Agent):
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
 
-    def eval(self):
-        print("eval")
-        super().eval()
+    # def eval(self):
+    #     print("eval")
+    #     super().eval()
 
-    def train(self,f=True):
-        print("train")
-        if f:
-            super().train()
-        else:
-            super().eval()
+    # def train(self,f=True):
+    #     print("train")
+    #     if f:
+    #         super().train()
+    #     else:
+    #         super().eval()
 
 class NoAgent(Agent):
     def __init__(self):
