@@ -94,7 +94,8 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                 action_std=0.0,
             )
             length=validation_workspace["env/done"].float().argmax(0)
-            creward = validation_workspace["env/cumulated_reward"][length].mean().item()
+            arange=torch.arange(length.size()[1],device=length.device)]
+            creward = validation_workspace["env/cumulated_reward"][length,arange].mean().item()
             logger.add_scalar("validation/reward", creward, epoch)
             print("reward at epoch", epoch, ":\t", round(creward, 0))
             validation_agent.train()
