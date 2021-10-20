@@ -38,6 +38,13 @@ class BatchNormalizer(Agent):
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
 
+
+class NoAgent(Agent):
+    def __init__(self):
+        super.__init__()
+
+    def forward(self,**args):
+        pass
 def clip_grad(parameters, grad):
     return (
         torch.nn.utils.clip_grad_norm_(parameters, grad)

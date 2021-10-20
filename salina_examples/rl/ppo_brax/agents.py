@@ -103,10 +103,3 @@ class CriticAgent(Agent):
         input = self.get("env/env_obs")
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)
-
-class NoAgent(Agent):
-    def __init__(self):
-        super.__init__()
-
-    def forward(self,**args):
-        pass
