@@ -33,7 +33,7 @@ class Normalizer(Agent):
         env = make_brax_env(env.env_name)
         n_features = env.observation_space.shape[0]
 
-    def forward(self, t, update_normalizer=False, **args):
+    def forward(self, t, update_normalizer=True, **args):
         input = self.get(("env/env_obs", t))
         assert torch.isnan(input).sum() == 0.0, "problem"
         if update_normalizer:
