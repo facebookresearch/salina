@@ -42,9 +42,9 @@ class BatchNormalizer(Agent):
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
 
-    # def eval(self):
-    #     print("eval")
-    #     super().eval()
+    def eval(self):
+        print("eval")
+        super().eval()
 
     # def train(self,f=True):
     #     print("train")
