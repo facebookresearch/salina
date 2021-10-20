@@ -44,7 +44,10 @@ class BatchNormalizer(Agent):
 
     def train(self,f=True):
         print("train")
-        super.train(f)
+        if f:
+            super().train()
+        else:
+            super().eval()
 
 class NoAgent(Agent):
     def __init__(self):
