@@ -34,24 +34,15 @@ class BatchNormalizer(Agent):
         input_size = env.observation_space.shape[0]
         self.bn=nn.BatchNorm1d(input_size)
 
-    def forward(self, t, bn_update=True, **args):
+    def forward(self, t, update_normalizer=True, **args):
+        print(self.training)
         if bn_update:
             self.bn.train()
         else:
             self.bn.eval()
+        print("-- ",self.training)
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
-
-    def eval(self):
-        print("eval")
-        super().eval()
-
-    # def train(self,f=True):
-    #     print("train")
-    #     if f:
-    #         super().train()
-    #     else:
-    #         super().eval()
 
 class NoAgent(Agent):
     def __init__(self):
@@ -66,7 +57,6 @@ def clip_grad(parameters, grad):
         if grad > 0
         else torch.Tensor([0.0])
     )
-
 
 def run_ppo(action_agent, critic_agent, logger,cfg):
     if cfg.algorithm.use_observation_normalizer:
