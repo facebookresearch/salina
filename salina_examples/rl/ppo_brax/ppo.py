@@ -87,7 +87,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
 
     env_validation_agent = BraxAgent(env_name=cfg.algorithm.validation.env.env_name,n_envs=cfg.algorithm.validation.n_envs)
     validation_agent = TemporalAgent(
-        Agents(env_validation_agent, action_agent)
+        Agents(env_validation_agent, norm_agent,action_agent)
     ).to(cfg.device)
     validation_agent.seed(cfg.algorithm.validation.env_seed)
     validation_workspace = Workspace()
