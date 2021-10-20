@@ -41,10 +41,11 @@ class BatchNormalizer(Agent):
 
 class NoAgent(Agent):
     def __init__(self):
-        super.__init__()
+        super().__init__()
 
     def forward(self,**args):
         pass
+
 def clip_grad(parameters, grad):
     return (
         torch.nn.utils.clip_grad_norm_(parameters, grad)
