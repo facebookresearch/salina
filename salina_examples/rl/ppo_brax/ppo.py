@@ -37,8 +37,10 @@ class BatchNormalizer(Agent):
     def forward(self, t, update_normalizer=True, **args):
         print(self.training,self.bn.training)
         if update_normalizer:
+            print("ici")
             self.bn.train()
         else:
+            print("ici eval")
             self.bn.eval()
         print("-- ",self.training,self.bn.training)
         input = self.get(("env/env_obs", t))
@@ -105,7 +107,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                 stop_variable="env/done",
                 replay=False,
                 action_std=0.0,
-                bn_update=False
+                update_normalizer=False
             )
             length=validation_workspace["env/done"].float().argmax(0)
             arange=torch.arange(length.size()[0],device=length.device)
