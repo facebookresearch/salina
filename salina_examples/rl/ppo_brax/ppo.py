@@ -32,6 +32,7 @@ class Normalizer(Agent):
         super().__init__()
         env = make_brax_env(env.env_name)
         n_features = env.observation_space.shape[0]
+        self.n=None
 
     def forward(self, t, update_normalizer=True, **args):
         input = self.get(("env/env_obs", t))
