@@ -48,7 +48,6 @@ class BatchNormalizer(Agent):
         self.set(("env/env_obs", t), self.bn(input))
         print("la")
 
-
 class NoAgent(Agent):
     def __init__(self):
         super().__init__()
