@@ -36,7 +36,7 @@ class BatchNormalizer(Agent):
 
     def forward(self, t, update_normalizer=True, **args):
         print(self.training)
-        if bn_update:
+        if update_normalizer:
             self.bn.train()
         else:
             self.bn.eval()
