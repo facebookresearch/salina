@@ -34,7 +34,11 @@ class BatchNormalizer(Agent):
         input_size = env.observation_space.shape[0]
         self.bn=nn.BatchNorm1d(input_size)
 
-    def forward(self, t, **args):
+    def forward(self, t, bn_update=True, **args):
+        if bn_update:
+            self.bn.train()
+        else:
+            self.bn.eval()
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
 
@@ -108,6 +112,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                 stop_variable="env/done",
                 replay=False,
                 action_std=0.0,
+                bn_update=False
             )
             length=validation_workspace["env/done"].float().argmax(0)
             arange=torch.arange(length.size()[0],device=length.device)
