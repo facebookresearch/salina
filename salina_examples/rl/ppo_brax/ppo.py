@@ -27,7 +27,7 @@ def make_brax_env(
     e=create_gym_env(env_name)
     return JaxToTorchWrapper(e)
 
-class Normalizer(TAgent):
+class Normalizer(Agent):
     def __init__(self, env):
         super().__init__()
         env = make_brax_env(env.env_name)
