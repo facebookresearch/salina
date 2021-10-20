@@ -38,7 +38,6 @@ class BatchNormalizer(Agent):
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
 
-
 class NoAgent(Agent):
     def __init__(self):
         super().__init__()
@@ -59,9 +58,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
         norm_agent=BatchNormalizer(cfg.algorithm.env)
     else:
         norm_agent=NoAgent()
-
     env_acquisition_agent = BraxAgent(env_name=cfg.algorithm.env.env_name,n_envs=cfg.algorithm.n_envs)
-
 
     acquisition_agent = TemporalAgent(
         Agents(env_acquisition_agent, norm_agent, action_agent)
@@ -112,6 +109,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
         workspace.zero_grad()
         if epoch > 0:
             workspace.copy_n_last_steps(1)
+        acquisition_agent.train()
         acquisition_agent(
             workspace,
             t=1 if epoch > 0 else 0,
