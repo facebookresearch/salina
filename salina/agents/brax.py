@@ -9,8 +9,23 @@ import numpy as np
 import torch
 from brax.envs import _envs, create_gym_env
 from brax.envs.to_torch import JaxToTorchWrapper
-
+from salina.agents import Agents
 from salina import TAgent
+
+class EpisodesDone(TAgent):
+    # Compute a variable that tells if all episodes are done when using an auto-reset wrapper
+    def __init__(self,in_var="env/done",out_var="env/_done"):
+        super().__init__()
+        self.in_var=in_var
+        self.out_var=out_var
+
+    def forward(self,t,**args):
+        d=self.get((self.in_var,t))
+        if t==0:
+            self.state=torch.zeros_like(d).bool()
+        self.state=torch.logical_or(self.state,d)
+        print(self.state)
+        self.set((self.out_var,t),self.state)
 
 
 def _torch_cat_dict(d):
@@ -102,3 +117,14 @@ class BraxAgent(TAgent):
 
     def seed(self, seed):
         self._seed = seed
+
+
+class AutoResetBraxAgent(BraxAgent):
+    def __init__(self, **args):
+        super().__init__(**args)
+
+class NoAutoResetBraxAgent(Agents):
+    def __init__(self,**args):
+        agent1=BraxAgent(**args)
+        agent2=EpisodesDone(out_var="env/done")
+        super().__init__(agent1,agent2)
