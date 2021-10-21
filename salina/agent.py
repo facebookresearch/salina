@@ -37,7 +37,6 @@ class Agent(nn.Module):
 
     def __call__(self, workspace, **args):
         assert not workspace is None, "[Agent.__call__] workspace must not be None"
-        self.__trace_file__=__trace_file__
         self.workspace = workspace
         self.forward(**args)
         w = self.workspace
