@@ -16,7 +16,71 @@ from salina import Workspace, instantiate_class
 from salina.agents import Agents, TemporalAgent
 from salina.agents.brax import BraxAgent
 from salina.logger import TFLogger
+from salina import Agent
+from brax.envs import _envs, create_gym_env
+from brax.envs.to_torch import JaxToTorchWrapper
+import torch.nn as nn
 
+def make_brax_env(
+    env_name
+):
+    e=create_gym_env(env_name)
+    return JaxToTorchWrapper(e)
+
+class Normalizer(Agent):
+    def __init__(self, env):
+        super().__init__()
+        env = make_brax_env(env.env_name)
+        self.n_features = env.observation_space.shape[0]
+        self.n=None
+
+    def forward(self, t, update_normalizer=True, **args):
+        input = self.get(("env/env_obs", t))
+        assert torch.isnan(input).sum() == 0.0, "problem"
+        if update_normalizer:
+            self.update(input)
+        input = self.normalize(input)
+        assert torch.isnan(input).sum() == 0.0, "problem"
+        self.set(("env/env_obs", t), input)
+
+    def update(self, x):
+        if self.n is None:
+            device=x.device
+            self.n = torch.zeros(self.n_features).to(device)
+            self.mean = torch.zeros(self.n_features).to(device)
+            self.mean_diff = torch.zeros(self.n_features).to(device)
+            self.var = torch.ones(self.n_features).to(device)
+        self.n += 1.0
+        last_mean = self.mean.clone()
+        self.mean += (x - self.mean).mean(dim=0) / self.n
+        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
+        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
+
+    def normalize(self, inputs):
+        obs_std = torch.sqrt(self.var)
+        return (inputs - self.mean) / obs_std
+
+    def seed(self, seed):
+        torch.manual_seed(seed)
+
+class BatchNormalizer(Agent):
+    def __init__(self, env,**args):
+        super().__init__()
+        env = make_brax_env(env.env_name)
+        input_size = env.observation_space.shape[0]
+        self.bn=nn.BatchNorm1d(input_size,**args)
+
+    def forward(self, t, update_normalizer=True, **args):
+        assert self.training==self.bn.training
+        input = self.get(("env/env_obs", t))
+        self.set(("env/env_obs", t), self.bn(input))
+
+class NoAgent(Agent):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self,**args):
+        pass
 
 def clip_grad(parameters, grad):
     return (
@@ -25,80 +89,72 @@ def clip_grad(parameters, grad):
         else torch.Tensor([0.0])
     )
 
+def run_ppo(action_agent, critic_agent, logger,cfg):
+    if cfg.algorithm.use_observation_normalizer:
+        #norm_agent=BatchNormalizer(cfg.algorithm.env,momentum=None)
+        norm_agent=Normalizer(cfg.algorithm.env)
+    else:
+        norm_agent=NoAgent()
+    env_acquisition_agent = BraxAgent(env_name=cfg.algorithm.env.env_name,n_envs=cfg.algorithm.n_envs)
 
-def run_ppo(policy_agent, critic_agent, cfg):
-    logger = TFLogger(
-        log_dir=cfg.logger.logdir,
-        hps=cfg,
-        cache_size=cfg.logger.cache_size,
-        every_n_seconds=60,
-        modulo=cfg.logger.modulo,
-        verbose=cfg.logger.verbose,
-    )
-
-    # === Instantiate acquisition agent
-    normalizer_agent = instantiate_class(cfg.normalizer_agent)
-    env_acquisition_agent = BraxAgent(**cfg.acquisition.env)
     acquisition_agent = TemporalAgent(
-        Agents(env_acquisition_agent, normalizer_agent, policy_agent)
+        Agents(env_acquisition_agent, norm_agent, action_agent)
     ).to(cfg.device)
-    acquisition_agent.seed(cfg.acquisition.seed)
-    workspace = Workspace().to(cfg.device)
+    acquisition_agent.seed(cfg.algorithm.env_seed)
+    workspace = Workspace()
 
-    # === Instantiate training agent
-    # train_policy_agent = TemporalAgent(policy_agent).to(cfg.device)
-    # train_critic_agent = TemporalAgent(critic_agent).to(cfg.device)
-    train_agent = Agents(policy_agent, critic_agent)
+    train_agent = Agents(action_agent, critic_agent).to(cfg.device)
     optimizer_policy = torch.optim.Adam(
-        policy_agent.parameters(), lr=cfg.algorithm.lr_policy
+        action_agent.parameters(), lr=cfg.algorithm.lr_policy
     )
     optimizer_critic = torch.optim.Adam(
         critic_agent.parameters(), lr=cfg.algorithm.lr_critic
     )
 
-    # === Instantiate validation agent
-    env_validation_agent = BraxAgent(**cfg.validation.env)
+    env_validation_agent = BraxAgent(env_name=cfg.algorithm.validation.env.env_name,n_envs=cfg.algorithm.validation.n_envs)
     validation_agent = TemporalAgent(
-        Agents(env_validation_agent, normalizer_agent, policy_agent)
-    )
-    validation_agent.seed(cfg.validation.seed)
-    validation_workspace = Workspace().to(cfg.device)
+        Agents(env_validation_agent, norm_agent,action_agent)
+    ).to(cfg.device)
+    validation_agent.seed(cfg.algorithm.validation.env_seed)
+    validation_workspace = Workspace()
 
     # === Running algorithm
     epoch = 0
     iteration = 0
-    nb_interactions = cfg.acquisition.env.n_envs * cfg.acquisition.n_timesteps
+    nb_interactions = cfg.algorithm.n_envs * cfg.algorithm.n_timesteps
     print("[PPO] Learning")
     _epoch_start_time = time.time()
-    while (time.time() - _epoch_start_time < cfg.algorithm.time_limit) and (
-        epoch < cfg.algorithm.max_epochs
-    ):
-
+    while epoch < cfg.algorithm.max_epochs:
         # === Validation
-        if (epoch % cfg.validation.evaluate_every == 0) and (epoch > 0):
+        if (epoch % cfg.algorithm.validation.evaluate_every == 0) and (epoch > 0):
+            validation_agent.eval()
             validation_agent(
                 validation_workspace,
                 t=0,
-                n_steps=cfg.validation.env.episode_length + 1,
+                stop_variable="env/done",
                 replay=False,
                 action_std=0.0,
+                update_normalizer=False
             )
-            creward, done = validation_workspace["env/cumulated_reward", "env/done"]
-            creward = creward[done].mean().item()
+            length=validation_workspace["env/done"].float().argmax(0)
+            arange=torch.arange(length.size()[0],device=length.device)
+            creward = validation_workspace["env/cumulated_reward"][length,arange].mean().item()
             logger.add_scalar("validation/reward", creward, epoch)
             print("reward at epoch", epoch, ":\t", round(creward, 0))
+            validation_agent.train()
 
         # === Acquisition
+        workspace.zero_grad()
         if epoch > 0:
             workspace.copy_n_last_steps(1)
+        acquisition_agent.train()
         acquisition_agent(
             workspace,
             t=1 if epoch > 0 else 0,
-            n_steps=cfg.acquisition.n_timesteps - 1
+            n_steps=cfg.algorithm.n_timesteps - 1
             if epoch > 0
-            else cfg.acquisition.n_timesteps,
+            else cfg.algorithm.n_timesteps,
             replay=False,
-            update_normalizer=cfg.algorithm.normalize_obs,
             action_std=cfg.algorithm.action_std,
         )
         logger.add_scalar(
@@ -112,8 +168,10 @@ def run_ppo(policy_agent, critic_agent, cfg):
                 .to(cfg.device)
                 .split(cfg.algorithm.minibatch_size)
             )
+            all_actions_lp=workspace["action_logprobs"].detach()
 
             for minibatch_idx in minibatches_idx:
+                workspace.zero_grad()
                 miniworkspace = workspace.select_batch(minibatch_idx)
 
                 # === Update policy
@@ -124,7 +182,7 @@ def run_ppo(policy_agent, critic_agent, cfg):
                     action_std=cfg.algorithm.action_std,
                 )
                 critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
-                old_action_lp = miniworkspace["old_action_logprobs"].detach()
+                old_action_lp = all_actions_lp[:,minibatch_idx].detach()
                 reward = reward * cfg.algorithm.reward_scaling
                 gae = RLF.gae(
                     critic,
@@ -146,22 +204,19 @@ def run_ppo(policy_agent, critic_agent, cfg):
                     * gae
                 )
                 loss_policy = -(torch.min(ratio * gae, clip_adv)).mean()
-                optimizer_policy.zero_grad()
-                loss_policy.backward()
-                n = clip_grad(policy_agent.parameters(), cfg.algorithm.clip_grad)
-                optimizer_policy.step()
-                logger.add_scalar("monitor/grad_norm_policy", n.item(), iteration)
-                logger.add_scalar("loss/policy", loss_policy.item(), iteration)
 
-                # === Update critic
                 td0 = RLF.temporal_difference(
                     critic, reward, done, cfg.algorithm.discount_factor
                 )
                 loss_critic = (td0 ** 2).mean()
                 optimizer_critic.zero_grad()
-                loss_critic.backward()
-                n = clip_grad(critic_agent.parameters(), cfg.algorithm.clip_grad)
+                optimizer_policy.zero_grad()
+                (loss_policy+loss_critic).backward()
+                n = clip_grad(action_agent.parameters(), cfg.algorithm.clip_grad)
+                optimizer_policy.step()
                 optimizer_critic.step()
+                logger.add_scalar("monitor/grad_norm_policy", n.item(), iteration)
+                logger.add_scalar("loss/policy", loss_policy.item(), iteration)
                 logger.add_scalar("loss/critic", loss_critic.item(), iteration)
                 logger.add_scalar("monitor/grad_norm_critic", n.item(), iteration)
                 iteration += 1
@@ -176,10 +231,11 @@ def main(cfg):
     if CUDA_AVAILABLE:
         v = torch.ones(1, device="cuda:0")
 
-    policy_agent = instantiate_class(cfg.policy_agent).to(cfg.device)
-    critic_agent = instantiate_class(cfg.critic_agent).to(cfg.device)
+    action_agent = instantiate_class(cfg.action_agent)
+    critic_agent = instantiate_class(cfg.critic_agent)
     mp.set_start_method("spawn")
-    run_ppo(policy_agent, critic_agent, cfg)
+    logger=instantiate_class(cfg.logger)
+    run_ppo(action_agent, critic_agent, logger,cfg)
 
 
 if __name__ == "__main__":

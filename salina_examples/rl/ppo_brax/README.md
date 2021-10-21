@@ -1,9 +1,12 @@
 # PPO benchmark on brax environments
 
-We benchmarked PPO on several complex continuous control tasks coming from Brax suit (https://github.com/google/brax). We provide in this section results and hyperparameters to reproduce the experiments in GPU (both acquisition and loss computation).
+You need to install [BRAX](https://github.com/google/brax). Since BRAX is still on heavy development, some errors may happen with lastest version. Please open an issue if you see any problem.
+
+We benchmarked PPO on several complex continuous control tasks coming from Brax suit (https://github.com/google/brax). We provide in this section results and hyperparameters to reproduce the experiments on GPU (both acquisition and loss computation).
 
 ## Results
-The following curves are obtained by with the hyperparameters we provide in the `yaml` files (averaged over 5 different seeds). Run are bout 30 minutes using on GPU.
+
+The following curves are obtained by with the hyperparameters we provide in the `yaml` files (averaged over 5 different seeds). Run are bout 30 minutes using one single GPU.
 
 
 ![alt text](results/halfcheetah_results.png)

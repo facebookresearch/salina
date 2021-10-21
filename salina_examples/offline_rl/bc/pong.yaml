@@ -11,13 +11,13 @@ env_name: pong-expert-v0
 action_agent:
   classname: salina_examples.offline_rl.bc.agents.AtariAgent
   env:
-    classname: salina_examples.offline_rl.bc.agents.make_d4rl_env
+    classname: salina_examples.offline_rl.bc.agents.make_d4rl_atari_env
     env_name: ${env_name}
     max_episode_steps: 1000
 
 algorithm:
   env:
-    classname: salina_examples.offline_rl.bc.agents.make_d4rl_env
+    classname: salina_examples.offline_rl.bc.agents.make_d4rl_atari_env
     env_name: ${env_name}
     max_episode_steps: 1000
 

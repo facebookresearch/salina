@@ -35,6 +35,12 @@ def f(agent, in_queue, out_queue, seed):
         elif command[0] == "exit":
             out_queue.put("ok")
             return
+        elif command[0] == "eval_mode":
+            agent.eval()
+            out_queue.put("ok")
+        elif command[0] == "train_mode":
+            agent.train()
+            out_queue.put("ok")
 
 
 class RemoteAgent(Agent):
@@ -44,6 +50,7 @@ class RemoteAgent(Agent):
         self._is_running = False
         self.process = None
         self.last_workspace = None
+        self.train_mode=True
 
     def get_by_name(self, n):
         if self._name == n:
@@ -74,6 +81,7 @@ class RemoteAgent(Agent):
             ), "You must use a shared workspace when using a Remote Agent"
             if self.process is None:
                 self._create_process()
+                self.train(self.train_mode)
             if not workspace == self.last_workspace:
                 self.i_queue.put(("go_new_workspace", workspace, args))
                 self.last_workspace = workspace
@@ -97,6 +105,26 @@ class RemoteAgent(Agent):
                 self.last_workspace = workspace
             else:
                 self.i_queue.put(("go_reuse_workspace", workspace, args))
+
+    def train(self,f=True):
+        self.train_mode=f
+        if self.process is None:
+            return
+        if f:
+            self.i_queue.put(("train_mode"))
+            a=self.o_queue.get()
+            assert a=="ok"
+        else:
+            self.eval()
+
+    def eval(self):
+        self.train_mode=False
+        if self.process is None:
+            return
+        self.i_queue.put(("eval_mode"))
+        a=self.o_queue.get()
+        assert a=="ok"
+
 
     def seed(self, _seed):
         self._seed = _seed
@@ -199,3 +227,11 @@ class NRemoteAgent(Agent):
             if a.is_running():
                 return True
         return False
+
+    def train(self,f=True):
+        for a in self.agents:
+            a.train(f)
+
+    def eval(self):
+        for a in self.agents:
+            a.eval()

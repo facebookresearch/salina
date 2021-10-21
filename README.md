@@ -6,6 +6,15 @@
 * It allows to write very complex sequential models (or policies) in few lines
 * It works on multiple CPUs and GPUs
 
+## News
+
+* October 2021:
+* * Release of the library
+* * Various bug fixes
+* * Add train and eval mode in the RemoteAgent and NRemoteAgent
+* * [Cleaning of the BRAX PPO Implementation](salina_examples/rl/brax_ppo) to make it similar to other implementations
+* * [Cleaning of the Behavioral Cloning implementation](salina_examples/offline_rl/bc)
+
 ## Quick Start
 
 * Just clone the repo
