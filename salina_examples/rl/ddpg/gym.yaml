@@ -7,7 +7,7 @@ logger:
 
 n_envs: 8
 #env_name: LunarLanderContinuous-v2
-env_name: Pendulum-v0
+env_name: Pendulum-v1
 
 q_agent:
   classname: salina_examples.rl.ddpg.agents.QMLPAgent

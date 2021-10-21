@@ -12,7 +12,6 @@ import copy
 from typing import Dict, Iterable, List
 
 import torch
-from graphviz import Digraph
 
 import salina
 
