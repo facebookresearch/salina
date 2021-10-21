@@ -5,3 +5,5 @@ We provide implementations of offline/imitation learning algorithms. One of **th
 * [Behavioral Cloning](bc/): A implementation of BC
 
 Examples are using sing [d4rl](https://github.com/rail-berkeley/d4rl) and [d4rl_atari](https://github.com/takuseno/d4rl-atari)
+
+To play with offline_rl methods, please install `d4rl` and `d4rl_atari` packages.
