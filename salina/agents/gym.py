@@ -26,7 +26,7 @@ def _format_frame(frame):
         return t
     elif isinstance(frame, np.ndarray):
         t = torch.from_numpy(frame).unsqueeze(0)
-        if t.dtype == torch.float64:
+        if t.dtype == torch.float64 or t.dtype== torch.float32:
             t = t.float()
         else:
             t = t.long()
@@ -246,6 +246,7 @@ class AutoResetGymAgent(TAgent):
         env = self.envs[k]
         self.cumulated_reward[k] = 0.0
         o = env.reset()
+
         self.cumulated_reward[k] = 0
         observation = _format_frame(o)
         if isinstance(observation, torch.Tensor):
