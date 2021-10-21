@@ -9,6 +9,8 @@
 ## Quick Start
 
 * Just clone the repo
+* `pip install -e .`
+
 
 ### Documentation
 
