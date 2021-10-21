@@ -61,6 +61,7 @@ class SlicedTemporalTensor:
         return torch.cat([a.unsqueeze(0) for a in self.tensors], dim=0)
 
     def get_time_truncated(self,from_time,to_time,batch_dims):
+        assert from_time>=0 and to_time>=0 and to_time>from_time
         assert batch_dims is None
         return torch.cat([self.tensors[k].unsqueeze(0) for k in range(from_time,min(len(self.tensors),to_time))], dim=0)
 
@@ -352,6 +353,8 @@ class Workspace:
                 v.copy_time(from_time, to_time, n_steps)
 
     def get_time_truncated(self,var_name,from_time,to_time, batch_dims=None):
+        assert from_time>=0 and to_time>=0 and to_time>from_time
+
         v=self.variables[var_name]
         if isinstance(v,SlicedTemporalTensor):
             return v.get_time_truncated(from_time,to_time,batch_dims)
@@ -450,6 +453,7 @@ class _SplitSharedWorkspace:
         return self.workspace.get(var_name, t, batch_dims=self.batch_dims)
 
     def get_time_truncated(self, var_name, from_time,to_time):
+        assert from_time>=0 and to_time>=0 and to_time>from_time
         return self.workspace.get_time_truncated(var_name, from_time,to_time, batch_dims=self.batch_dims)
 
     def set_full(self, var_name, value):
