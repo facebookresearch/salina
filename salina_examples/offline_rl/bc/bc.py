@@ -24,7 +24,7 @@ from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
-from salina_examples.offline_rl import d4rl_dataset_to_workspaces
+from salina_examples.offline_rl.d4rl import *
 import numpy as np
 
 def _state_dict(agent, device):
@@ -49,17 +49,7 @@ def run_bc(action_agent, logger, cfg):
     train_temporal_action_agent = TemporalAgent(action_agent)
     train_temporal_action_agent.to(cfg.algorithm.loss_device)
 
-    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size)
-    logger.message("[BC] Loading dataset into replay_buffer")
-    env = instantiate_class(cfg.algorithm.env)
-    dataset = env.get_dataset()
-    logger.message("\t Filling replay buffer (may take a few minutes)")
-    for w in d4rl_dataset_to_workspaces(
-        dataset,
-        cfg.algorithm.buffer_time_size,
-        proportion=cfg.algorithm.dataset_proportion,
-    ):
-        replay_buffer.put(w)
+    replay_buffer = d4rl_transition_buffer(env)
 
     evaluation_agent, evaluation_workspace = NRemoteAgent.create(
         TemporalAgent(Agents(env_evaluation_agent, action_evaluation_agent)),
@@ -75,11 +65,6 @@ def run_bc(action_agent, logger, cfg):
         n_steps=cfg.algorithm.evaluation.n_timesteps,
         epsilon=0.0,
     )
-
-    if replay_buffer.size() == cfg.algorithm.buffer_size:
-        logger.message(
-            "[WARNING]: The replay buffer seems too small to store the dataset"
-        )
 
     logger.message("Learning")
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -107,14 +92,11 @@ def run_bc(action_agent, logger, cfg):
                 n_steps=cfg.algorithm.evaluation.n_timesteps - 1,
                 epsilon=0.0,
             )
-
-        logger.add_scalar("monitor/replay_buffer_size", replay_buffer.size(), epoch)
-
         batch_size = cfg.algorithm.batch_size
-        replay_workspace = replay_buffer.get(batch_size).to(cfg.algorithm.loss_device)
+        replay_workspace = replay_buffer.select_batch_n(batch_size).to(cfg.algorithm.loss_device)
         target_action = replay_workspace["action"].detach()
         train_temporal_action_agent(
-            replay_workspace, t=0, n_steps=cfg.algorithm.buffer_time_size
+            replay_workspace, t=0, n_steps=replay_workspace.time_size()
         )
         action = replay_workspace["action"]
         mse = ((target_action - action) ** 2).sum(-1)
@@ -137,9 +119,6 @@ def main(cfg):
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg)
     from importlib import import_module
-
-    import_module("examples")
-    import_module("salina_examples.offline_rl")
 
     action_agent = instantiate_class(cfg.action_agent)
     run_bc(action_agent, logger, cfg)
