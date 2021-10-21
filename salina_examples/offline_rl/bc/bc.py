@@ -25,7 +25,7 @@ from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
 from salina_examples.offline_rl import d4rl_dataset_to_workspaces
-
+import numpy as np
 
 def _state_dict(agent, device):
     sd = agent.state_dict()
@@ -44,6 +44,7 @@ def run_bc(action_agent, logger, cfg):
         ),
     )
     action_evaluation_agent = copy.deepcopy(action_agent)
+    env=instantiate_class(cfg.algorithm.env)
 
     train_temporal_action_agent = TemporalAgent(action_agent)
     train_temporal_action_agent.to(cfg.algorithm.loss_device)
@@ -90,6 +91,12 @@ def run_bc(action_agent, logger, cfg):
             creward, done = evaluation_workspace["env/cumulated_reward", "env/done"]
             creward = creward[done]
             if creward.size()[0] > 0:
+                ns=[]
+                for i in range(creward.size()[0]):
+                    r=creward[i].item()
+                    ns.append(env.get_normalized_score(r))
+                logger.add_scalar("evaluation/normalized_", np.mean(ns), epoch)
+
                 logger.add_scalar("evaluation/reward", creward.mean().item(), epoch)
             for a in evaluation_agent.get_by_name("action_agent"):
                 a.load_state_dict(_state_dict(action_agent, "cpu"))
