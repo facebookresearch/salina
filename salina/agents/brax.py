@@ -24,7 +24,6 @@ class EpisodesDone(TAgent):
         if t==0:
             self.state=torch.zeros_like(d).bool()
         self.state=torch.logical_or(self.state,d)
-        print(self.state)
         self.set((self.out_var,t),self.state)
 
 
