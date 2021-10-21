@@ -60,6 +60,10 @@ class SlicedTemporalTensor:
         ), "Unable to use batch dimensions with SlicedTemporalTensor"
         return torch.cat([a.unsqueeze(0) for a in self.tensors], dim=0)
 
+    def get_time_truncated(self,from_time,to_time,batch_dims):
+        assert batch_dims is None
+        return torch.cat([self.tensors[k].unsqueeze(0) for k in range(from_time,min(len(self.tensors),to_time)], dim=0)
+
     def set_full(self, value, batch_dims):
         assert (
             batch_dims is None
@@ -347,6 +351,13 @@ class Workspace:
             if var_names is None or k in var_names:
                 v.copy_time(from_time, to_time, n_steps)
 
+    def get_time_truncated(self,var_name,from_time,to_time, batch_dims=None):
+        v=self.variables[var_name]
+        if isintance(v,SlicedTemporalTensor):
+            return v.get_time_truncated(from_time,to_time,batch_dims)
+        else:
+            return v.get_full(batch_dims)[from_time:to_time]
+
     def cat_batch(self, workspaces):
         # Concatenate workspaces among the batch_dimension
         ts = None
@@ -437,6 +448,9 @@ class _SplitSharedWorkspace:
 
     def get(self, var_name, t):
         return self.workspace.get(var_name, t, batch_dims=self.batch_dims)
+
+    def get_time_truncated(self, var_name, from_time,to_time):
+        return self.workspace.get_time_truncated(var_name, from_time,to_time, batch_dims=self.batch_dims)
 
     def set_full(self, var_name, value):
         self.workspace.set_full(var_name, value, batch_dims=self.batch_dims)
