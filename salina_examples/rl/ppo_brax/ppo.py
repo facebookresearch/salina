@@ -63,18 +63,6 @@ class Normalizer(Agent):
     def seed(self, seed):
         torch.manual_seed(seed)
 
-class BatchNormalizer(Agent):
-    def __init__(self, env,**args):
-        super().__init__()
-        env = make_brax_env(env.env_name)
-        input_size = env.observation_space.shape[0]
-        self.bn=nn.BatchNorm1d(input_size,**args)
-
-    def forward(self, t, update_normalizer=True, **args):
-        assert self.training==self.bn.training
-        input = self.get(("env/env_obs", t))
-        self.set(("env/env_obs", t), self.bn(input))
-
 class NoAgent(Agent):
     def __init__(self):
         super().__init__()
