@@ -353,7 +353,7 @@ class Workspace:
 
     def get_time_truncated(self,var_name,from_time,to_time, batch_dims=None):
         v=self.variables[var_name]
-        if isintance(v,SlicedTemporalTensor):
+        if isinstance(v,SlicedTemporalTensor):
             return v.get_time_truncated(from_time,to_time,batch_dims)
         else:
             return v.get_full(batch_dims)[from_time:to_time]
