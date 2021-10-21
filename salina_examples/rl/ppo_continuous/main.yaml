@@ -5,7 +5,7 @@ logger:
   modulo: 10
   verbose: True
 
-env_name: Pendulum-v0
+env_name: Pendulum-v1
 
 action_agent:
   classname: salina_examples.rl.ppo_continuous.agents.PPOMLPActionAgent

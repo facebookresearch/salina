@@ -6,7 +6,7 @@ logger:
   verbose: True
 
 n_envs: 1
-env_name: Pendulum-v0
+env_name: Pendulum-v1
 
 q_agent:
   classname: salina_examples.rl.td3.agents.QMLPAgent
