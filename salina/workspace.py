@@ -62,7 +62,7 @@ class SlicedTemporalTensor:
 
     def get_time_truncated(self,from_time,to_time,batch_dims):
         assert batch_dims is None
-        return torch.cat([self.tensors[k].unsqueeze(0) for k in range(from_time,min(len(self.tensors),to_time)], dim=0)
+        return torch.cat([self.tensors[k].unsqueeze(0) for k in range(from_time,min(len(self.tensors),to_time))], dim=0)
 
     def set_full(self, value, batch_dims):
         assert (
