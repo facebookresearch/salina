@@ -1,0 +1,93 @@
+
+env:
+  classname: salina_examples.rl.ppo_brax_transformer.agents.make_brax_env
+  env_name: halfcheetah
+
+device: cuda:0
+embedding_size: 16
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./experiments/halfcheetah
+  every_n_seconds: 10
+  modulo: 1
+  verbose: False
+
+action_agent:
+  classname: salina_examples.rl.ppo_brax_transformer.agents.action_transformer
+  encoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
+    embedding_size: ${embedding_size}
+    max_episode_steps: 1000
+  transformer:
+    n_layers: 1
+    n_heads: 1
+    n_steps: 2
+    use_layer_norm: False
+  decoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
+
+critic_agent:
+  classname: salina_examples.rl.ppo_brax_transformer.agents.critic_transformer
+  encoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
+    embedding_size: ${embedding_size}
+    max_episode_steps: 1000
+  transformer:
+    n_layers: 1
+    n_heads: 1
+    n_steps: 2
+    use_layer_norm: False
+  decoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
+
+algorithm:
+  env_seed: 432
+  n_timesteps: 20
+  n_envs: 1024
+  env: ${env}
+  use_observation_normalizer: True
+
+  clip_grad: 100
+  update_epochs: 16
+  minibatch_size: 512
+  max_epochs: 5001
+  discount_factor: 0.99
+  clip_ratio: 0.2
+  action_std: 0.4
+  gae: 0.96
+  reward_scaling: 1
+  lr_policy: 0.0003
+  lr_critic: 0.0003
+
+  validation:
+    env: ${env}
+    env_seed: 532
+    evaluate_every: 10
+    n_envs: 1
+
+
+hydra:
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 60
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - override hydra/launcher: submitit_slurm

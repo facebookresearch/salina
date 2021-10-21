@@ -1,0 +1,36 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./bc
+  modulo: 1
+  every_n_seconds: 10
+  verbose: True
+
+n_envs: 1
+env_name: walker2d-medium-expert-v0
+embedding_size: 64
+env:
+  classname: salina_examples.offline_rl.d4rl.make_d4rl_env
+  env_name: ${env_name}
+  max_episode_steps: 1000
+
+agent:
+  classname: salina_examples.offline_rl.bc_on_full_episodes.agents.observation_mlp
+  env: ${env}
+  n_layers: 2
+  hidden_size: 64
+
+algorithm:
+  env_seed: 432
+  batch_size: 32
+  max_epoch: 10000000
+  clip_grad: 2
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.001
+
+  loss_device: cpu
+
+  evaluation:
+    env_seed: 23
+    n_envs: 32
+    n_processes: 4
