@@ -13,8 +13,10 @@ from salina.agents import Agents
 from salina import TAgent
 
 class EpisodesDone(TAgent):
-    # Compute a variable that tells if all episodes are done when using an auto-reset wrapper
-    def __init__(self,in_var="env/done",out_var="env/_done"):
+    """ If done is encountered at time t, then done=True for all timeteps t'>=t
+    It allows to simulate a single episode agent based on an autoreset agent
+    """
+    def __init__(self,in_var="env/done",out_var="env/done"):
         super().__init__()
         self.in_var=in_var
         self.out_var=out_var
@@ -35,6 +37,8 @@ def _torch_cat_dict(d):
 
 
 class BraxAgent(TAgent):
+    """An agent based on a brax environment, with autoreset
+    """
     def __init__(self, n_envs, env_name, input="action", output="env/", **args):
         super().__init__()
         self.args = args
@@ -119,10 +123,15 @@ class BraxAgent(TAgent):
 
 
 class AutoResetBraxAgent(BraxAgent):
+    """ The same than BraxAgent
+    """
     def __init__(self, **args):
         super().__init__(**args)
 
 class NoAutoResetBraxAgent(Agents):
+    """
+    A BraxAgent without auto-reset
+    """
     def __init__(self,**args):
         agent1=BraxAgent(**args)
         agent2=EpisodesDone(out_var="env/done")

@@ -16,6 +16,8 @@ from salina.workspace import Workspace, _SplitSharedWorkspace
 
 
 def f(agent, in_queue, out_queue, seed):
+    """ The function that is executed in a single process
+    """
     out_queue.put("ok")
     running = True
     old_workspace = None
@@ -44,6 +46,12 @@ def f(agent, in_queue, out_queue, seed):
 
 
 class RemoteAgent(Agent):
+    """ It corresponds to an agent that is executed in another process
+
+    Args:
+        Agent ([salina.Agent]): the agent ot execute in another process
+    """
+
     def __init__(self, agent, name=None):
         super().__init__(name=name)
         self.agent = agent
@@ -93,6 +101,8 @@ class RemoteAgent(Agent):
                 assert r == "ok"
 
     def _asynchronous_call(self, workspace, **args):
+        """ Non-blocking forward. To use together with `is_running`
+        """
         with torch.no_grad():
             self._is_running = True
             assert (
@@ -164,7 +174,8 @@ class RemoteAgent(Agent):
 
 
 class NRemoteAgent(Agent):
-    """A set of multiple agents"""
+    """Multiple agents executed in different processes. Use the NRemoteAgent.create function to create such an agent
+    """
 
     def __init__(self, agents, batch_dims):
         super().__init__()
@@ -180,6 +191,17 @@ class NRemoteAgent(Agent):
         return r
 
     def create(agent, num_processes=0, time_size=None, **extra_args):
+        """ Returns a NRemote agent with num_processes copies of agent in different processes
+        Also returns the specific workspace to use with such an agent
+
+        Args:
+            agent ([salina.Agent]): The agent to execute in multiple processes
+            num_processes (int, optional): Number of processes to create. If 0, then no processes are created (for debugging). Defaults to 0.
+            time_size ([type], optional): If specified, it forces the created Workspace to have this particular time_size. Defaults to None.
+
+        Returns:
+            [salina.Agent,salina.SharedWorkspace]: The NRemoteAgent and the corresponding workspace
+        """
         agent.seed(0)
         if num_processes == 0:
             workspace = Workspace()

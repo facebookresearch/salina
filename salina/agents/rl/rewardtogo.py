@@ -2,7 +2,10 @@ from salina import Agent
 import torch
 
 class RewardToGoAgent(Agent):
-    # Compute the reward to go until the next 'done=True'
+    """
+    Compute the reward to go based on a workspace where complete episodes are stored
+    The reward to go value is avaialble for all timesteps before env/done is True (end of the episode)
+    """
     def __init__(self,input_reward_name="env/reward",input_done_name="env/done",output_reward_name="reward_to_go",output_timestep_name="timesteps_to_go"):
         super().__init__()
         self.i_r_name=input_reward_name
