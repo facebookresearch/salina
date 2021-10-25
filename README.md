@@ -21,8 +21,6 @@
 * * * [Behavioral Cloning over complete episodes](salina_examples/offline_rl/bc_on_full_episodes)
 * * * * [With](salina_examples/offline_rl/bc_on_full_episodes/gym_transformer.yaml) and [without](salina_examples/offline_rl/bc_on_full_episodes/gym.yaml) transformers
 * * * [PPO on Brax with Transformers](salina/salina_examples/rl/ppo_brax_transformer)
-* * * [GPU-accelerated environments agents](salina/salina_envs)
-* * * * [2D maze without reward](salina/salina_envs/2dmazes/2dmaze_nowall.py)
 
 ## Quick Start
 
