@@ -17,6 +17,9 @@ import salina
 
 
 class SlicedTemporalTensor:
+    """ A tensor of size TxBx ... stored as a list of T tensors of size Bx...
+    It does not need to predefine the value of T and is a flexible structure
+    """
     def __init__(self):
         self.tensors = []
         self.size = None
@@ -24,6 +27,13 @@ class SlicedTemporalTensor:
         self.dtype = None
 
     def set(self, t, value, batch_dims):
+        """ Set a value
+
+        Args:
+            t ([type]): timestep
+            value ([type]): Bx... tensor
+            batch_dims ([tuple(int,int)]): if not None, it specifies a subset of batch dimensions (from,to) (used for NRemoteAgent)
+        """
         assert (
             batch_dims is None
         ), "Unable to use batch dimensions with SlicedTemporalTensor"
@@ -42,12 +52,16 @@ class SlicedTemporalTensor:
         self.tensors[t] = value
 
     def to(self, device):
+        """ Moves to a specifc device
+        """
         s = SlicedTemporalTensor()
         for k in range(len(self.tensors)):
             s.set(k, self.tensors[k].to(device))
         return s
 
     def get(self, t, batch_dims):
+        """ Get the value at time t
+        """
         assert (
             batch_dims is None
         ), "Unable to use batch dimensions with SlicedTemporalTensor"
@@ -55,10 +69,19 @@ class SlicedTemporalTensor:
         return self.tensors[t]
 
     def get_full(self, batch_dims):
+        """ Returns the complete tensor
+        """
         assert (
             batch_dims is None
         ), "Unable to use batch dimensions with SlicedTemporalTensor"
         return torch.cat([a.unsqueeze(0) for a in self.tensors], dim=0)
+
+    def get_time_truncated(self,from_time,to_time,batch_dims):
+        """ Returns betwenn timetep from_time to to_time-1
+        """
+        assert from_time>=0 and to_time>=0 and to_time>from_time
+        assert batch_dims is None
+        return torch.cat([self.tensors[k].unsqueeze(0) for k in range(from_time,min(len(self.tensors),to_time))], dim=0)
 
     def set_full(self, value, batch_dims):
         assert (
@@ -347,6 +370,15 @@ class Workspace:
             if var_names is None or k in var_names:
                 v.copy_time(from_time, to_time, n_steps)
 
+    def get_time_truncated(self,var_name,from_time,to_time, batch_dims=None):
+        assert from_time>=0 and to_time>=0 and to_time>from_time
+
+        v=self.variables[var_name]
+        if isinstance(v,SlicedTemporalTensor):
+            return v.get_time_truncated(from_time,to_time,batch_dims)
+        else:
+            return v.get_full(batch_dims)[from_time:to_time]
+
     def cat_batch(self, workspaces):
         # Concatenate workspaces among the batch_dimension
         ts = None
@@ -437,6 +469,10 @@ class _SplitSharedWorkspace:
 
     def get(self, var_name, t):
         return self.workspace.get(var_name, t, batch_dims=self.batch_dims)
+
+    def get_time_truncated(self, var_name, from_time,to_time):
+        assert from_time>=0 and to_time>=0 and to_time>from_time
+        return self.workspace.get_time_truncated(var_name, from_time,to_time, batch_dims=self.batch_dims)
 
     def set_full(self, var_name, value):
         self.workspace.set_full(var_name, value, batch_dims=self.batch_dims)

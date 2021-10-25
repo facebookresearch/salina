@@ -13,14 +13,24 @@ from salina import Agent
 
 
 class ShuffledDatasetAgent(Agent):
-    """An agent that read a dataset in a shuffle order, in an infinte way."""
+    """An agent that read a dataset in a shuffle order, in an infinite way.
 
+    Args:
+        Agent ([type]): [description]
+    """
     def __init__(
         self,
         dataset,
         batch_size,
         output_names=("x", "y"),
     ):
+        """ Create the agent
+
+        Args:
+            dataset ([torch.utils.data.Dataset]): the Dataset
+            batch_size ([int]): The number of datapoints to write at each call
+            output_names (tuple, optional): The name of the variables. Defaults to ("x", "y").
+        """
         super().__init__()
         self.output_names = output_names
         self.dataset = dataset
@@ -32,6 +42,8 @@ class ShuffledDatasetAgent(Agent):
         return [seed]
 
     def forward(self, **args):
+        """ Write a batch of data at timestep==0 in the workspace
+        """
         vs = []
         for k in range(self.batch_size):
             idx = self.np_random.randint(len(self.dataset))
@@ -56,12 +68,8 @@ class ShuffledDatasetAgent(Agent):
 
 class DataLoaderAgent(Agent):
     """An agent based on a DataLoader that read a single dataset
-    It also output mask value to tell if finished
-
-    Args:
-        TAgent ([type]): [description]
+    Usage is: agent.forward(), then one has to check if agent.finished() is True or Not. If True, then no data have been written in the workspace since the reading of the daaset is terminated
     """
-
     def __init__(self, dataloader, output_names=("x", "y")):
         super().__init__()
         self.dataloader = dataloader

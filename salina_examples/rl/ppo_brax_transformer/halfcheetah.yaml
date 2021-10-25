@@ -1,7 +1,10 @@
+
 env:
+  classname: salina_examples.rl.ppo_brax_transformer.agents.make_brax_env
   env_name: halfcheetah
 
 device: cuda:0
+embedding_size: 16
 
 logger:
   classname: salina.logger.TFLogger
@@ -11,16 +14,40 @@ logger:
   verbose: False
 
 action_agent:
-  classname: salina_examples.rl.ppo_brax.agents.ActionAgent
-  hidden_size: 64
-  n_layers: 4
-  env: ${env}
+  classname: salina_examples.rl.ppo_brax_transformer.agents.action_transformer
+  encoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
+    embedding_size: ${embedding_size}
+    max_episode_steps: 1000
+  transformer:
+    n_layers: 1
+    n_heads: 1
+    n_steps: 2
+    use_layer_norm: False
+  decoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
 
 critic_agent:
-  classname: salina_examples.rl.ppo_brax.agents.CriticAgent
-  hidden_size: 256
-  n_layers: 5
-  env: ${env}
+  classname: salina_examples.rl.ppo_brax_transformer.agents.critic_transformer
+  encoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
+    embedding_size: ${embedding_size}
+    max_episode_steps: 1000
+  transformer:
+    n_layers: 1
+    n_heads: 1
+    n_steps: 2
+    use_layer_norm: False
+  decoder:
+    env: ${env}
+    n_layers: 1
+    hidden_size: 64
 
 algorithm:
   env_seed: 432

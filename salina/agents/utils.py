@@ -12,7 +12,11 @@ from salina import Agent, TAgent
 
 
 class Agents(Agent):
-    """An agent composed of multiple agents. The agents are executed in sequence"""
+    """ Execute multiple agents sequentiall
+
+    Args:
+        Agent ([salina.Agent]): The agents to execute
+    """
 
     def __init__(self, *agents, name=None):
         super().__init__(name=name)
@@ -44,21 +48,27 @@ class Agents(Agent):
 
 
 class TemporalAgent(Agent):
-    """Execute an agent over multiple time steps
-    the stop_variable (if any) is used to force the stop of the agent when all the values are equal to True at the particular timestep
+    """ Execute one Agent over multiple timesteps
+
+    Args:
+        Agent ([salina.Agent])
     """
+
 
     def __init__(self, agent, name=None):
         super().__init__(name=name)
         self.agent = agent
 
     def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **args):
+        """ Execute the agent startiing at time t, for n_steps
+
+        Args:
+            workspace ([salina.Workspace]):
+            t (int, optional): The starting timestep. Defaults to 0.
+            n_steps ([type], optional): The number of steps. Defaults to None.
+            stop_variable ([type], optional): if True everywhere (at time t), execution is stopped. Defaults to None = not used.
         """
-        :param t: The start timestep
-        :type t: int, optional
-        :param n_steps: number of timesteps to execute the agent on (None means 'until the end of the workspace')
-        :type n_steps: [type], optional
-        """
+
         assert not (n_steps is None and stop_variable is None)
         _t = t
         while True:
@@ -85,60 +95,49 @@ class TemporalAgent(Agent):
         return r
 
 
-class CopyTAgent(TAgent):
-    """a TAgent that copies one variable to another. The variable can be copied with or without gradient."""
+class CopyTAgent(Agent):
+    """ An agent that copy a variable
 
+    Args:
+        input_name ([str]): The variable to copy from
+        output_name ([str]): The variable to copy to
+        detach ([bool]): copy with detach if True
+    """
     def __init__(self, input_name, output_name, detach=False, name=None):
         super().__init__(name=name)
         self.input_name = input_name
         self.output_name = output_name
         self.detach = detach
 
-    def forward(self, t, **args):
-        x = self.get((self.input_name, t))
-        if not self.detach:
-            self.set((self.output_name, t), x)
+    def forward(self, t=None, **args):
+        """
+        Args:
+            t ([type], optional): if not None, copy at time t. Defaults to None.
+        """
+        if t is None:
+            x = self.get(self.input_name)
+            if not self.detach:
+                self.set(self.output_name, x)
+            else:
+                self.set((self.output_name, t), x.detach())
         else:
-            self.set((self.output_name, t), x.detach())
-
-
-class IfTAgent(TAgent):
-    """A 'If' Agent"""
-
-    def __init__(
-        self,
-        input_true,
-        input_false,
-        output_name,
-        detach=False,
-        condition_name=None,
-        name=None,
-    ):
-        super().__init__(name=name)
-        self.input_true = input_true
-        self.input_false = input_false
-        self.output_name = output_name
-        self.detach = detach
-        self.condition_name = condition_name
-
-    def forward(self, t, switches, **args):
-        s = switches[self.condition_name]
-        x = None
-        if s:
-            x = self.get((self.input_true, t))
-        else:
-            x = self.get((self.input_false, t))
-
-        if not self.detach:
-            self.set((self.output_name, t), x)
-        else:
-            self.set((self.output_name, t), x.detach())
-
+            x = self.get((self.input_name, t))
+            if not self.detach:
+                self.set((self.output_name, t), x)
+            else:
+                self.set((self.output_name, t), x.detach())
 
 class PrintAgent(Agent):
-    """A TAgent that print variables values to console"""
+    """An agent to generate print in the console (mainly for debugging)
 
+    Args:
+        Agent ([type]): [description]
+    """
     def __init__(self, *names, name=None):
+        """
+        Args:
+            names ([str], optional): The variables to print
+        """
         super().__init__(name=name)
         self.names = names
 

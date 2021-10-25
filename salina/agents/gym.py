@@ -66,6 +66,10 @@ def _torch_cat_dict(d):
 
 
 class GymAgent(TAgent):
+    """ A agent corresponding to a Gym environment.
+    The agent reads the action at t-1, and produces many variables
+    If t==0, then the environments are reset
+    """
     def __init__(
         self,
         make_env_fn=None,
@@ -174,6 +178,10 @@ class GymAgent(TAgent):
         return _torch_type(ret)
 
     def forward(self, t=0, save_render=False, **args):
+        """ Do one step by reading the `action` at t-1
+         If t==0, environments are reset
+         If save_render is True, then the output of env.render(mode="image") is written as env/rendering
+        """
         if self.envs is None:
             self._initialize_envs(self.n_envs)
 
@@ -210,6 +218,8 @@ class GymAgent(TAgent):
 
 
 class AutoResetGymAgent(TAgent):
+    """The same than GymAgent, but with an automoatic reset when done is True
+    """
     def __init__(
         self,
         make_env_fn=None,

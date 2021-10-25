@@ -9,8 +9,24 @@ import numpy as np
 import torch
 from brax.envs import _envs, create_gym_env
 from brax.envs.to_torch import JaxToTorchWrapper
-
+from salina.agents import Agents
 from salina import TAgent
+
+class EpisodesDone(TAgent):
+    """ If done is encountered at time t, then done=True for all timeteps t'>=t
+    It allows to simulate a single episode agent based on an autoreset agent
+    """
+    def __init__(self,in_var="env/done",out_var="env/done"):
+        super().__init__()
+        self.in_var=in_var
+        self.out_var=out_var
+
+    def forward(self,t,**args):
+        d=self.get((self.in_var,t))
+        if t==0:
+            self.state=torch.zeros_like(d).bool()
+        self.state=torch.logical_or(self.state,d)
+        self.set((self.out_var,t),self.state)
 
 
 def _torch_cat_dict(d):
@@ -21,6 +37,8 @@ def _torch_cat_dict(d):
 
 
 class BraxAgent(TAgent):
+    """An agent based on a brax environment, with autoreset
+    """
     def __init__(self, n_envs, env_name, input="action", output="env/", **args):
         super().__init__()
         self.args = args
@@ -102,3 +120,19 @@ class BraxAgent(TAgent):
 
     def seed(self, seed):
         self._seed = seed
+
+
+class AutoResetBraxAgent(BraxAgent):
+    """ The same than BraxAgent
+    """
+    def __init__(self, **args):
+        super().__init__(**args)
+
+class NoAutoResetBraxAgent(Agents):
+    """
+    A BraxAgent without auto-reset
+    """
+    def __init__(self,**args):
+        agent1=BraxAgent(**args)
+        agent2=EpisodesDone(out_var="env/done")
+        super().__init__(agent1,agent2)

@@ -1,3 +1,10 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
 
 from salina import Workspace
 import gym
@@ -14,6 +21,12 @@ from salina_examples.rl.atari_wrappers import (
 from gym.wrappers import TimeLimit
 
 def make_d4rl_env(**env_args):
+    e = gym.make(env_args["env_name"], stack=True)
+    e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
+    return e
+
+def make_d4rl_atari_env(**env_args):
+    import d4rl_atari
     e = gym.make(env_args["env_name"], stack=True)
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e

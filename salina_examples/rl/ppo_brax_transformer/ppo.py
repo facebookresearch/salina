@@ -14,23 +14,17 @@ import torch
 import salina.rl.functional as RLF
 from salina import Workspace, instantiate_class
 from salina.agents import Agents, TemporalAgent
-from salina.agents.brax import BraxAgent
+from salina.agents.brax import BraxAgent,NoAutoResetBraxAgent
 from salina.logger import TFLogger
 from salina import Agent
 from brax.envs import _envs, create_gym_env
 from brax.envs.to_torch import JaxToTorchWrapper
 import torch.nn as nn
 
-def make_brax_env(
-    env_name
-):
-    e=create_gym_env(env_name)
-    return JaxToTorchWrapper(e)
-
 class Normalizer(Agent):
     def __init__(self, env):
         super().__init__()
-        env = make_brax_env(env.env_name)
+        env = instantiate_class(env)
         self.n_features = env.observation_space.shape[0]
         self.n=None
 
@@ -62,6 +56,18 @@ class Normalizer(Agent):
 
     def seed(self, seed):
         torch.manual_seed(seed)
+
+class BatchNormalizer(Agent):
+    def __init__(self, env,**args):
+        super().__init__()
+        env = instantiate_class(env)
+        input_size = env.observation_space.shape[0]
+        self.bn=nn.BatchNorm1d(input_size,**args)
+
+    def forward(self, t, update_normalizer=True, **args):
+        assert self.training==self.bn.training
+        input = self.get(("env/env_obs", t))
+        self.set(("env/env_obs", t), self.bn(input))
 
 class NoAgent(Agent):
     def __init__(self):
@@ -99,7 +105,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
         critic_agent.parameters(), lr=cfg.algorithm.lr_critic
     )
 
-    env_validation_agent = BraxAgent(env_name=cfg.algorithm.validation.env.env_name,n_envs=cfg.algorithm.validation.n_envs)
+    env_validation_agent = NoAutoResetBraxAgent(env_name=cfg.algorithm.validation.env.env_name,n_envs=cfg.algorithm.validation.n_envs)
     validation_agent = TemporalAgent(
         Agents(env_validation_agent, norm_agent,action_agent)
     ).to(cfg.device)
@@ -115,6 +121,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
     while epoch < cfg.algorithm.max_epochs:
         # === Validation
         if (epoch % cfg.algorithm.validation.evaluate_every == 0) and (epoch > 0):
+            print("Starting evaluation...")
             validation_agent.eval()
             validation_agent(
                 validation_workspace,
@@ -128,7 +135,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
             arange=torch.arange(length.size()[0],device=length.device)
             creward = validation_workspace["env/cumulated_reward"][length,arange].mean().item()
             logger.add_scalar("validation/reward", creward, epoch)
-            print("reward at epoch", epoch, ":\t", round(creward, 0))
+            print("\treward at epoch", epoch, ":\t", round(creward, 0))
             validation_agent.train()
 
         # === Acquisition
@@ -169,6 +176,7 @@ def run_ppo(action_agent, critic_agent, logger,cfg):
                     replay=True,
                     action_std=cfg.algorithm.action_std,
                 )
+
                 critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
                 old_action_lp = all_actions_lp[:,minibatch_idx].detach()
                 reward = reward * cfg.algorithm.reward_scaling
