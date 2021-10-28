@@ -20,8 +20,10 @@ def make_d4rl_env(**env_args):
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e
 
+
 def make_d4rl_atari_env(**env_args):
     import d4rl_atari
+
     e = gym.make(env_args["env_name"], stack=True)
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e
@@ -47,7 +49,7 @@ class ActionMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         input = self.get(("env/env_obs", t))
         action = self.fc(input)
         action = torch.tanh(action)
@@ -98,7 +100,7 @@ class AtariAgent(TAgent):
         output_size = env.action_space.n
         self.fc = DuelingCnnDQN(input_shape, output_size)
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         input = self.get(("env/env_obs", t))
         scores = self.fc(input)
         probs = torch.softmax(scores, dim=-1)

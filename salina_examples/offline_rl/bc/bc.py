@@ -12,6 +12,7 @@ import time
 import d4rl
 import gym
 import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
@@ -25,7 +26,7 @@ from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
 from salina_examples.offline_rl.d4rl import *
-import numpy as np
+
 
 def _state_dict(agent, device):
     sd = agent.state_dict()
@@ -44,7 +45,7 @@ def run_bc(action_agent, logger, cfg):
         ),
     )
     action_evaluation_agent = copy.deepcopy(action_agent)
-    env=instantiate_class(cfg.algorithm.env)
+    env = instantiate_class(cfg.algorithm.env)
 
     train_temporal_action_agent = TemporalAgent(action_agent)
     train_temporal_action_agent.to(cfg.algorithm.loss_device)
@@ -76,9 +77,9 @@ def run_bc(action_agent, logger, cfg):
             creward, done = evaluation_workspace["env/cumulated_reward", "env/done"]
             creward = creward[done]
             if creward.size()[0] > 0:
-                ns=[]
+                ns = []
                 for i in range(creward.size()[0]):
-                    r=creward[i].item()
+                    r = creward[i].item()
                     ns.append(env.get_normalized_score(r))
                 logger.add_scalar("evaluation/normalized_", np.mean(ns), epoch)
 
@@ -93,7 +94,9 @@ def run_bc(action_agent, logger, cfg):
                 epsilon=0.0,
             )
         batch_size = cfg.algorithm.batch_size
-        replay_workspace = replay_buffer.select_batch_n(batch_size).to(cfg.algorithm.loss_device)
+        replay_workspace = replay_buffer.select_batch_n(batch_size).to(
+            cfg.algorithm.loss_device
+        )
         target_action = replay_workspace["action"].detach()
         train_temporal_action_agent(
             replay_workspace, t=0, n_steps=replay_workspace.time_size()

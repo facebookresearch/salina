@@ -43,7 +43,7 @@ class ProbAgent(TAgent):
             nn.Linear(hidden_size, n_actions),
         )
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         observation = self.get(("env/env_obs", t))
         scores = self.model(observation)
         probs = torch.softmax(scores, dim=-1)
@@ -54,7 +54,7 @@ class ActionAgent(TAgent):
     def __init__(self):
         super().__init__()
 
-    def forward(self, t, stochastic, **args):
+    def forward(self, t, stochastic, **kwargs):
         probs = self.get(("action_probs", t))
         if stochastic:
             action = torch.distributions.Categorical(probs).sample()
@@ -73,7 +73,7 @@ class CriticAgent(TAgent):
             nn.Linear(hidden_size, 1),
         )
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         observation = self.get(("env/env_obs", t))
         critic = self.critic_model(observation).squeeze(-1)
         self.set(("critic", t), critic)

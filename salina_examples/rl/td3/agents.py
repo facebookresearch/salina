@@ -49,7 +49,7 @@ class ActionMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, epsilon, epsilon_clip=100000, **args):
+    def forward(self, t, epsilon, epsilon_clip=100000, **kwargs):
         input = self.get(("env/env_obs", t))
         action = self.fc(input)
         action = torch.tanh(action)
@@ -73,7 +73,7 @@ class QMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, detach_action=False, **args):
+    def forward(self, t, detach_action=False, **kwargs):
         input = self.get(("env/env_obs", t))
         action = self.get(("action", t))
         if detach_action:

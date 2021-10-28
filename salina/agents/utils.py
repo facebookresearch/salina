@@ -12,7 +12,7 @@ from salina import Agent, TAgent
 
 
 class Agents(Agent):
-    """ Execute multiple agents sequentiall
+    """Execute multiple agents sequentiall
 
     Args:
         Agent ([salina.Agent]): The agents to execute
@@ -24,11 +24,11 @@ class Agents(Agent):
             assert isinstance(a, Agent)
         self.agents = nn.ModuleList(agents)
 
-    def __call__(self, workspace, **args):
+    def __call__(self, workspace, **kwargs):
         for a in self.agents:
-            a(workspace, **args)
+            a(workspace, **kwargs)
 
-    def forward(**args):
+    def forward(**kwargs):
         raise NotImplementedError
 
     def seed(self, seed):
@@ -48,19 +48,18 @@ class Agents(Agent):
 
 
 class TemporalAgent(Agent):
-    """ Execute one Agent over multiple timesteps
+    """Execute one Agent over multiple timesteps
 
     Args:
         Agent ([salina.Agent])
     """
 
-
     def __init__(self, agent, name=None):
         super().__init__(name=name)
         self.agent = agent
 
-    def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **args):
-        """ Execute the agent startiing at time t, for n_steps
+    def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **kwargs):
+        """Execute the agent startiing at time t, for n_steps
 
         Args:
             workspace ([salina.Workspace]):
@@ -72,7 +71,7 @@ class TemporalAgent(Agent):
         assert not (n_steps is None and stop_variable is None)
         _t = t
         while True:
-            self.agent(workspace, t=_t, **args)
+            self.agent(workspace, t=_t, **kwargs)
             if not stop_variable is None:
                 s = workspace.get(stop_variable, _t)
                 if s.all():
@@ -82,7 +81,7 @@ class TemporalAgent(Agent):
                 if _t >= t + n_steps:
                     break
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         raise NotImplementedError
 
     def seed(self, seed):
@@ -96,20 +95,21 @@ class TemporalAgent(Agent):
 
 
 class CopyTAgent(Agent):
-    """ An agent that copy a variable
+    """An agent that copy a variable
 
     Args:
         input_name ([str]): The variable to copy from
         output_name ([str]): The variable to copy to
         detach ([bool]): copy with detach if True
     """
+
     def __init__(self, input_name, output_name, detach=False, name=None):
         super().__init__(name=name)
         self.input_name = input_name
         self.output_name = output_name
         self.detach = detach
 
-    def forward(self, t=None, **args):
+    def forward(self, t=None, **kwargs):
         """
         Args:
             t ([type], optional): if not None, copy at time t. Defaults to None.
@@ -127,12 +127,14 @@ class CopyTAgent(Agent):
             else:
                 self.set((self.output_name, t), x.detach())
 
+
 class PrintAgent(Agent):
     """An agent to generate print in the console (mainly for debugging)
 
     Args:
         Agent ([type]): [description]
     """
+
     def __init__(self, *names, name=None):
         """
         Args:
@@ -141,6 +143,6 @@ class PrintAgent(Agent):
         super().__init__(name=name)
         self.names = names
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         for n in self.names:
             print(n, " = ", self.get((n, t)))

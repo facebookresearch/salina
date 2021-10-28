@@ -54,7 +54,7 @@ class DQNMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, replay=False, epsilon=0.0, **args):
+    def forward(self, t, replay=False, epsilon=0.0, **kwargs):
         input = self.get(("env/env_obs", t))
         q = self.model(input)
 
@@ -108,9 +108,9 @@ class DuelingCnnDQN(nn.Module):
 
 
 class DQNAtariAgent(TAgent):
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(kwargs["env"])
         input_shape = (1,) + env.observation_space.shape
         num_outputs = env.action_space.n
         self.cnn = DuelingCnnDQN(input_shape, num_outputs)
@@ -119,7 +119,7 @@ class DQNAtariAgent(TAgent):
         qvals = self.cnn(state)
         return qvals
 
-    def forward(self, t, replay=False, epsilon=0.0, **args):
+    def forward(self, t, replay=False, epsilon=0.0, **kwargs):
         input = self.get(("env/env_obs", t)).float()
         q = self._forward_nn(input)
 

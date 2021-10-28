@@ -82,7 +82,7 @@ class A2CMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, replay, stochastic, **args):
+    def forward(self, t, replay, stochastic, **kwargs):
         input = self.get(("env/env_obs", t))
         scores = self.model(input)
         probs = torch.softmax(scores, dim=-1)
@@ -110,7 +110,7 @@ class A2C_ObservationAgent(TAgent):
         self.linear_out = nn.Linear(n_output * 3, n_output)
         self.output_name = output_name
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         obs = self.get(("env/env_obs", t))
         obs = self.linear(obs)
         obs = torch.relu(obs)
@@ -137,7 +137,7 @@ class A2C_GRUAgent(TAgent):
         self.input_name = input_name
         self.output_name = output_name
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         _input = self.get((self.input_name, t))
         B = _input.size()[0]
         if t == 0:
@@ -161,7 +161,7 @@ class A2C_PolicyAgent(TAgent):
         self.linear = nn.Linear(n_input, n_actions)
         self.input_name = input_name
 
-    def forward(self, t, replay, stochastic, **args):
+    def forward(self, t, replay, stochastic, **kwargs):
         _input = self.get((self.input_name, t))
         scores = self.linear(_input)
         probs = torch.softmax(scores, dim=-1)
@@ -181,7 +181,7 @@ class A2C_CriticAgent(TAgent):
         self.linear = nn.Linear(n_input, 1)
         self.input_name = input_name
 
-    def forward(self, t, replay, **args):
+    def forward(self, t, replay, **kwargs):
         if replay:
             _input = self.get((self.input_name, t))
             c = self.linear(_input).squeeze(-1)
@@ -275,7 +275,7 @@ class A2CAtariAgent(TAgent):
         qvals = self.cnn(state)
         return qvals
 
-    def forward(self, t, stochastic, replay, **args):
+    def forward(self, t, stochastic, replay, **kwargs):
         input = self.get(("env/env_obs", t))
         z = self._forward_nn(input)
         scores = self.linear(z)

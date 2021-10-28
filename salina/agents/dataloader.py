@@ -18,13 +18,14 @@ class ShuffledDatasetAgent(Agent):
     Args:
         Agent ([type]): [description]
     """
+
     def __init__(
         self,
         dataset,
         batch_size,
         output_names=("x", "y"),
     ):
-        """ Create the agent
+        """Create the agent
 
         Args:
             dataset ([torch.utils.data.Dataset]): the Dataset
@@ -41,9 +42,8 @@ class ShuffledDatasetAgent(Agent):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def forward(self, **args):
-        """ Write a batch of data at timestep==0 in the workspace
-        """
+    def forward(self, **kwargs):
+        """Write a batch of data at timestep==0 in the workspace"""
         vs = []
         for k in range(self.batch_size):
             idx = self.np_random.randint(len(self.dataset))
@@ -70,6 +70,7 @@ class DataLoaderAgent(Agent):
     """An agent based on a DataLoader that read a single dataset
     Usage is: agent.forward(), then one has to check if agent.finished() is True or Not. If True, then no data have been written in the workspace since the reading of the daaset is terminated
     """
+
     def __init__(self, dataloader, output_names=("x", "y")):
         super().__init__()
         self.dataloader = dataloader
@@ -85,7 +86,7 @@ class DataLoaderAgent(Agent):
     def finished(self):
         return self._finished
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         try:
             output_values = next(self.iter)
         except StopIteration:
