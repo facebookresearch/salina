@@ -9,26 +9,23 @@ import gym
 import numpy as np
 import torch
 import torch.nn.functional as F
-from brax.envs import _envs, wrappers
+from brax.envs import _envs, create_gym_env, wrappers
+from brax.envs.to_torch import JaxToTorchWrapper
 from gym.wrappers import TimeLimit
 from torch import nn
 from torch.distributions.normal import Normal
 
 from salina import Agent, instantiate_class
 from salina_examples.rl.atari_wrappers import make_atari, wrap_deepmind, wrap_pytorch
-from brax.envs import _envs, create_gym_env
-from brax.envs.to_torch import JaxToTorchWrapper
 
-def make_brax_env(
-    env_name
-):
-    e=create_gym_env(env_name)
+
+def make_brax_env(env_name):
+    e = create_gym_env(env_name)
     return JaxToTorchWrapper(e)
 
 
-
 class ActionAgent(Agent):
-    def __init__(self, env,n_layers,hidden_size):
+    def __init__(self, env, n_layers, hidden_size):
         super().__init__()
         env = make_brax_env(env.env_name)
         input_size = env.observation_space.shape[0]
@@ -50,9 +47,9 @@ class ActionAgent(Agent):
             nn.Linear(hs, num_outputs),
         )
 
-    def forward(self, t=None, replay=False, action_std=0.1, **args):
+    def forward(self, t=None, replay=False, action_std=0.1, **kwargs):
         if replay:
-            assert t==None
+            assert t == None
             input = self.get("env/env_obs")
             mean = self.model(input)
             var = torch.ones_like(mean) * action_std + 0.000001
@@ -78,7 +75,7 @@ class ActionAgent(Agent):
 
 
 class CriticAgent(Agent):
-    def __init__(self, env,n_layers,hidden_size):
+    def __init__(self, env, n_layers, hidden_size):
         super().__init__()
         env = make_brax_env(env.env_name)
         input_size = env.observation_space.shape[0]
@@ -99,7 +96,7 @@ class CriticAgent(Agent):
             nn.Linear(hs, 1),
         )
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         input = self.get("env/env_obs")
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)

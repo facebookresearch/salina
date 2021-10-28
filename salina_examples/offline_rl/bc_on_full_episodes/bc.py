@@ -12,28 +12,31 @@ import time
 import d4rl
 import gym
 import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
 
 import salina
 import salina.rl.functional as RLF
+import salina_examples.offline_rl.d4rl
 from salina import Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents, NRemoteAgent, TemporalAgent
 from salina.agents.gym import AutoResetGymAgent, GymAgent
 from salina.logger import TFLogger
-import salina_examples.offline_rl.d4rl
-import numpy as np
+
+
 def _state_dict(agent, device):
     sd = agent.state_dict()
     for k, v in sd.items():
         sd[k] = v.to(device)
     return sd
 
-def run_bc(buffer, logger, action_agent,cfg_algorithm, cfg_env):
+
+def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
     action_agent.set_name("action_agent")
 
-    env=instantiate_class(cfg_env)
+    env = instantiate_class(cfg_env)
 
     env_evaluation_agent = GymAgent(
         get_class(cfg_env),
@@ -50,16 +53,13 @@ def run_bc(buffer, logger, action_agent,cfg_algorithm, cfg_env):
         t=0,
         n_steps=10,
         epsilon=0.0,
-        time_size=cfg_env.max_episode_steps+1
-
+        time_size=cfg_env.max_episode_steps + 1,
     )
     evaluation_agent.eval()
 
     evaluation_agent.seed(cfg_algorithm.evaluation.env_seed)
     evaluation_agent._asynchronous_call(
-        evaluation_workspace,
-        t=0,
-        stop_variable="env/done"
+        evaluation_workspace, t=0, stop_variable="env/done"
     )
 
     logger.message("Learning")
@@ -70,13 +70,13 @@ def run_bc(buffer, logger, action_agent,cfg_algorithm, cfg_env):
 
     for epoch in range(cfg_algorithm.max_epoch):
         if not evaluation_agent.is_running():
-            length=evaluation_workspace["env/done"].float().argmax(0)
-            creward=evaluation_workspace["env/cumulated_reward"]
-            arange=torch.arange(length.size()[0],device=length.device)
-            creward = creward[length,arange]
+            length = evaluation_workspace["env/done"].float().argmax(0)
+            creward = evaluation_workspace["env/cumulated_reward"]
+            arange = torch.arange(length.size()[0], device=length.device)
+            creward = creward[length, arange]
             if creward.size()[0] > 0:
                 logger.add_scalar("evaluation/reward", creward.mean().item(), epoch)
-                v=[]
+                v = []
                 for i in range(creward.size()[0]):
                     v.append(env.get_normalized_score(creward[i].item()))
                 logger.add_scalar("evaluation/normalized_reward", np.mean(v), epoch)
@@ -90,19 +90,20 @@ def run_bc(buffer, logger, action_agent,cfg_algorithm, cfg_env):
                 epsilon=0.0,
             )
 
-
         batch_size = cfg_algorithm.batch_size
-        replay_workspace = buffer.select_batch_n(batch_size).to(cfg_algorithm.loss_device)
-        T=replay_workspace.time_size()
-        length=replay_workspace["env/done"].float().argmax(0)
-        mask=torch.arange(T).unsqueeze(-1).repeat(1,batch_size).to(length.device)
-        length=length.unsqueeze(0).repeat(T,1)
-        mask=mask.le(length).float()
+        replay_workspace = buffer.select_batch_n(batch_size).to(
+            cfg_algorithm.loss_device
+        )
+        T = replay_workspace.time_size()
+        length = replay_workspace["env/done"].float().argmax(0)
+        mask = torch.arange(T).unsqueeze(-1).repeat(1, batch_size).to(length.device)
+        length = length.unsqueeze(0).repeat(T, 1)
+        mask = mask.le(length).float()
         target_action = replay_workspace["action"].detach()
         action_agent(replay_workspace)
         action = replay_workspace["action"]
-        mse = ((target_action - action) ** 2)
-        mse_loss = (mse.sum(2)*mask).sum()/mask.sum()
+        mse = (target_action - action) ** 2
+        mse_loss = (mse.sum(2) * mask).sum() / mask.sum()
         logger.add_scalar("loss/mse", mse_loss.item(), epoch)
         optimizer_action.zero_grad()
         mse_loss.backward()
@@ -121,10 +122,12 @@ def main(cfg):
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg)
     from importlib import import_module
+
     env = instantiate_class(cfg.env)
-    workspace=salina_examples.offline_rl.d4rl.d4rl_episode_buffer(env)
-    agent=instantiate_class(cfg.agent)
-    run_bc(workspace,logger, agent, cfg.algorithm,cfg.env)
+    workspace = salina_examples.offline_rl.d4rl.d4rl_episode_buffer(env)
+    agent = instantiate_class(cfg.agent)
+    run_bc(workspace, logger, agent, cfg.algorithm, cfg.env)
+
 
 import os
 

@@ -39,7 +39,7 @@ class ConvNetAgent(Agent):
             nn.Linear(128, 10),
         )
 
-    def forward(self, t=0, **args):
+    def forward(self, t=0, **kwargs):
         logits = self.net(self.get((self.input, t)))
         self.set((self.output, t), logits)
 

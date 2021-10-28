@@ -8,17 +8,17 @@ If you want to understand deeply how salina works, you have to understand these 
 
 ## Differences with Pytorch
 
-`salina` just allows to extend `pytorch` such that a temporal dimension is added. In order to achieve this, instead of having `Module`s that takes tensors as inputs and returns tensors, `salina` proposes `Agent`s that read tensors from a `Workspace` and write tensors into the `Workspace` as illustrated in the figure. The interest is that `Agent`s can thus access information at different timesteps and thus build the information in a sequential way. With such a setting, an agent can access a set of tensors organized by time such as a complete episode, a subset of the history, the previou timestep, etc... This simple 'trick' makes the implementation of sequential models much easier, and allows complex parallelisation schemas as described in the next sections.
+`salina` just allows to extend `pytorch` such that a temporal dimension is added. In order to achieve this, instead of having `Module`s that take tensors as inputs and return tensors, `salina` proposes `Agent`s that read tensors from a `Workspace` and write tensors into the `Workspace`, as illustrated in the figure. The interesting part is that `Agent`s can thus access information at different timesteps and thus build the information in a sequential way. With such a setting, an agent can access a set of tensors organized by time such as a complete episode, a subset of the history, the previous timestep, etc... This simple 'trick' makes the implementation of sequential models much easier, and allows complex parallelisation schemas as described in the next sections.
 
 ![Principles of Salina](fig1.png)
 
 ## Agents
 
-In salina, instead of manipulating `nn.Module`, you manipulate `Agent`. The different is that an Agent is **reading and writting** information into a `Workspace`. This `Workspace` is thus used by multiple agents to exchange information.
+In salina, instead of manipulating `nn.Module`, you manipulate `Agent`. The difference is that an Agent is **reading and writting** information into a `Workspace`. This `Workspace` is thus used by multiple agents to exchange information.
 
-For instance, in the Reinforcement Learning case, on agent will be the environments, writing `oobservations`, `reward`, etc... and reading `actions`. Another agent will implement the policy, reading `observations` from the `Workspace` and writing `actions`.
+For instance, in the Reinforcement Learning case, one agent will be the environments, writing `observations`, `reward`, etc... and reading `actions`. Another agent will implement the policy, reading `observations` from the `Workspace` and writing `actions`.
 
-The typicaly use of an `Agent` is the following:
+The typical use of an `Agent` is the following:
 ```
     my_agent = MyAgent()
     my_agent(workspace)
@@ -27,7 +27,7 @@ The typicaly use of an `Agent` is the following:
 
 ## Workspace
 
-A `Workspace` is a set of pytorch tensors organized by `name` and by `time`.
+A `Workspace` is a set of pytorch tensors organized by `name` and `time`.
 
 Defining a new workspace is done as follows:
 ```
@@ -45,7 +45,7 @@ As an example, let us define an agent working at time `t` that does a simple inc
         def __init__(self):
             super().__init__()
 
-        def forward(self, t, **args):
+        def forward(self, t, **kwargs):
             x = self.get(("x", t))  # to get the variable x at time t
             # or
             x = self.workspace.get("x", t)  # alternative writting
@@ -57,7 +57,7 @@ As an example, let us define an agent working at time `t` that does a simple inc
             x = self.workspace.set("y", t, y)  # alternative writting
 ```
 
-Note that this agent as an extra argument `t` in `forward` to indicate at which timestep it operates. Note that an agent can operate at multiple timesteps simultaneously.
+Note that this agent has an extra argument `t` in `forward` to indicate at which timestep it operates. Note that an agent can operate at multiple timesteps simultaneously.
 
 To execute this agent over a full workspace:
 ```

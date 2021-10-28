@@ -19,7 +19,7 @@ class Agent(nn.Module):
     def __init__(self, name=None):
         super().__init__()
         self._name = name
-        self.__trace_file=None
+        self.__trace_file = None
 
     def seed(self, seed):
         pass
@@ -31,25 +31,25 @@ class Agent(nn.Module):
     def get_name(self):
         return self._name
 
-    def set_trace_file(self,filename):
-        print("[TRACE]: Tracing agent in file "+filename)
-        self.__trace_file=open(filename,"wt")
+    def set_trace_file(self, filename):
+        print("[TRACE]: Tracing agent in file " + filename)
+        self.__trace_file = open(filename, "wt")
 
-    def __call__(self, workspace, **args):
+    def __call__(self, workspace, **kwargs):
         assert not workspace is None, "[Agent.__call__] workspace must not be None"
         self.workspace = workspace
-        self.forward(**args)
+        self.forward(**kwargs)
         w = self.workspace
         self.workspace = None
 
-    def _asynchronous_call(self, workspace, **args):
-        return self.__call__(workspace, **args)
+    def _asynchronous_call(self, workspace, **kwargs):
+        return self.__call__(workspace, **kwargs)
 
     def is_running(self):
         return False
 
-    def forward(self, **args):
-        raise NotImplemetedError
+    def forward(self, **kwargs):
+        raise NotImplementedError
 
     def clone(self):
         self.workspace = None
@@ -58,20 +58,36 @@ class Agent(nn.Module):
 
     def get(self, index):
         if not self.__trace_file is None:
-            t=time.time()
-            self.__trace_file.write(str(self)+" type = "+type(self)+" time = ",t," get ",index,"\n")
+            t = time.time()
+            self.__trace_file.write(
+                str(self) + " type = " + type(self) + " time = ",
+                t,
+                " get ",
+                index,
+                "\n",
+            )
         if isinstance(index, str):
             return self.workspace.get_full(index)
         else:
             return self.workspace.get(index[0], index[1])
 
-    def get_time_truncated(self,var_name,from_time,to_time):
-        return self.workspace.get_time_truncated(var_name,from_time,to_time)
+    def get_time_truncated(self, var_name, from_time, to_time):
+        return self.workspace.get_time_truncated(var_name, from_time, to_time)
 
     def set(self, index, value):
         if not self.__trace_file is None:
-            t=time.time()
-            self.__trace_file.write(str(self)+" type = "+type(self)+" time = ",t," set ",index," = ",value.size(),"/",value.dtype,"\n")
+            t = time.time()
+            self.__trace_file.write(
+                str(self) + " type = " + type(self) + " time = ",
+                t,
+                " set ",
+                index,
+                " = ",
+                value.size(),
+                "/",
+                value.dtype,
+                "\n",
+            )
         if isinstance(index, str):
             self.workspace.set_full(index, value)
         else:
@@ -90,5 +106,5 @@ class Agent(nn.Module):
 class TAgent(Agent):
     """A specific agent that uses a timestep as an input"""
 
-    def forward(self, t, **args):
-        raise NotImplemetedError
+    def forward(self, t, **kwargs):
+        raise NotImplementedError

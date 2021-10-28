@@ -73,7 +73,7 @@ class STNAgent(Agent):
 
         return x
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         for t in range(self.num_transforms + 1):
             x = self.get((self.input, t))
 

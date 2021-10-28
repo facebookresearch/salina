@@ -26,7 +26,7 @@ def _format_frame(frame):
         return t
     elif isinstance(frame, np.ndarray):
         t = torch.from_numpy(frame).unsqueeze(0)
-        if t.dtype == torch.float64 or t.dtype== torch.float32:
+        if t.dtype == torch.float64 or t.dtype == torch.float32:
             t = t.float()
         else:
             t = t.long()
@@ -48,13 +48,14 @@ def _format_frame(frame):
         except:
             assert False
 
+
 def _torch_type(d):
-    nd={}
+    nd = {}
     for k in d:
-        if d[k].dtype==torch.float64:
-            nd[k]=d[k].float()
+        if d[k].dtype == torch.float64:
+            nd[k] = d[k].float()
         else:
-            nd[k]=d[k]
+            nd[k] = d[k]
     return nd
 
 
@@ -66,10 +67,11 @@ def _torch_cat_dict(d):
 
 
 class GymAgent(TAgent):
-    """ A agent corresponding to a Gym environment.
+    """A agent corresponding to a Gym environment.
     The agent reads the action at t-1, and produces many variables
     If t==0, then the environments are reset
     """
+
     def __init__(
         self,
         make_env_fn=None,
@@ -177,10 +179,10 @@ class GymAgent(TAgent):
         }
         return _torch_type(ret)
 
-    def forward(self, t=0, save_render=False, **args):
-        """ Do one step by reading the `action` at t-1
-         If t==0, environments are reset
-         If save_render is True, then the output of env.render(mode="image") is written as env/rendering
+    def forward(self, t=0, save_render=False, **kwargs):
+        """Do one step by reading the `action` at t-1
+        If t==0, environments are reset
+        If save_render is True, then the output of env.render(mode="image") is written as env/rendering
         """
         if self.envs is None:
             self._initialize_envs(self.n_envs)
@@ -218,8 +220,8 @@ class GymAgent(TAgent):
 
 
 class AutoResetGymAgent(TAgent):
-    """The same than GymAgent, but with an automoatic reset when done is True
-    """
+    """The same than GymAgent, but with an automoatic reset when done is True"""
+
     def __init__(
         self,
         make_env_fn=None,
@@ -318,7 +320,7 @@ class AutoResetGymAgent(TAgent):
         }
         return _torch_type(ret)
 
-    def forward(self, t=0, save_render=False, **args):
+    def forward(self, t=0, save_render=False, **kwargs):
         if self.envs is None:
             self._initialize_envs(self.n_envs)
 

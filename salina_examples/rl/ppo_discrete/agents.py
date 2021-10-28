@@ -30,17 +30,17 @@ def make_gym_env(**env_args):
 
 
 class PPOMLPActionAgent(TAgent):
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(kwargs["env"])
         input_size = env.observation_space.shape[0]
         num_outputs = env.action_space.n
-        hs = args["hidden_size"]
+        hs = kwargs["hidden_size"]
         self.model = nn.Sequential(
             nn.Linear(input_size, hs), nn.ReLU(), nn.Linear(hs, num_outputs)
         )
 
-    def forward(self, t, replay, stochastic, **args):
+    def forward(self, t, replay, stochastic, **kwargs):
         input = self.get(("env/env_obs", t))
         scores = self.model(input)
         probs = torch.softmax(scores, dim=-1)
@@ -55,17 +55,17 @@ class PPOMLPActionAgent(TAgent):
 
 
 class PPOMLPCriticAgent(TAgent):
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(kwargs["env"])
         input_size = env.observation_space.shape[0]
         num_outputs = env.action_space.n
-        hs = args["hidden_size"]
+        hs = kwargs["hidden_size"]
         self.model_critic = nn.Sequential(
             nn.Linear(input_size, hs), nn.ReLU(), nn.Linear(hs, 1)
         )
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         input = self.get(("env/env_obs", t))
 
         critic = self.model_critic(input).squeeze(-1)
