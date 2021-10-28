@@ -50,7 +50,7 @@ class ActionAgent(Agent):
             nn.Linear(hs, num_outputs),
         )
 
-    def forward(self, t=None, replay=False, action_std=0.1, **args):
+    def forward(self, t=None, replay=False, action_std=0.1, **kwargs):
         if replay:
             assert t==None
             input = self.get("env/env_obs")
@@ -99,7 +99,7 @@ class CriticAgent(Agent):
             nn.Linear(hs, 1),
         )
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         input = self.get("env/env_obs")
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)

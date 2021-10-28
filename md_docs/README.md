@@ -45,7 +45,7 @@ As an example, let us define an agent working at time `t` that does a simple inc
         def __init__(self):
             super().__init__()
 
-        def forward(self, t, **args):
+        def forward(self, t, **kwargs):
             x = self.get(("x", t))  # to get the variable x at time t
             # or
             x = self.workspace.get("x", t)  # alternative writting

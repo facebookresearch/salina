@@ -59,7 +59,7 @@ class TransitionEncoder(Agent):
         self.positional_embeddings=nn.Embedding(self.n_t_embeddings,embedding_size//2)
         self.output_name=output_name
 
-    def forward(self,t=None,**args):
+    def forward(self,t=None,**kwargs):
         if not t is None:
             if t==0:
                 e_s=self.model_obs(self.get(("env/env_obs",t)))
@@ -122,7 +122,7 @@ class ActionAgent(Agent):
             nn.Linear(hs, num_outputs),
         )
 
-    def forward(self, t=None, replay=False, action_std=0.1, **args):
+    def forward(self, t=None, replay=False, action_std=0.1, **kwargs):
         if replay:
             assert t==None
             input = self.get("action_attn_out/x")
@@ -171,7 +171,7 @@ class CriticAgent(Agent):
             nn.Linear(hs, 1),
         )
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         input = self.get("critic_attn_out/x")
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)

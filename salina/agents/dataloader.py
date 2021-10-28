@@ -41,7 +41,7 @@ class ShuffledDatasetAgent(Agent):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         """ Write a batch of data at timestep==0 in the workspace
         """
         vs = []
@@ -85,7 +85,7 @@ class DataLoaderAgent(Agent):
     def finished(self):
         return self._finished
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         try:
             output_values = next(self.iter)
         except StopIteration:

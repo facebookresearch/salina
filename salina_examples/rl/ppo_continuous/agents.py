@@ -38,14 +38,14 @@ def make_gym_env(**env_args):
 class PPOMLPActionVarianceAgent(TAgent):
     """torch.distributions implementation of an diagonal Gaussian policy."""
 
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(kwargs["env"])
         input_size = env.observation_space.shape[0]
         self.num_outputs = env.action_space.shape[0]
-        hs = args["hidden_size"]
-        n_layers = args["n_layers"]
-        self.log_std_bounds = args["log_std_bounds"]
+        hs = kwargs["hidden_size"]
+        n_layers = kwargs["n_layers"]
+        self.log_std_bounds = kwargs["log_std_bounds"]
         hidden_layers = (
             [nn.Linear(hs, hs), nn.SiLU()] * (n_layers - 1)
             if n_layers > 1
@@ -58,7 +58,7 @@ class PPOMLPActionVarianceAgent(TAgent):
             nn.Linear(hs, self.num_outputs * 2),
         )
 
-    def forward(self, t, replay, action_variance, **args):
+    def forward(self, t, replay, action_variance, **kwargs):
         input = self.get(("env/env_obs", t))
         mu, log_std = self.model(input).chunk(2, dim=-1)
 
@@ -87,13 +87,13 @@ class PPOMLPActionVarianceAgent(TAgent):
 
 
 class PPOMLPActionAgent(TAgent):
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(kwargs["env"])
         input_size = env.observation_space.shape[0]
         num_outputs = env.action_space.shape[0]
-        hs = args["hidden_size"]
-        n_layers = args["n_layers"]
+        hs = kwargs["hidden_size"]
+        n_layers = kwargs["n_layers"]
         hidden_layers = (
             [nn.Linear(hs, hs), nn.SiLU()] * (n_layers - 1)
             if n_layers > 1
@@ -106,7 +106,7 @@ class PPOMLPActionAgent(TAgent):
             nn.Linear(hs, num_outputs),
         )
 
-    def forward(self, t, replay, action_variance, **args):
+    def forward(self, t, replay, action_variance, **kwargs):
         input = self.get(("env/env_obs", t))
         mean = torch.tanh(self.model(input))
         var = torch.ones_like(mean) * action_variance + 0.000001
@@ -128,12 +128,12 @@ class PPOMLPActionAgent(TAgent):
 
 
 class PPOMLPCriticAgent(TAgent):
-    def __init__(self, **args):
+    def __init__(self, **kwargs):
         super().__init__()
-        env = instantiate_class(args["env"])
+        env = instantiate_class(kwargs["env"])
         input_size = env.observation_space.shape[0]
-        hs = args["hidden_size"]
-        n_layers = args["n_layers"]
+        hs = kwargs["hidden_size"]
+        n_layers = kwargs["n_layers"]
         hidden_layers = (
             [nn.Linear(hs, hs), nn.SiLU()] * (n_layers - 1)
             if n_layers > 1
@@ -146,7 +146,7 @@ class PPOMLPCriticAgent(TAgent):
             nn.Linear(hs, 1),
         )
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         input = self.get(("env/env_obs", t))
 
         critic = self.model_critic(input).squeeze(-1)

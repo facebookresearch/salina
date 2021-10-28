@@ -47,7 +47,7 @@ class ActionMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         input = self.get(("env/env_obs", t))
         action = self.fc(input)
         action = torch.tanh(action)
@@ -98,7 +98,7 @@ class AtariAgent(TAgent):
         output_size = env.action_space.n
         self.fc = DuelingCnnDQN(input_shape, output_size)
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         input = self.get(("env/env_obs", t))
         scores = self.fc(input)
         probs = torch.softmax(scores, dim=-1)

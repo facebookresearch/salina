@@ -26,13 +26,13 @@ def f(agent, in_queue, out_queue, seed):
     while running:
         command = in_queue.get()
         if command[0] == "go_new_workspace":
-            _, workspace, args = command
+            _, workspace, kwargs = command
             old_workspace = workspace
-            agent(workspace, **args)
+            agent(workspace, **kwargs)
             out_queue.put("ok")
         elif command[0] == "go_reuse_workspace":
-            _, _, args = command
-            agent(old_workspace, **args)
+            _, _, kwargs = command
+            agent(old_workspace, **kwargs)
             out_queue.put("ok")
         elif command[0] == "exit":
             out_queue.put("ok")
@@ -66,7 +66,7 @@ class RemoteAgent(Agent):
         else:
             return self.agent.get_by_name(n)
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         raise NotImplementedError
 
     def _create_process(self):
@@ -82,7 +82,7 @@ class RemoteAgent(Agent):
         self.process.start()
         r = self.o_queue.get()
 
-    def __call__(self, workspace, **args):
+    def __call__(self, workspace, **kwargs):
         with torch.no_grad():
             assert (
                 workspace.is_shared
@@ -91,16 +91,16 @@ class RemoteAgent(Agent):
                 self._create_process()
                 self.train(self.train_mode)
             if not workspace == self.last_workspace:
-                self.i_queue.put(("go_new_workspace", workspace, args))
+                self.i_queue.put(("go_new_workspace", workspace, kwargs))
                 self.last_workspace = workspace
                 r = self.o_queue.get()
                 assert r == "ok"
             else:
-                self.i_queue.put(("go_reuse_workspace", workspace, args))
+                self.i_queue.put(("go_reuse_workspace", workspace, kwargs))
                 r = self.o_queue.get()
                 assert r == "ok"
 
-    def _asynchronous_call(self, workspace, **args):
+    def _asynchronous_call(self, workspace, **kwargs):
         """ Non-blocking forward. To use together with `is_running`
         """
         with torch.no_grad():
@@ -111,10 +111,10 @@ class RemoteAgent(Agent):
             if self.process is None:
                 self._create_process()
             if not workspace == self.last_workspace:
-                self.i_queue.put(("go_new_workspace", workspace, args))
+                self.i_queue.put(("go_new_workspace", workspace, kwargs))
                 self.last_workspace = workspace
             else:
-                self.i_queue.put(("go_reuse_workspace", workspace, args))
+                self.i_queue.put(("go_reuse_workspace", workspace, kwargs))
 
     def train(self,f=True):
         self.train_mode=f
@@ -190,7 +190,7 @@ class NRemoteAgent(Agent):
             r = r + a.get_by_name(name)
         return r
 
-    def create(agent, num_processes=0, time_size=None, **extra_args):
+    def create(agent, num_processes=0, time_size=None, **extra_kwargs):
         """ Returns a NRemote agent with num_processes copies of agent in different processes
         Also returns the specific workspace to use with such an agent
 
@@ -206,7 +206,7 @@ class NRemoteAgent(Agent):
         if num_processes == 0:
             workspace = Workspace()
             _agent = copy.deepcopy(agent)
-            agent(workspace, **extra_args)
+            agent(workspace, **extra_kwargs)
             shared_workspace = workspace._convert_to_shared_workspace(
                 n_repeat=1, time_size=time_size
             )
@@ -214,7 +214,7 @@ class NRemoteAgent(Agent):
 
         workspace = Workspace()
         agents = [copy.deepcopy(agent) for t in range(num_processes)]
-        agent(workspace, **extra_args)
+        agent(workspace, **extra_kwargs)
         b = workspace.batch_size()
         batch_dims = [(k * b, k * b + b) for k, a in enumerate(agents)]
         shared_workspace = workspace._convert_to_shared_workspace(
@@ -223,11 +223,11 @@ class NRemoteAgent(Agent):
         agents = [RemoteAgent(a) for a in agents]
         return NRemoteAgent(agents, batch_dims), shared_workspace
 
-    def __call__(self, workspace, **args):
+    def __call__(self, workspace, **kwargs):
         assert workspace.is_shared
         for k in range(len(self.agents)):
             _workspace = _SplitSharedWorkspace(workspace, self.batch_dims[k])
-            self.agents[k]._asynchronous_call(_workspace, **args)
+            self.agents[k]._asynchronous_call(_workspace, **kwargs)
         for a in self.agents:
             ok = a._running_queue().get()
             assert ok == "ok"
@@ -238,11 +238,11 @@ class NRemoteAgent(Agent):
             a.seed(s)
             s += inc
 
-    def _asynchronous_call(self, workspace, **args):
+    def _asynchronous_call(self, workspace, **kwargs):
         assert workspace.is_shared
         for k in range(len(self.agents)):
             _workspace = _SplitSharedWorkspace(workspace, self.batch_dims[k])
-            self.agents[k]._asynchronous_call(_workspace, **args)
+            self.agents[k]._asynchronous_call(_workspace, **kwargs)
 
     def is_running(self):
         for a in self.agents:

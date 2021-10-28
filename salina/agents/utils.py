@@ -24,11 +24,11 @@ class Agents(Agent):
             assert isinstance(a, Agent)
         self.agents = nn.ModuleList(agents)
 
-    def __call__(self, workspace, **args):
+    def __call__(self, workspace, **kwargs):
         for a in self.agents:
-            a(workspace, **args)
+            a(workspace, **kwargs)
 
-    def forward(**args):
+    def forward(**kwargs):
         raise NotImplementedError
 
     def seed(self, seed):
@@ -59,7 +59,7 @@ class TemporalAgent(Agent):
         super().__init__(name=name)
         self.agent = agent
 
-    def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **args):
+    def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **kwargs):
         """ Execute the agent startiing at time t, for n_steps
 
         Args:
@@ -72,7 +72,7 @@ class TemporalAgent(Agent):
         assert not (n_steps is None and stop_variable is None)
         _t = t
         while True:
-            self.agent(workspace, t=_t, **args)
+            self.agent(workspace, t=_t, **kwargs)
             if not stop_variable is None:
                 s = workspace.get(stop_variable, _t)
                 if s.all():
@@ -82,7 +82,7 @@ class TemporalAgent(Agent):
                 if _t >= t + n_steps:
                     break
 
-    def forward(self, **args):
+    def forward(self, **kwargs):
         raise NotImplementedError
 
     def seed(self, seed):
@@ -109,7 +109,7 @@ class CopyTAgent(Agent):
         self.output_name = output_name
         self.detach = detach
 
-    def forward(self, t=None, **args):
+    def forward(self, t=None, **kwargs):
         """
         Args:
             t ([type], optional): if not None, copy at time t. Defaults to None.
@@ -141,6 +141,6 @@ class PrintAgent(Agent):
         super().__init__(name=name)
         self.names = names
 
-    def forward(self, t, **args):
+    def forward(self, t, **kwargs):
         for n in self.names:
             print(n, " = ", self.get((n, t)))

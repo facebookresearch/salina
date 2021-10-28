@@ -48,7 +48,7 @@ class TransitionEncoder(Agent):
         self.positional_embeddings=nn.Embedding(max_episode_steps,embedding_size//2)
         self.output_name=output_name
 
-    def forward(self,t=None,**args):
+    def forward(self,t=None,**kwargs):
         if not t is None:
             if t==0:
                 e_s=self.model_obs(self.get(("env/env_obs",t)))
@@ -101,7 +101,7 @@ class ActionMLPAgentFromTransformer(Agent):
         )
         self.input_name=input_name
 
-    def forward(self, t=None, **args):
+    def forward(self, t=None, **kwargs):
         if not t is None:
             input = self.get((self.input_name, t))
             action = self.fc(input)
@@ -127,7 +127,7 @@ class ActionMLPAgentFromObservation(Agent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t=None, **args):
+    def forward(self, t=None, **kwargs):
         if not t is None:
             input = self.get(("env/env_obs", t))
             action = self.fc(input)
@@ -149,5 +149,5 @@ def transition_transformers(encoder,transformer,decoder):
     action_agent=Agents(_encoder,mblock,internal_action_agent)
     return action_agent
 
-def observation_mlp(**args):
-    return ActionMLPAgentFromObservation(**args)
+def observation_mlp(**kwargs):
+    return ActionMLPAgentFromObservation(**kwargs)

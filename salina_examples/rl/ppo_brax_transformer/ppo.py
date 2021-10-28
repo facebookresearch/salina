@@ -28,7 +28,7 @@ class Normalizer(Agent):
         self.n_features = env.observation_space.shape[0]
         self.n=None
 
-    def forward(self, t, update_normalizer=True, **args):
+    def forward(self, t, update_normalizer=True, **kwargs):
         input = self.get(("env/env_obs", t))
         assert torch.isnan(input).sum() == 0.0, "problem"
         if update_normalizer:
@@ -58,13 +58,13 @@ class Normalizer(Agent):
         torch.manual_seed(seed)
 
 class BatchNormalizer(Agent):
-    def __init__(self, env,**args):
+    def __init__(self, env,**kwargs):
         super().__init__()
         env = instantiate_class(env)
         input_size = env.observation_space.shape[0]
-        self.bn=nn.BatchNorm1d(input_size,**args)
+        self.bn=nn.BatchNorm1d(input_size,**kwargs)
 
-    def forward(self, t, update_normalizer=True, **args):
+    def forward(self, t, update_normalizer=True, **kwargs):
         assert self.training==self.bn.training
         input = self.get(("env/env_obs", t))
         self.set(("env/env_obs", t), self.bn(input))
@@ -73,7 +73,7 @@ class NoAgent(Agent):
     def __init__(self):
         super().__init__()
 
-    def forward(self,**args):
+    def forward(self,**kwargs):
         pass
 
 def clip_grad(parameters, grad):

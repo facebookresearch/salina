@@ -48,7 +48,7 @@ class A2CAgent(TAgent):
             nn.Linear(hidden_size, 1),
         )
 
-    def forward(self, t, stochastic, **args):
+    def forward(self, t, stochastic, **kwargs):
         observation = self.get(("env/env_obs", t))
         scores = self.model(observation)
         probs = torch.softmax(scores, dim=-1)

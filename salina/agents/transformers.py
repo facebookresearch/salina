@@ -49,7 +49,7 @@ class TransformerBlockAgent(Agent):
         )
 
 
-    def forward(self,t=None,**args):
+    def forward(self,t=None,**kwargs):
         if not t is None:
             if self.n_steps is None:
                 tokens=self.get(self.input_name)[:t+1]

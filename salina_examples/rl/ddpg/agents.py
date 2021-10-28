@@ -5,6 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+import math
+
 import gym
 import torch
 import torch.nn as nn
@@ -49,7 +51,7 @@ class ActionMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, epsilon, **args):
+    def forward(self, t, epsilon, **kwargs):
         input = self.get(("env/env_obs", t))
         action = self.fc(input)
         action = torch.tanh(action)
@@ -72,7 +74,7 @@ class QMLPAgent(TAgent):
             activation=nn.ReLU,
         )
 
-    def forward(self, t, detach_action=False, **args):
+    def forward(self, t, detach_action=False, **kwargs):
         input = self.get(("env/env_obs", t))
         action = self.get(("action", t))
         if detach_action:

@@ -34,7 +34,7 @@ class Normalizer(Agent):
         self.n_features = env.observation_space.shape[0]
         self.n=None
 
-    def forward(self, t, update_normalizer=True, **args):
+    def forward(self, t, update_normalizer=True, **kwargs):
         input = self.get(("env/env_obs", t))
         assert torch.isnan(input).sum() == 0.0, "problem"
         if update_normalizer:
@@ -67,7 +67,7 @@ class NoAgent(Agent):
     def __init__(self):
         super().__init__()
 
-    def forward(self,**args):
+    def forward(self,**kwargs):
         pass
 
 def clip_grad(parameters, grad):

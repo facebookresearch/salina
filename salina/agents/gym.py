@@ -177,7 +177,7 @@ class GymAgent(TAgent):
         }
         return _torch_type(ret)
 
-    def forward(self, t=0, save_render=False, **args):
+    def forward(self, t=0, save_render=False, **kwargs):
         """ Do one step by reading the `action` at t-1
          If t==0, environments are reset
          If save_render is True, then the output of env.render(mode="image") is written as env/rendering
@@ -318,7 +318,7 @@ class AutoResetGymAgent(TAgent):
         }
         return _torch_type(ret)
 
-    def forward(self, t=0, save_render=False, **args):
+    def forward(self, t=0, save_render=False, **kwargs):
         if self.envs is None:
             self._initialize_envs(self.n_envs)
 

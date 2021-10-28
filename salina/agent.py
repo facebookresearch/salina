@@ -35,21 +35,21 @@ class Agent(nn.Module):
         print("[TRACE]: Tracing agent in file "+filename)
         self.__trace_file=open(filename,"wt")
 
-    def __call__(self, workspace, **args):
+    def __call__(self, workspace, **kwargs):
         assert not workspace is None, "[Agent.__call__] workspace must not be None"
         self.workspace = workspace
-        self.forward(**args)
+        self.forward(**kwargs)
         w = self.workspace
         self.workspace = None
 
-    def _asynchronous_call(self, workspace, **args):
-        return self.__call__(workspace, **args)
+    def _asynchronous_call(self, workspace, **kwargs):
+        return self.__call__(workspace, **kwargs)
 
     def is_running(self):
         return False
 
-    def forward(self, **args):
-        raise NotImplemetedError
+    def forward(self, **kwargs):
+        raise NotImplementedError
 
     def clone(self):
         self.workspace = None
@@ -90,5 +90,5 @@ class Agent(nn.Module):
 class TAgent(Agent):
     """A specific agent that uses a timestep as an input"""
 
-    def forward(self, t, **args):
-        raise NotImplemetedError
+    def forward(self, t, **kwargs):
+        raise NotImplementedError
