@@ -13,6 +13,7 @@ import d4rl
 import d4rl_atari
 import gym
 import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,7 +29,6 @@ from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
 from salina_examples.offline_rl.d4rl import *
-import numpy as np
 
 
 def _state_dict(agent, device):
@@ -93,7 +93,9 @@ def run_bc(action_agent, logger, cfg):
             )
 
         batch_size = cfg.algorithm.batch_size
-        replay_workspace = replay_buffer.select_batch_n(batch_size).to(cfg.algorithm.loss_device)
+        replay_workspace = replay_buffer.select_batch_n(batch_size).to(
+            cfg.algorithm.loss_device
+        )
         target_action = replay_workspace["action"].detach()
         train_temporal_action_agent(
             replay_workspace, t=0, n_steps=replay_workspace.time_size()

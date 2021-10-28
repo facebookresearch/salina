@@ -16,8 +16,7 @@ from salina.workspace import Workspace, _SplitSharedWorkspace
 
 
 def f(agent, in_queue, out_queue, seed):
-    """ The function that is executed in a single process
-    """
+    """The function that is executed in a single process"""
     out_queue.put("ok")
     running = True
     old_workspace = None
@@ -46,7 +45,7 @@ def f(agent, in_queue, out_queue, seed):
 
 
 class RemoteAgent(Agent):
-    """ It corresponds to an agent that is executed in another process
+    """It corresponds to an agent that is executed in another process
 
     Args:
         Agent ([salina.Agent]): the agent ot execute in another process
@@ -58,7 +57,7 @@ class RemoteAgent(Agent):
         self._is_running = False
         self.process = None
         self.last_workspace = None
-        self.train_mode=True
+        self.train_mode = True
 
     def get_by_name(self, n):
         if self._name == n:
@@ -101,8 +100,7 @@ class RemoteAgent(Agent):
                 assert r == "ok"
 
     def _asynchronous_call(self, workspace, **kwargs):
-        """ Non-blocking forward. To use together with `is_running`
-        """
+        """Non-blocking forward. To use together with `is_running`"""
         with torch.no_grad():
             self._is_running = True
             assert (
@@ -116,25 +114,24 @@ class RemoteAgent(Agent):
             else:
                 self.i_queue.put(("go_reuse_workspace", workspace, kwargs))
 
-    def train(self,f=True):
-        self.train_mode=f
+    def train(self, f=True):
+        self.train_mode = f
         if self.process is None:
             return
         if f:
             self.i_queue.put(("train_mode"))
-            a=self.o_queue.get()
-            assert a=="ok"
+            a = self.o_queue.get()
+            assert a == "ok"
         else:
             self.eval()
 
     def eval(self):
-        self.train_mode=False
+        self.train_mode = False
         if self.process is None:
             return
         self.i_queue.put(("eval_mode"))
-        a=self.o_queue.get()
-        assert a=="ok"
-
+        a = self.o_queue.get()
+        assert a == "ok"
 
     def seed(self, _seed):
         self._seed = _seed
@@ -174,8 +171,7 @@ class RemoteAgent(Agent):
 
 
 class NRemoteAgent(Agent):
-    """Multiple agents executed in different processes. Use the NRemoteAgent.create function to create such an agent
-    """
+    """Multiple agents executed in different processes. Use the NRemoteAgent.create function to create such an agent"""
 
     def __init__(self, agents, batch_dims):
         super().__init__()
@@ -191,7 +187,7 @@ class NRemoteAgent(Agent):
         return r
 
     def create(agent, num_processes=0, time_size=None, **extra_kwargs):
-        """ Returns a NRemote agent with num_processes copies of agent in different processes
+        """Returns a NRemote agent with num_processes copies of agent in different processes
         Also returns the specific workspace to use with such an agent
 
         Args:
@@ -250,7 +246,7 @@ class NRemoteAgent(Agent):
                 return True
         return False
 
-    def train(self,f=True):
+    def train(self, f=True):
         for a in self.agents:
             a.train(f)
 

@@ -12,7 +12,7 @@ from salina import Agent, TAgent
 
 
 class Agents(Agent):
-    """ Execute multiple agents sequentiall
+    """Execute multiple agents sequentiall
 
     Args:
         Agent ([salina.Agent]): The agents to execute
@@ -48,19 +48,18 @@ class Agents(Agent):
 
 
 class TemporalAgent(Agent):
-    """ Execute one Agent over multiple timesteps
+    """Execute one Agent over multiple timesteps
 
     Args:
         Agent ([salina.Agent])
     """
-
 
     def __init__(self, agent, name=None):
         super().__init__(name=name)
         self.agent = agent
 
     def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **kwargs):
-        """ Execute the agent startiing at time t, for n_steps
+        """Execute the agent startiing at time t, for n_steps
 
         Args:
             workspace ([salina.Workspace]):
@@ -96,13 +95,14 @@ class TemporalAgent(Agent):
 
 
 class CopyTAgent(Agent):
-    """ An agent that copy a variable
+    """An agent that copy a variable
 
     Args:
         input_name ([str]): The variable to copy from
         output_name ([str]): The variable to copy to
         detach ([bool]): copy with detach if True
     """
+
     def __init__(self, input_name, output_name, detach=False, name=None):
         super().__init__(name=name)
         self.input_name = input_name
@@ -127,12 +127,14 @@ class CopyTAgent(Agent):
             else:
                 self.set((self.output_name, t), x.detach())
 
+
 class PrintAgent(Agent):
     """An agent to generate print in the console (mainly for debugging)
 
     Args:
         Agent ([type]): [description]
     """
+
     def __init__(self, *names, name=None):
         """
         Args:

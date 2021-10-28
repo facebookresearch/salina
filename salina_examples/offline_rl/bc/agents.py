@@ -20,8 +20,10 @@ def make_d4rl_env(**env_args):
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e
 
+
 def make_d4rl_atari_env(**env_args):
     import d4rl_atari
+
     e = gym.make(env_args["env_name"], stack=True)
     e = TimeLimit(e, max_episode_steps=env_args["max_episode_steps"])
     return e
