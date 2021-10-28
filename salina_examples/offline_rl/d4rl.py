@@ -250,17 +250,22 @@ def d4rl_episode_buffer(d4rl_env):
     print("\t max episode length = ", max_length)
     print("\t n episodes = ", len(episodes))
 
+    n_skip=0
     for e in episodes:
-        for k, v in e.items():
-            ts = v.size()[0]
-            if ts < max_length:
-                v.resize_(max_length, *(v.size()[1:]))
-                v[ts:] = 0
-
-    workspace = Workspace()
-    f_episode = {}
+        l=e["env/reward"].size()[0]
+        if l==0:
+            n_skip+=1
+            continue
+        for k,v in e.items():
+            ts=v.size()[0]
+            if ts<max_length:
+                v.resize_(max_length,*(v.size()[1:]))
+                v[ts:]=0
+    print("\tSkip ",n_skip," trajectories of size = 0")
+    workspace=Workspace()
+    f_episode={}
     for k in episodes[0]:
-        vals = [e[k] for e in episodes]
-        workspace.set_full(k, torch.cat(vals, dim=1))
+        vals=[e[k] for e in episodes]
+        workspace.set_full(k,torch.cat(vals,dim=1))
 
     return workspace

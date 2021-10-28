@@ -143,7 +143,7 @@ class GymAgent(TAgent):
                 "initial_state": torch.tensor([False]),
                 "reward": torch.tensor([0.0]).float(),
                 "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
-                "timestep": torch.tensor([-1]),
+                "timestep": torch.tensor([self.timestep[k]]),
                 "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
             }
         self.timestep[k] += 1
