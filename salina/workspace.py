@@ -473,10 +473,10 @@ class Workspace:
 
     def select_subtime(self,t,window_size):
         """ generate a new workspace with subtime range for each batch element
-
+            NOTE: This function may be optimized....
 
         Args:
-            t ([type]): a batch_szie tensor of time positions
+            t ([type]): a batch_size tensor of time positions
             window_size ([type]): the output time size
         """
         _vars={k:v.get_full(batch_dims=None) for k,v in self.variables.items()}
