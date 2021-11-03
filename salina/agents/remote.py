@@ -186,6 +186,7 @@ class NRemoteAgent(Agent):
             r = r + a.get_by_name(name)
         return r
 
+    @staticmethod
     def create(agent, num_processes=0, time_size=None, **extra_kwargs):
         """Returns a NRemote agent with num_processes copies of agent in different processes
         Also returns the specific workspace to use with such an agent

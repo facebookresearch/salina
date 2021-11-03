@@ -277,6 +277,15 @@ class CompactTemporalTensor:
     def zero_grad(self):
         self.tensor = self.tensor.detach()
 
+def take_per_row_strided(A, indx, num_elem=2):
+    #TODO: Optimize this function
+    print(A)
+    all_indx=indx
+    print(all_indx)
+    arange=torch.arange(A.size()[1],device=A.device)
+    return torch.cat([A[all_indx+t,arange].unsqueeze(0) for t in range(num_elem)],dim=0)
+
+
 
 class Workspace:
     """A workspace is a collection of tensors indexed by name and time. The first dimension of each tensor is the batch dimension"""
@@ -462,6 +471,20 @@ class Workspace:
                 + str(v.batch_size())
             )
         return "\n".join(r)
+
+    def select_subtime(self,t,window_size):
+        """ generate a new workspace with subtime range for each batch element
+            NOTE: This function may be optimized....
+
+        Args:
+            t ([type]): a batch_size tensor of time positions
+            window_size ([type]): the output time size
+        """
+        _vars={k:v.get_full(batch_dims=None) for k,v in self.variables.items()}
+        workspace=Workspace()
+        for k,v in _vars.items():
+            workspace.set_full(k,take_per_row_strided(v,t,num_elem=window_size),batch_dims=None)
+        return workspace
 
 
 class _SplitSharedWorkspace:
