@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 from typing import Dict, Iterable, List
 
+import numpy as np
 import torch
 
 import salina
