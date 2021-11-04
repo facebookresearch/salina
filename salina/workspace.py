@@ -284,8 +284,6 @@ def take_per_row_strided(A, indx, num_elem=2):
     arange=torch.arange(A.size()[1],device=A.device)
     return torch.cat([A[all_indx+t,arange].unsqueeze(0) for t in range(num_elem)],dim=0)
 
-
-
 class Workspace:
     """A workspace is a collection of tensors indexed by name and time. The first dimension of each tensor is the batch dimension"""
 
@@ -497,6 +495,9 @@ class _SplitSharedWorkspace:
 
     def get(self, var_name, t):
         return self.workspace.get(var_name, t, batch_dims=self.batch_dims)
+
+    def keys(self):
+        return self.worspace.keys()
 
     def get_time_truncated(self, var_name, from_time, to_time):
         assert from_time >= 0 and to_time >= 0 and to_time > from_time
