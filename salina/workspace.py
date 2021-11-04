@@ -497,7 +497,7 @@ class _SplitSharedWorkspace:
         return self.workspace.get(var_name, t, batch_dims=self.batch_dims)
 
     def keys(self):
-        return self.worspace.keys()
+        return self.workspace.keys()
 
     def get_time_truncated(self, var_name, from_time, to_time):
         assert from_time >= 0 and to_time >= 0 and to_time > from_time
