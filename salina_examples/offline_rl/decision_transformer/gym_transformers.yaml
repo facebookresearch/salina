@@ -8,7 +8,7 @@ logger:
 n_envs: 1
 env_name: walker2d-medium-expert-v2
 #env_name: antmaze-medium-diverse-v0
-embedding_size: 256
+embedding_size: 64
 env:
   classname: salina_examples.offline_rl.d4rl.make_d4rl_env
   env_name: ${env_name}
@@ -26,8 +26,8 @@ agent:
     use_reward_to_go: False
   transformer:
     n_layers: 1
-    n_heads: 2
-    n_steps: 10
+    n_heads: 1
+    n_steps: 1
     use_layer_norm: False
   decoder:
     env: ${env}
