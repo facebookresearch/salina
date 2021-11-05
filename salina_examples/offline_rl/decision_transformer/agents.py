@@ -56,12 +56,10 @@ class TransitionEncoder(Agent):
         self.model_obs = mlp([input_size] + sizes + [embedding_size])
         self.model_act = mlp([output_size] + sizes + [embedding_size])
         self.model_rtg = mlp([1] + sizes + [embedding_size])
-        self.mix = mlp([embedding_size * 4] + [embedding_size] + [embedding_size // 2])
+        self.mix = mlp([embedding_size * 3] + [embedding_size] + [embedding_size])
         self.use_timestep = use_timestep
         self.use_reward_to_go = use_reward_to_go
-        self.positional_embeddings = nn.Embedding(
-            max_episode_steps + 1, embedding_size // 2
-        )
+        self.positional_embeddings = nn.Embedding(max_episode_steps + 1, embedding_size)
         self.output_name = output_name
 
     def forward(self, t=None, control_variable="reward_to_go", **kwargs):
@@ -70,32 +68,32 @@ class TransitionEncoder(Agent):
                 e_s = self.model_obs(self.get(("env/env_obs", t)))
                 e_rtg = self.model_rtg(self.get((control_variable, t)).unsqueeze(-1))
                 t_s = _timestep(self.get(("env/timestep", t)))
+                pe = self.positional_embeddings(t_s)
+                if not self.use_timestep:
+                    pe.fill_(0.0)
+
                 B = e_s.size()[0]
                 empty = torch.zeros_like(e_s)
                 if not self.use_reward_to_go:
                     e_rtg.fill_(0.0)
-                embedding = self.mix(torch.cat([empty, empty, e_s, e_rtg], dim=1))
-                pe = self.positional_embeddings(t_s)
-                if not self.use_timestep:
-                    pe.fill_(0.0)
-                embedding = torch.cat([embedding, pe], dim=1)
+                embedding = self.mix(
+                    torch.cat([empty + pe, e_s + pe, e_rtg + pe], dim=1)
+                )
                 self.set((self.output_name, t), embedding)
             else:
-                e_s = self.model_obs(self.get(("env/env_obs", t - 1)))
                 e_rtg = self.model_rtg(self.get((control_variable, t)).unsqueeze(-1))
                 B = e_s.size()[0]
                 e_ss = self.model_obs(self.get(("env/env_obs", t)))
                 e_a = self.model_act(self.get(("action", t - 1)))
                 t_s = _timestep(self.get(("env/timestep", t)))
-
-                if not self.use_reward_to_go:
-                    e_rtg.fill_(0.0)
-                v = torch.cat([e_s, e_a, e_ss, e_rtg], dim=1)
-                embedding = self.mix(v)
                 pe = self.positional_embeddings(t_s)
                 if not self.use_timestep:
                     pe.fill_(0.0)
-                embedding = torch.cat([embedding, pe], dim=1)
+
+                if not self.use_reward_to_go:
+                    e_rtg.fill_(0.0)
+                v = torch.cat([e_a + pe, e_ss + pe, e_rtg + pe], dim=1)
+                embedding = self.mix(v)
                 self.set((self.output_name, t), embedding)
         else:
             e_s = self.model_obs(self.get("env/env_obs"))
@@ -103,19 +101,17 @@ class TransitionEncoder(Agent):
             if not self.use_reward_to_go:
                 e_rtg.fill_(0.0)
             t_s = _timestep(self.get("env/timestep"))
+            pe = self.positional_embeddings(t_s)
+            if not self.use_timestep:
+                pe.fill_(0.0)
             T = e_s.size()[0]
             B = e_s.size()[1]
             empty = torch.zeros_like(e_s[0].unsqueeze(0))
             e_ss = e_s
-            e_s = torch.cat([empty, e_s[:-1]], dim=0)
             e_a = self.model_act(self.get("action"))
             e_a = torch.cat([empty, e_a[:-1]], dim=0)
-            v = torch.cat([e_s, e_a, e_ss, e_rtg], dim=2)
+            v = torch.cat([e_a + pe, e_ss + pe, e_rtg + pe], dim=2)
             complete = self.mix(v)
-            pe = self.positional_embeddings(t_s)
-            if not self.use_timestep:
-                pe.fill_(0.0)
-            complete = torch.cat([complete, pe], dim=2)
             self.set(self.output_name, complete)
 
 
