@@ -6,7 +6,7 @@ logger:
   verbose: True
 
 n_envs: 1
-env_name: walker2d-medium-expert-v2
+env_name: hopper-medium-replay-v2
 #env_name: antmaze-medium-diverse-v0
 embedding_size: 128
 env:
