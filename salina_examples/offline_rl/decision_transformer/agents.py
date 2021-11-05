@@ -18,8 +18,6 @@ from salina.agents.transformers import *
 
 
 def mlp(sizes, activation=nn.ReLU, output_activation=nn.Identity):
-    if len(sizes) == 2:
-        return nn.Linear(sizes[0], sizes[1])
     layers = []
     for j in range(len(sizes) - 1):
         act = activation if j < len(sizes) - 2 else output_activation
@@ -55,10 +53,14 @@ class TransitionEncoder(Agent):
         input_size = env.observation_space.shape[0]
         output_size = env.action_space.shape[0]
         sizes = [hidden_size for k in range(n_layers)]
-        self.model_obs = mlp([input_size] + sizes + [embedding_size])
-        self.model_act = mlp([output_size] + sizes + [embedding_size])
-        self.model_rtg = mlp([1] + sizes + [embedding_size])
-        self.mix = mlp([embedding_size * 3] + [embedding_size] + [embedding_size])
+        self.model_obs = nn.Linear(input_size, embedding_size)
+        self.model_act = nn.Linear(output_size, embedding_size)
+        self.model_rtg = nn.Linear(1, embedding_size)
+        self.mix = mlp(
+            [embedding_size * 3]
+            + [hidden_size for _ in range(n_layers)]
+            + [hidden_size]
+        )
         self.use_timestep = use_timestep
         self.use_reward_to_go = use_reward_to_go
         self.positional_embeddings = nn.Embedding(max_episode_steps + 1, embedding_size)
@@ -150,13 +152,13 @@ class ActionMLPAgentFromTransformer(Agent):
 def transition_transformers(encoder, transformer, decoder):
     _encoder = TransitionEncoder(**dict(encoder))
     mblock = TransformerMultiBlockAgent(
-        transformer.n_layers,
-        encoder.embedding_size,
-        transformer.n_heads,
+        n_layers=transformer.n_layers,
+        embedding_size=encoder.hidden_size,
+        n_heads=transformer.n_heads,
         use_layer_norm=transformer.use_layer_norm,
     )
     internal_action_agent = ActionMLPAgentFromTransformer(
-        decoder.env, decoder.n_layers, decoder.hidden_size, encoder.embedding_size
+        decoder.env, decoder.n_layers, decoder.hidden_size, encoder.hidden_size
     )
     action_agent = Agents(_encoder, mblock, internal_action_agent)
     return action_agent
@@ -183,24 +185,23 @@ class ActionMLPAgentFromObservation(Agent):
         output_size = env.action_space.shape[0]
         hidden_sizes = [hidden_size for _ in range(n_layers)]
         self.fc = mlp(
-            [embedding_size * 3] + list(hidden_sizes) + [output_size],
+            [embedding_size * 2] + list(hidden_sizes) + [output_size],
             activation=nn.ReLU,
         )
-        self.relu = nn.ReLU()
 
     def forward(self, t=None, control_variable="reward_to_go", **args):
         if not t is None:
             input = self.get(("env/env_obs", t))
-            input = self.relu(self.l_obs(input))
+            input = self.l_obs(input)
             ts = self.get(("env/timestep", t))
             ts = self.l_timestep(ts)
             if not self.use_timestep:
                 ts = torch.zeros_like(ts)
             rtg = self.get((control_variable, t)).unsqueeze(-1)
-            rtg = self.relu(self.l_rtg(rtg))
+            rtg = self.l_rtg(rtg)
             if not self.use_reward_to_go:
                 rtg = torch.zeros_like(rtg)
-            input = torch.cat([input, rtg, ts], dim=-1)
+            input = torch.cat([input + ts, rtg + ts], dim=-1)
 
             action = self.fc(input)
             action = torch.tanh(action)
@@ -208,18 +209,18 @@ class ActionMLPAgentFromObservation(Agent):
             self.set(("action", t), action)
         else:
             input = self.get("env/env_obs")
-            input = self.relu(self.l_obs(input))
+            input = self.l_obs(input)
             ts = self.get("env/timestep")
             ts = self.l_timestep(ts)
             if not self.use_timestep:
                 ts = torch.zeros_like(ts)
 
             rtg = self.get(control_variable).unsqueeze(-1)
-            rtg = self.relu(self.l_rtg(rtg))
+            rtg = self.l_rtg(rtg)
             if not self.use_reward_to_go:
                 rtg = torch.zeros_like(rtg)
 
-            input = torch.cat([input, rtg, ts], dim=-1)
+            input = torch.cat([input + ts, rtg + ts], dim=-1)
             action = self.fc(input)
             action = torch.tanh(action)
             action = torch.clip(action, min=-1.0, max=1.0)

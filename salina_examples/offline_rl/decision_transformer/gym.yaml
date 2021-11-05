@@ -9,7 +9,7 @@ n_envs: 1
 env_name: hopper-medium-replay-v2
 
 #env_name: antmaze-medium-diverse-v0
-embedding_size: 64
+embedding_size: 128
 env:
   classname: salina_examples.offline_rl.d4rl.make_d4rl_env
   env_name: ${env_name}
@@ -19,8 +19,8 @@ agent:
   classname: salina_examples.offline_rl.decision_transformer.agents.ActionMLPAgentFromObservation
   env: ${env}
   n_layers: 2
-  hidden_size: 256
-  embedding_size: 64
+  hidden_size: 128
+  embedding_size: ${embedding_size}
   maximum_episode_steps: 1000
   use_timestep: True
   use_reward_to_go: True
@@ -39,7 +39,6 @@ algorithm:
     - 3600
     - 2500
     - 1800
-    - 1000
     - 0
   loss_device: cpu
 
