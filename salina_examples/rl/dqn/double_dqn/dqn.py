@@ -19,7 +19,7 @@ import salina
 import salina.rl.functional as RLF
 from salina import Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents, NRemoteAgent, RemoteAgent, TemporalAgent
-from salina.agents.gym import AutoResetGymAgent
+from salina.agents.gyma import AutoResetGymAgent
 from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 
