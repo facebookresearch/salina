@@ -54,5 +54,5 @@ algorithm:
 
   evaluation:
     env_seed: 23
-    n_envs: 256
+    n_envs: 64
     n_processes: 4

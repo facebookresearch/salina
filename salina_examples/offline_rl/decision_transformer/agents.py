@@ -60,13 +60,12 @@ class TransitionEncoder(Agent):
         self.use_timestep = use_timestep
         self.use_reward_to_go = use_reward_to_go
         self.positional_embeddings = nn.Embedding(
-            max_episode_steps, embedding_size // 2
+            max_episode_steps + 1, embedding_size // 2
         )
         self.output_name = output_name
 
     def forward(self, t=None, control_variable="reward_to_go", **kwargs):
         if not t is None:
-            print(t)
             if t == 0:
                 e_s = self.model_obs(self.get(("env/env_obs", t)))
                 e_rtg = self.model_rtg(self.get((control_variable, t)).unsqueeze(-1))
