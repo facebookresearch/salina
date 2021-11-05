@@ -156,7 +156,7 @@ if __name__ == "__main__":
     import sys
 
     device = sys.argv[1]
-    a = torch.randn(5, 3, 4).to(device)
+    a = torch.randn(5, 3, 64).to(device)
     workspace = Workspace()
     workspace.set_full("x", a)
     agent = TransformerBlockAgent(
