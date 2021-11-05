@@ -72,12 +72,12 @@ class TransitionEncoder(Agent):
                 t_s = _timestep(self.get(("env/timestep", t)))
                 B = e_s.size()[0]
                 empty = torch.zeros_like(e_s)
-                if not self.use_timestep:
-                    t_s.fill_(0.0)
                 if not self.use_reward_to_go:
                     e_rtg.fill_(0.0)
                 embedding = self.mix(torch.cat([empty, empty, e_s, e_rtg], dim=1))
                 pe = self.positional_embeddings(t_s)
+                if not self.use_timestep:
+                    pe.fill_(0.0)
                 embedding = torch.cat([embedding, pe], dim=1)
                 self.set((self.output_name, t), embedding)
             else:
@@ -87,18 +87,21 @@ class TransitionEncoder(Agent):
                 e_ss = self.model_obs(self.get(("env/env_obs", t)))
                 e_a = self.model_act(self.get(("action", t - 1)))
                 t_s = _timestep(self.get(("env/timestep", t)))
-                if not self.use_timestep:
-                    t_s.fill_(0.0)
+
                 if not self.use_reward_to_go:
                     e_rtg.fill_(0.0)
                 v = torch.cat([e_s, e_a, e_ss, e_rtg], dim=1)
                 embedding = self.mix(v)
                 pe = self.positional_embeddings(t_s)
+                if not self.use_timestep:
+                    pe.fill_(0.0)
                 embedding = torch.cat([embedding, pe], dim=1)
                 self.set((self.output_name, t), embedding)
         else:
             e_s = self.model_obs(self.get("env/env_obs"))
             e_rtg = self.model_rtg(self.get(control_variable).unsqueeze(-1))
+            if not self.use_reward_to_go:
+                e_rtg.fill_(0.0)
             t_s = _timestep(self.get("env/timestep"))
             T = e_s.size()[0]
             B = e_s.size()[1]
@@ -110,6 +113,8 @@ class TransitionEncoder(Agent):
             v = torch.cat([e_s, e_a, e_ss, e_rtg], dim=2)
             complete = self.mix(v)
             pe = self.positional_embeddings(t_s)
+            if not self.use_timestep:
+                pe.fill_(0.0)
             complete = torch.cat([complete, pe], dim=2)
             self.set(self.output_name, complete)
 
