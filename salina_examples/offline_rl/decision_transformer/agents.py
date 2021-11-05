@@ -66,7 +66,6 @@ class TransitionEncoder(Agent):
 
     def forward(self, t=None, control_variable="reward_to_go", **kwargs):
         if not t is None:
-            print(t)
             if t == 0:
                 e_s = self.model_obs(self.get(("env/env_obs", t)))
                 e_rtg = self.model_rtg(self.get((control_variable, t)).unsqueeze(-1))
