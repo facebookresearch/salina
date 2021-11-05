@@ -170,11 +170,13 @@ if __name__ == "__main__":
     for t in range(5):
         agent(workspace, t=t)
     y1 = workspace.get_full("attn_out/x")
+    piint("Output step by step: ")
     print(y1)
 
     workspace = Workspace()
     workspace.set_full("attn_in/x", a)
     agent(workspace)
     y2 = workspace.get_full("attn_out/x")
+    piint("Output Global: ")
     print(y2)
     assert ((y1 - y2) ** 2).lt(0.0000001).all(), "Problem..."
