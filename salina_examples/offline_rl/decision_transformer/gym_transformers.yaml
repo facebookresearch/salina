@@ -22,10 +22,10 @@ agent:
     hidden_size: 256
     embedding_size: ${embedding_size}
     max_episode_steps: 1000
-    use_timestep: True
-    use_reward_to_go: True
+    use_timestep: False
+    use_reward_to_go: False
   transformer:
-    n_layers: 3
+    n_layers: 1
     n_heads: 2
     n_steps: 10
     use_layer_norm: False
@@ -41,7 +41,7 @@ algorithm:
   clip_grad: 2
   optimizer:
     classname: torch.optim.Adam
-    lr: 0.01
+    lr: 0.001
   reward_scale: 1000.0
   target_rewards:
     - 4000
