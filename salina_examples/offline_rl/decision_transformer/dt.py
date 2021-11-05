@@ -144,6 +144,7 @@ def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
             if evaluation_position >= len(evaluation_rtg):
                 evaluation_position = 0
             evaluation_workspace.copy_n_last_steps(1)
+            print("[EVALUATION] Launching for ", evaluation_rtg[evaluation_position])
             evaluation_agent._asynchronous_call(
                 evaluation_workspace,
                 t=0,
