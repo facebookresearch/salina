@@ -158,24 +158,23 @@ if __name__ == "__main__":
     device = sys.argv[1]
     a = torch.randn(5, 3, 64).to(device)
     workspace = Workspace()
-    workspace.set_full("x", a)
-    agent = TransformerBlockAgent(
+    workspace.set_full("attn_in/x", a)
+    agent = TransformerMultiBlockAgent(
         embedding_size=64,
+        n_layers=2,
         n_heads=4,
         n_steps=2,
-        input_name="x",
-        output_name="y",
         use_layer_norm=False,
     )
     agent.to(device)
     for t in range(5):
         agent(workspace, t=t)
-    y1 = workspace.get_full("y")
+    y1 = workspace.get_full("attn_out/x")
     print(y1)
 
     workspace = Workspace()
-    workspace.set_full("x", a)
+    workspace.set_full("attn_in/x", a)
     agent(workspace)
-    y2 = workspace.get_full("y")
+    y2 = workspace.get_full("attn_out/x")
     print(y2)
     assert ((y1 - y2) ** 2).lt(0.0000001).all(), "Problem..."
