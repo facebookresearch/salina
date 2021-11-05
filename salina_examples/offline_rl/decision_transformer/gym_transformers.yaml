@@ -8,7 +8,7 @@ logger:
 n_envs: 1
 env_name: walker2d-medium-expert-v2
 #env_name: antmaze-medium-diverse-v0
-embedding_size: 64
+embedding_size: 256
 env:
   classname: salina_examples.offline_rl.d4rl.make_d4rl_env
   env_name: ${env_name}
@@ -19,18 +19,20 @@ agent:
   encoder:
     env: ${env}
     n_layers: 1
-    hidden_size: 64
+    hidden_size: 256
     embedding_size: ${embedding_size}
     max_episode_steps: 1000
+    use_timestep: True
+    use_reward_to_go: True
   transformer:
     n_layers: 3
     n_heads: 2
-    n_steps: 0
+    n_steps: 10
     use_layer_norm: False
   decoder:
     env: ${env}
     n_layers: 1
-    hidden_size: 64
+    hidden_size: 256
 
 algorithm:
   env_seed: 432
@@ -39,8 +41,15 @@ algorithm:
   clip_grad: 2
   optimizer:
     classname: torch.optim.Adam
-    lr: 0.001
-
+    lr: 0.01
+  reward_scale: 1000.0
+  target_rewards:
+    - 4000
+    - 3600
+    - 2500
+    - 1800
+    - 1000
+    - 0
   loss_device: cpu
 
   evaluation:
