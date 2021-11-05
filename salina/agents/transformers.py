@@ -160,8 +160,8 @@ if __name__ == "__main__":
     workspace = Workspace()
     workspace.set_full("x", a)
     agent = TransformerBlockAgent(
-        embedding_size=4,
-        n_heads=1,
+        embedding_size=64,
+        n_heads=4,
         n_steps=2,
         input_name="x",
         output_name="y",
