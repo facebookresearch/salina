@@ -15,7 +15,7 @@ env:
   max_episode_steps: 1000
 
 agent:
-  classname: xsalina_examples.offline_rl.decision_transformer.agents.transition_transformers
+  classname: salina_examples.offline_rl.decision_transformer.agents.transition_transformers
   encoder:
     env: ${env}
     n_layers: 1
