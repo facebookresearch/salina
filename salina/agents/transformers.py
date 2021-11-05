@@ -153,7 +153,10 @@ if __name__ == "__main__":
     print(
         "Check that transformers and batch transformers are computing the same output"
     )
-    a = torch.randn(5, 3, 4)
+    import sys
+
+    device = sys.argv[1]
+    a = torch.randn(5, 3, 4).to(device)
     workspace = Workspace()
     workspace.set_full("x", a)
     agent = TransformerBlockAgent(
@@ -164,6 +167,7 @@ if __name__ == "__main__":
         output_name="y",
         use_layer_norm=False,
     )
+    agent.to(device)
     for t in range(5):
         agent(workspace, t=t)
     y1 = workspace.get_full("y")
