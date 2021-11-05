@@ -82,7 +82,7 @@ class TransitionEncoder(Agent):
                 self.set((self.output_name, t), embedding)
             else:
                 e_rtg = self.model_rtg(self.get((control_variable, t)).unsqueeze(-1))
-                B = e_s.size()[0]
+                B = e_rtg.size()[0]
                 e_ss = self.model_obs(self.get(("env/env_obs", t)))
                 e_a = self.model_act(self.get(("action", t - 1)))
                 t_s = _timestep(self.get(("env/timestep", t)))
