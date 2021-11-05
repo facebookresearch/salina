@@ -48,11 +48,10 @@ algorithm:
     - 3600
     - 2500
     - 1800
-    - 1000
     - 0
   loss_device: cpu
 
   evaluation:
     env_seed: 23
     n_envs: 64
-    n_processes: 4
+    n_processes: 8
