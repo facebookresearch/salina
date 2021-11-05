@@ -18,6 +18,8 @@ from salina.agents.transformers import *
 
 
 def mlp(sizes, activation=nn.ReLU, output_activation=nn.Identity):
+    if len(sizes) == 2:
+        return nn.Linear(sizes[0], sizes[1])
     layers = []
     for j in range(len(sizes) - 1):
         act = activation if j < len(sizes) - 2 else output_activation
