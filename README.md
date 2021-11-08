@@ -29,7 +29,7 @@ Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs
 * * Week 8th of November
 * * * Include [Decision Transformers](https://arxiv.org/abs/2106.01345)
 * * * Include ["A Simple Way to Initialize Recurrent Networks of Rectified Linear Units"](https://arxiv.org/abs/1504.00941)
-* * * **FIX: ** To avoid compatibility issues with openAI gym, the `salina/agents/gym.py` file as been renamed as `salinaagents/gyma.py`
+* * * **FIX: ** To avoid compatibility issues with openAI gym, the `salina/agents/gym.py` file as been renamed as `salina/agents/gyma.py`
 * * Week 25th of october
 * * * Updated documentation
 * * * [Transformer-based Agents](salina/agents/transformers.py)
