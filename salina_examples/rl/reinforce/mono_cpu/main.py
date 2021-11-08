@@ -20,7 +20,7 @@ import salina
 import salina.rl.functional as RLF
 from salina import TAgent, Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents, TemporalAgent
-from salina.agents.gym import GymAgent
+from salina.agents.gyma import GymAgent
 from salina.logger import TFLogger
 
 

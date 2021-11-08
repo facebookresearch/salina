@@ -41,6 +41,16 @@ class TransformerBlockAgent(Agent):
         output_name="attn_out/x",
         use_layer_norm=False,
     ):
+        """[summary]
+
+        Args:
+            embedding_size ([type]): size of the embeddings (input and output)
+            n_heads ([type]):number of heads
+            n_steps ([type], optional): Number of previous timesteps to consider. None = all previous timesteps
+            input_name (str, optional):  Defaults to "attn_in/x".
+            output_name (str, optional):  Defaults to "attn_out/x".
+            use_layer_norm (bool, optional):  Defaults to False.
+        """
         super().__init__()
         self.n_steps = n_steps
         self.multiheadattention = nn.MultiheadAttention(embedding_size, n_heads)
@@ -61,7 +71,7 @@ class TransformerBlockAgent(Agent):
 
     def forward(self, t=None, **kwargs):
         if not t is None:
-            if self.n_steps is None:
+            if self.n_steps is None or self.n_steps == 0:
                 tokens = self.get(self.input_name)[: t + 1]
             else:
                 from_time = max(0, t + 1 - self.n_steps)
@@ -87,7 +97,7 @@ class TransformerBlockAgent(Agent):
             values = tokens
             queries = tokens
             T = queries.size()[0]
-            if self.n_steps is None:
+            if self.n_steps is None or self.n_steps == 0:
                 attn_mask = (
                     torch.triu(torch.ones(T, T), diagonal=1).bool().to(keys.device)
                 )
@@ -143,25 +153,30 @@ if __name__ == "__main__":
     print(
         "Check that transformers and batch transformers are computing the same output"
     )
-    a = torch.randn(5, 3, 4)
+    import sys
+
+    device = sys.argv[1]
+    a = torch.randn(5, 3, 64).to(device)
     workspace = Workspace()
-    workspace.set_full("x", a)
-    agent = TransformerBlockAgent(
-        embedding_size=4,
-        n_heads=1,
+    workspace.set_full("attn_in/x", a)
+    agent = TransformerMultiBlockAgent(
+        embedding_size=64,
+        n_layers=2,
+        n_heads=4,
         n_steps=2,
-        input_name="x",
-        output_name="y",
         use_layer_norm=False,
     )
+    agent.to(device)
     for t in range(5):
         agent(workspace, t=t)
-    y1 = workspace.get_full("y")
+    y1 = workspace.get_full("attn_out/x")
+    print("Output step by step: ")
     print(y1)
 
     workspace = Workspace()
-    workspace.set_full("x", a)
+    workspace.set_full("attn_in/x", a)
     agent(workspace)
-    y2 = workspace.get_full("y")
+    y2 = workspace.get_full("attn_out/x")
+    print("Output Global: ")
     print(y2)
     assert ((y1 - y2) ** 2).lt(0.0000001).all(), "Problem..."
