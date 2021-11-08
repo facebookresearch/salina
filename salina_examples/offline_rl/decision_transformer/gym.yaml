@@ -32,7 +32,7 @@ algorithm:
   clip_grad: 2
   optimizer:
     classname: torch.optim.Adam
-    lr: 0.01
+    lr: 0.001
   reward_scale: 1000.0
   target_rewards:
     - 4000
