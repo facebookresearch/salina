@@ -22,7 +22,7 @@ import salina.rl.functional as RLF
 import salina_examples.offline_rl.d4rl
 from salina import Agent, Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents, NRemoteAgent, TemporalAgent
-from salina.agents.gym import AutoResetGymAgent, GymAgent
+from salina.agents.gyma import AutoResetGymAgent, GymAgent
 from salina.agents.rl.rewardtogo import RewardToGoAgent
 from salina.logger import TFLogger
 
