@@ -6,21 +6,42 @@
 * It allows to write very complex sequential models (or policies) in few lines
 * It works on multiple CPUs and GPUs
 
+# Citing `salina`
+
+Please use this bibtex if you want to cite this repository in your publications:
+
+Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs/2110.07910)
+
+```
+    @misc{salina,
+        author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Pierre-Alexandre Kamienny, Daniel H. Thompson},
+        title = {SaLinA: Sequential Learning of Agents},
+        year = {2021},
+        publisher = {Arxiv},
+        howpublished = {\url{https://gitHub.com/facebookresearch/salina}},
+    }
+
+```
+
 ## News
 
 * October 2021:
-* * Week 18th of october
-* * * Release of the library
-* * * Various bug fixes
-* * * Add train and eval mode in the RemoteAgent and NRemoteAgent
-* * * [Cleaning of the BRAX PPO Implementation](salina_examples/rl/ppo_brax) to make it similar to other implementations
-* * * [Cleaning of the Behavioral Cloning implementation](salina_examples/offline_rl/bc)
+* * Week 8th of November
+* * * Include [Decision Transformers](https://arxiv.org/abs/2106.01345)
+* * * Include ["A Simple Way to Initialize Recurrent Networks of Rectified Linear Units"](https://arxiv.org/abs/1504.00941)
+* * * **FIX: ** To avoid compatibility issues with openAI gym, the `salina/agents/gym.py` file as been renamed as `salina/agents/gyma.py`
 * * Week 25th of october
 * * * Updated documentation
 * * * [Transformer-based Agents](salina/agents/transformers.py)
 * * * [Behavioral Cloning over complete episodes](salina_examples/offline_rl/bc_on_full_episodes)
 * * * * [With](salina_examples/offline_rl/bc_on_full_episodes/gym_transformer.yaml) and [without](salina_examples/offline_rl/bc_on_full_episodes/gym.yaml) transformers
 * * * [PPO on Brax with Transformers](salina_examples/rl/ppo_brax_transformer)
+* * Week 18th of october
+* * * Release of the library
+* * * Various bug fixes
+* * * Add train and eval mode in the RemoteAgent and NRemoteAgent
+* * * [Cleaning of the BRAX PPO Implementation](salina_examples/rl/ppo_brax) to make it similar to other implementations
+* * * [Cleaning of the Behavioral Cloning implementation](salina_examples/offline_rl/bc)
 
 ## Quick Start
 
@@ -90,22 +111,7 @@ We provide a simple Logger that logs in both tensorboard format, but also as pic
 * Yet another reinforcement learning framework: `salina` is focused on **sequential decision making in general**. It can be used for RL (which is our main current use-case), but also for supervised learning, attention models, multi-agent learning, planning, control, cascade models, recommender systems, among other use cases.
 * A `library`: salina is just a small layer on top of pytorch that encourages good practices for implementing sequential models. Accordingly, it is very simple to understand and use, while very powerful.
 
-# Citing `salina`
 
-Please use this bibtex if you want to cite this repository in your publications:
-
-Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs/2110.07910)
-
-```
-    @misc{salina,
-        author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Pierre-Alexandre Kamienny, Daniel H. Thompson},
-        title = {SaLinA: Sequential Learning of Agents},
-        year = {2021},
-        publisher = {Arxiv},
-        howpublished = {\url{https://gitHub.com/facebookresearch/salina}},
-    }
-
-```
 
 # Papers using SaLinA:
 * Learning a subspace of policies for online adaptation in Reinforcement Learning. Jean-Baptiste Gaya, Laure Soulier, Ludovic Denoyer - [Arxiv](https://arxiv.org/abs/2110.05169)
