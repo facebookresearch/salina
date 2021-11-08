@@ -6,6 +6,23 @@
 * It allows to write very complex sequential models (or policies) in few lines
 * It works on multiple CPUs and GPUs
 
+# Citing `salina`
+
+Please use this bibtex if you want to cite this repository in your publications:
+
+Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs/2110.07910)
+
+```
+    @misc{salina,
+        author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Pierre-Alexandre Kamienny, Daniel H. Thompson},
+        title = {SaLinA: Sequential Learning of Agents},
+        year = {2021},
+        publisher = {Arxiv},
+        howpublished = {\url{https://gitHub.com/facebookresearch/salina}},
+    }
+
+```
+
 ## News
 
 * October 2021:
@@ -94,22 +111,7 @@ We provide a simple Logger that logs in both tensorboard format, but also as pic
 * Yet another reinforcement learning framework: `salina` is focused on **sequential decision making in general**. It can be used for RL (which is our main current use-case), but also for supervised learning, attention models, multi-agent learning, planning, control, cascade models, recommender systems, among other use cases.
 * A `library`: salina is just a small layer on top of pytorch that encourages good practices for implementing sequential models. Accordingly, it is very simple to understand and use, while very powerful.
 
-# Citing `salina`
 
-Please use this bibtex if you want to cite this repository in your publications:
-
-Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs/2110.07910)
-
-```
-    @misc{salina,
-        author = {Ludovic Denoyer, Alfredo de la Fuente, Song Duong, Jean-Baptiste Gaya, Pierre-Alexandre Kamienny, Daniel H. Thompson},
-        title = {SaLinA: Sequential Learning of Agents},
-        year = {2021},
-        publisher = {Arxiv},
-        howpublished = {\url{https://gitHub.com/facebookresearch/salina}},
-    }
-
-```
 
 # Papers using SaLinA:
 * Learning a subspace of policies for online adaptation in Reinforcement Learning. Jean-Baptiste Gaya, Laure Soulier, Ludovic Denoyer - [Arxiv](https://arxiv.org/abs/2110.05169)
