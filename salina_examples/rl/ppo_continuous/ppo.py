@@ -132,7 +132,7 @@ def run_ppo(ppo_action_agent, ppo_critic_agent, logger, cfg):
             loss_pi = -(torch.min(ratio * gae, clip_adv)).mean()
             loss = loss_pi - cfg.algorithm.entropy_coef * entropy.mean()
             optimizer_action.zero_grad()
-            loss_pi.backward()
+            loss.backward()
             if cfg.algorithm.clip_grad > 0:
                 n = torch.nn.utils.clip_grad_norm_(
                     tppo_action_agent.parameters(), cfg.algorithm.clip_grad
