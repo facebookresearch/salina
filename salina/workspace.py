@@ -403,7 +403,7 @@ class Workspace:
         for k in workspaces[0].keys():
             vals = [w[k] for w in workspaces]
             v = torch.cat(vals, dim=1)
-            workspace.set_full(v)
+            workspace.set_full(k, v)
         return workspace
 
     def copy_n_last_steps(self, n, var_names=None):
