@@ -1,0 +1,8 @@
+site_name: SaLinA
+
+theme:
+  name: "readthedocs"
+
+plugins:
+  - search
+  - mkdocstrings
