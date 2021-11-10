@@ -405,7 +405,8 @@ class Workspace:
             workspace.set_full(k,self.get_time_truncated(k,from_time,to_time,None))
         return workspace
 
-    def cat_batch(self, workspaces):
+    #Static function
+    def cat_batch(workspaces):
         # Concatenate workspaces among the batch_dimension
         ts = None
         for w in workspaces:
