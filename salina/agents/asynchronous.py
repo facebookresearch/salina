@@ -58,7 +58,6 @@ class AsynchronousAgent:
                 r = self.o_queue.get(False)
                 assert r == "ok"
                 self._is_running = False
-                print("========")
                 r = self.o_queue.get()
                 workspace=Workspace()
                 while(r!="ok"):
