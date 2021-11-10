@@ -42,7 +42,6 @@ class SlicedTemporalTensor:
             self.size = value.size()
             self.device = value.device
             self.dtype = value.dtype
-
         assert self.size == value.size(), "Incompatible size"
         assert self.device == value.device, "Incompatible device"
         assert self.dtype == value.dtype, "Incompatible type"

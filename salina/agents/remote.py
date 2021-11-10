@@ -14,7 +14,6 @@ import torch.multiprocessing as mp
 from salina import Agent
 from salina.workspace import Workspace, _SplitSharedWorkspace
 
-
 def f(agent, in_queue, out_queue, seed):
     """The function that is executed in a single process"""
     out_queue.put("ok")

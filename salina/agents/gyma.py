@@ -97,8 +97,9 @@ class GymAgent(TAgent):
     def _initialize_envs(self, n):
         assert self._seed is not None, "[GymAgent] seeds must be specified"
         self.envs = [self.make_env_fn(**self.env_args) for k in range(n)]
-        for k in range(n):
-            self.envs[k].seed(self._seed + k)
+        if self.use_seed:
+            for k in range(n):
+                self.envs[k].seed(self._seed + k)
         self.timestep = 0
         self.finished = torch.tensor([True for e in self.envs])
         self.timestep = torch.tensor([0 for e in self.envs])
@@ -145,9 +146,8 @@ class GymAgent(TAgent):
                 "done": torch.tensor([True]),
                 "initial_state": torch.tensor([False]),
                 "reward": torch.tensor([0.0]).float(),
-                "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
+                "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
                 "timestep": torch.tensor([self.timestep[k]]),
-                "cumulated_reward": torch.tensor([self.cumulated_reward[k]]),
             }
         self.timestep[k] += 1
         env = self.envs[k]
