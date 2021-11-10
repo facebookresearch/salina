@@ -34,11 +34,6 @@ class SlicedTemporalTensor:
 
     def set(self, t:int, value:torch.Tensor, batch_dims:Optional[tuple(int,int)]):
         """Set a value (dim Bx...) at time t
-
-        Args:
-            t ([type]): timestep
-            value ([type]): Bx... tensor
-            batch_dims ([tuple(int,int)]): if not None, it specifies a subset of batch dimensions (from,to) (used for NRemoteAgent)
         """
         assert (
             batch_dims is None
@@ -110,19 +105,12 @@ class SlicedTemporalTensor:
     def batch_size(self):
         """Return the size of the batch dimesion
 
-        Returns:
-            [type]: [description]
         """
         return self.tensors[0].size()[0]
 
     def select_batch(self, batch_indexes:torch.LongTensor):
         """ Return the tensor where the batch dimension has been selected by the index
 
-        Args:
-            batch_indexes ([type]): [description]
-
-        Returns:
-            [type]: [description]
         """
         var = SlicedTemporalTensor()
         for t, v in enumerate(self.tensors):

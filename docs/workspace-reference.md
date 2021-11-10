@@ -1,2 +1,2 @@
-# Workspace  module
+# Workspace
 ::: salina.workspace
