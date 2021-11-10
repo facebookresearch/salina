@@ -65,7 +65,7 @@ class AsynchronousAgent:
                     key,val=r
                     workspace.set_full(key,val)
                     r = self.o_queue.get()
-                self._workspace=workspace
+                self._workspace=workspace.to("cpu")
             except:
                 pass
         return self._is_running
