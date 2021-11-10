@@ -228,6 +228,8 @@ class CompactTemporalTensor:
         t = self.tensor.to(device)
         return CompactTemporalTensor(t)
 
+
+
     def get(self, t, batch_dims):
         assert t < self.tensor.size()[0], "Temporal index out of bouds"
         if batch_dims is None:
@@ -312,6 +314,13 @@ class Workspace:
         for k, v in self.variables.items():
             v.clear()
 
+    def contiguous(self):
+        # Remove all sliced variables in the workspace
+        workspace=Workspace()
+        for k in self.keys():
+            workspace.set_full(k,self.get_full(k))
+        return workspace
+
     def set_full(self, var_name, value, batch_dims=None):
         if not var_name in self.variables:
             assert not self.is_shared, "Cannot add new variable into a shared workspace"
@@ -389,6 +398,12 @@ class Workspace:
             return v.get_time_truncated(from_time, to_time, batch_dims)
         else:
             return v.get_full(batch_dims)[from_time:to_time]
+
+    def get_time_truncated_workspace(self,from_time, to_time):
+        workspace=Workspace()
+        for k in self.keys():
+            workspace.set_full(k,self.get_time_truncated(k,from_time,to_time,None))
+        return workspace
 
     def cat_batch(self, workspaces):
         # Concatenate workspaces among the batch_dimension
