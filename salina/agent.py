@@ -98,11 +98,6 @@ class Agent(nn.Module):
             return [self]
         return []
 
-    def __del__(self):
-        if self.__trace_file is not None:
-            self.__trace_file.close()
-
-
 class TAgent(Agent):
     """A specific agent that uses a timestep as an input"""
 
