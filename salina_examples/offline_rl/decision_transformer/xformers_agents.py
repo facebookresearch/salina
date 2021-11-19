@@ -5,33 +5,26 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-import d4rl
-import d4rl_atari
-import gym
-import torch
-import torch.nn as nn
-from gym.wrappers import TimeLimit
 
-from salina import Agent, TAgent, instantiate_class
 from salina.agents import Agents
-from salina.agents.xformers_transformers import *
-from salina_examples.offline_rl.decision_transformer.agents import *
+from salina.agents.xformers_transformers import xFormerMultiBlockAgent
+from salina_examples.offline_rl.decision_transformer.agents import TransitionEncoder, ActionMLPAgentFromTransformer
 
 
 def transition_transformers(encoder, transformer, decoder):
-    ns=None
+    ns = None
     if "n_steps" in transformer:
-        ns=transformer.n_steps
+        ns = transformer.n_steps
 
     _encoder = TransitionEncoder(**dict(encoder))
-    mblock =xFormerMultiBlockAgent(
-        n_layers= transformer.n_layers,
-        embedding_size= encoder.embedding_size,
-        n_heads= transformer.n_heads,
-        max_context_length= encoder.max_episode_steps+1,
-        n_steps= ns,
-        prefix = "attn_",
-        use_layer_norm= transformer.use_layer_norm,
+    mblock = xFormerMultiBlockAgent(
+        n_layers=transformer.n_layers,
+        embedding_size=encoder.embedding_size,
+        n_heads=transformer.n_heads,
+        max_context_length=encoder.max_episode_steps + 1,
+        n_steps=ns,
+        prefix="attn_",
+        use_layer_norm=transformer.use_layer_norm,
     )
 
     internal_action_agent = ActionMLPAgentFromTransformer(

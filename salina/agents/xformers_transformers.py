@@ -11,10 +11,10 @@ import torch.nn as nn
 
 from salina import Agent, Workspace
 from salina.agents import Agents
-from xformers.components.attention import ScaledDotProduct
+from xformers.components.attention import ScaledDotProduct, maybe_sparsify
 from xformers.components.feedforward import MLP
 from xformers.components import MultiHeadDispatch, Activation
-from typing import Optional
+from typing import Optional, Tuple
 
 
 def _layer_norm(module, x):
@@ -83,12 +83,18 @@ class xFormerBlockAgent(Agent):
 
         self.mlp = MLP(dim_model=embedding_size, dropout=0.0, activation=Activation.GeLU, hidden_layer_multiplier=4)
 
-    @staticmethod
-    def _get_mask(context: int, steps: Optional[int]):
+        self._cached_mask: Optional[torch.Tensor] = None
+        self._cached_mask_params: Tuple[int, Optional[int]] = (-1, None)
+
+    def _get_mask(self, context: int, steps: Optional[int], device: torch.device):
         """
         boolean mask convention:
         true means compute, and false means skip the computation
         """
+
+        if (context, steps) == self._cached_mask_params:
+            return self._cached_mask
+
         if steps is None or steps == 0:
             # No time span, consider all the past tokens
             attn_mask = torch.tril(torch.ones(context, context), diagonal=0).bool()
@@ -98,7 +104,13 @@ class xFormerBlockAgent(Agent):
             attn_mask2 = torch.tril(torch.ones(context, context), diagonal=-steps)
             attn_mask = (attn_mask - attn_mask2).bool()
 
-        return attn_mask
+        attn_mask = maybe_sparsify(attn_mask)
+
+        # Cache the generated mask
+        self._cached_mask = attn_mask.to(device)
+        self._cached_mask_params = (context, steps)
+
+        return self._cached_mask
 
     def forward(self, t: Optional[int] = None, **_):
         """ "
@@ -110,8 +122,6 @@ class xFormerBlockAgent(Agent):
         n_steps can be None (we're interested in all the backlog) or a given time span
 
         The 4 cases handled here are thus:
-        # TODO: write down a matrix here
-
         - t and all the backlog
         - all t and all the backlog
         - t and a preset time scope
@@ -151,9 +161,13 @@ class xFormerBlockAgent(Agent):
             keys, values, queries = tokens, tokens, tokens
 
             T = queries.size()[1]
-            attn_mask = (
-                self._get_mask(T, self.n_steps).unsqueeze(0).expand(queries.shape[0] * self.n_heads, -1, -1)
-            ).to(tokens.device)  # (batch * heads) x n_steps x n_steps
+
+            attn_mask = self._get_mask(T, self.n_steps, tokens.device)  # n_steps x n_steps
+
+            if not attn_mask.is_sparse:
+                attn_mask = attn_mask.unsqueeze(0).expand(
+                    queries.shape[0] * self.n_heads, -1, -1
+                )  # (batch * heads) x n_steps x n_steps
 
             attn_output = self.multiheadattention(queries, keys, values, att_mask=attn_mask)
             x = tokens + attn_output
