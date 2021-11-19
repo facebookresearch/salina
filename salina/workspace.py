@@ -148,7 +148,7 @@ class SlicedTemporalTensor:
 
 class CompactTemporalTensor:
     """ A CompactTemporalTensor is a tenosr of size TxBx... It behaves like the `SlicedTemporalTensor` but has a fixed size that cannot change. It is faster than the SlicedTemporalTensor.
-        All the methos behaves like the methods of `SlicedTemporalTensor`
+        See `SlicedTemporalTensor`
     """
     def __init__(self, value: torch.Tensor=None):
         self.size = None
@@ -242,7 +242,7 @@ class CompactTemporalTensor:
 
 class CompactSharedTensor:
     """ It corresponds to a tensor in shared memory and is used when building a workspace shared by multiple processes.
-        All the methos behaves like the methods of `SlicedTemporalTensor`
+        All the methods behaves like the methods of `SlicedTemporalTensor`
     """
     def __init__(self, _tensor:torch.Tensor):
         self.tensor = _tensor

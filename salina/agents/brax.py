@@ -15,7 +15,8 @@ from salina.agents import Agents
 
 
 class EpisodesDone(TAgent):
-    """If done is encountered at time t, then done=True for all timeteps t'>=t
+    """
+    If done is encountered at time t, then done=True for all timeteps t'>=t
     It allows to simulate a single episode agent based on an autoreset agent
     """
 
