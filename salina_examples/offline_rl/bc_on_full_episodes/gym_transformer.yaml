@@ -25,6 +25,7 @@ agent:
     n_layers: 3
     n_heads: 2
     use_layer_norm: False
+    n_steps: 10
   decoder:
     env: ${env}
     n_layers: 1

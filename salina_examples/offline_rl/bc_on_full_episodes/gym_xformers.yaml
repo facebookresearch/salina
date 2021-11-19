@@ -14,7 +14,7 @@ env:
   max_episode_steps: 1000
 
 agent:
-  classname: salina_examples.offline_rl.bc_on_full_episodes.agents.transition_transformers
+  classname: salina_examples.offline_rl.bc_on_full_episodes.xformers_agents.xformers_transition_transformers
   encoder:
     env: ${env}
     n_layers: 1
@@ -25,6 +25,7 @@ agent:
     n_layers: 3
     n_heads: 2
     use_layer_norm: False
+    n_steps: 10
   decoder:
     env: ${env}
     n_layers: 1
