@@ -157,7 +157,7 @@ def transition_transformers(encoder, transformer, decoder):
 
     mblock = TransformerMultiBlockAgent(
         n_layers=transformer.n_layers,
-        nsteps=ns,
+        n_steps=ns,
         embedding_size=encoder.hidden_size,
         n_heads=transformer.n_heads,
         use_layer_norm=transformer.use_layer_norm,
