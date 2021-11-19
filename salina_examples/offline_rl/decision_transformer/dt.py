@@ -117,7 +117,7 @@ def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
     optimizer_action = get_class(cfg_algorithm.optimizer)(
         action_agent.parameters(), **optimizer_args
     )
-
+    nsteps_ps_cache=[]
     for epoch in range(cfg_algorithm.max_epoch):
         if not evaluation_agent.is_running():
             rtg = evaluation_rtg[evaluation_position]
@@ -154,11 +154,12 @@ def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
                 control_value=evaluation_rtg[evaluation_position],
             )
 
-        _st=time.time()
+
         batch_size = cfg_algorithm.batch_size
         replay_workspace = buffer.select_batch_n(batch_size).to(
             cfg_algorithm.loss_device
         )
+        _st=time.time()
         T = replay_workspace.time_size()
         length = replay_workspace["env/done"].float().argmax(0)
         mask = torch.arange(T).unsqueeze(-1).repeat(1, batch_size).to(length.device)
@@ -181,7 +182,10 @@ def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
         optimizer_action.step()
         _et=time.time()
         nsteps=batch_size*T
-        logger.add_scalar("monitor/steps_per_seconds", nsteps/(_et-_st), epoch)
+        nsteps_ps=nsteps/(_et-_st)
+        nsteps_ps_cache.append(nsteps_ps)
+        if len(nsteps_ps_cache)>1000: nsteps_ps_cache.pop(0)
+        logger.add_scalar("monitor/steps_per_seconds", np.mean(nsteps_ps_cache), epoch)
 
 
 
