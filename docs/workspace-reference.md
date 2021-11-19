@@ -1,2 +1,3 @@
-# salina.workspace
-::: salina.workspace
+# salina.agents
+
+::: salina.agents
