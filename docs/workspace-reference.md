@@ -1,5 +1,2 @@
-# Workspace
+# salina.workspace
 ::: salina.workspace
-
-# Agents
-::: salina.agents.brax
