@@ -26,7 +26,7 @@ def xformers_transition_transformers(encoder, transformer, decoder):
         n_heads= transformer.n_heads,
         max_context_length= encoder.max_episode_steps+1,
         n_steps= transformer.n_steps,
-        prefix= str = "attn_",
+        prefix_str = "attn_",
         use_layer_norm= transformer.use_layer_norm,
     )
 
