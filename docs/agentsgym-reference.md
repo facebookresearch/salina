@@ -1,2 +1,2 @@
 # salina.agents.gyma
-::: agents.gyma
+::: salina.agents.gyma

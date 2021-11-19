@@ -5,10 +5,4 @@ theme:
 
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          setup_commands:
-            - import sys
-            - sys.path.append("/home/docs/checkouts/readthedocs.org/user_builds/salina/checkouts/latest/salina")
-            - sys.path.append("/home/docs/checkouts/readthedocs.org/user_builds/salina/checkouts/latest/salina/agents")
+  - mkdocstrings

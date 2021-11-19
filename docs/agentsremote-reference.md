@@ -1,2 +1,2 @@
 # salina.agents.remote
-::: agents.remote
+::: salina.agents.remote

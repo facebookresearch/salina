@@ -1,2 +1,2 @@
 # salina.agents.utils
-::: agents.utils
+::: salina.agents.utils
