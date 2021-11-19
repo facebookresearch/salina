@@ -41,9 +41,11 @@ algorithm:
     classname: torch.optim.Adam
     lr: 0.001
 
+
   loss_device: cpu
 
   evaluation:
     env_seed: 23
     n_envs: 32
+    every_n: 10
     n_processes: 4
