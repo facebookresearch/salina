@@ -1,9 +1,0 @@
-env_seed: 432
-n_envs: 8
-n_timesteps: 16
-max_epochs: 10000
-discount_factor: 0.95
-entropy_coef: 0.001
-critic_coef: 1.0
-a2c_coef: 0.1
-lr: 0.01

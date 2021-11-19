@@ -70,7 +70,7 @@ class GymAgent(TAgent):
     """A agent corresponding to a Gym environment.
     The agent reads the action at t-1, and produces many variables
     If t==0, then the environments are reset
-    use_seed: Some gym environments don't like to manually define the seed. IF False, the agent.seed method has no effect
+    use_seed: Some gym environments don't like to manually define the seed. If False, the agent.seed method has no effect
     """
 
     def __init__(

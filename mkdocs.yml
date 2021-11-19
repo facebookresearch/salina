@@ -1,0 +1,8 @@
+site_name: SaLinA
+
+theme:
+  name: "material"
+
+plugins:
+  - search
+  - mkdocstrings

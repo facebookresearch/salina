@@ -12,12 +12,11 @@ from salina import Agent, TAgent
 
 
 class Agents(Agent):
-    """Execute multiple agents sequentiall
+    """An agent that contains multiple agents that will be executed sequentially
 
     Args:
-        Agent ([salina.Agent]): The agents to execute
+        Agent ([salina.Agent]): The agents
     """
-
     def __init__(self, *agents, name=None):
         super().__init__(name=name)
         for a in agents:
@@ -59,7 +58,7 @@ class TemporalAgent(Agent):
         self.agent = agent
 
     def __call__(self, workspace, t=0, n_steps=None, stop_variable=None, **kwargs):
-        """Execute the agent startiing at time t, for n_steps
+        """Execute the agent starting at time t, for n_steps
 
         Args:
             workspace ([salina.Workspace]):
@@ -95,7 +94,7 @@ class TemporalAgent(Agent):
 
 
 class CopyTAgent(Agent):
-    """An agent that copy a variable
+    """An agent that copies a variable
 
     Args:
         input_name ([str]): The variable to copy from
