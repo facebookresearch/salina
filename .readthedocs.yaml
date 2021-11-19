@@ -1,5 +1,9 @@
 version: 2
 
+install:
+    - requirements: docs/requirements.txt
+    - requirements: requirements.txt
+
 mkdocs:
   configuration: mkdocs.yml
   fail_on_warning: false
