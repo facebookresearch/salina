@@ -153,7 +153,7 @@ class xFormerBlockAgent(Agent):
             T = queries.size()[1]
             attn_mask = (
                 self._get_mask(T, self.n_steps).unsqueeze(0).expand(queries.shape[0] * self.n_heads, -1, -1)
-            ).to(tokens,device)  # (batch * heads) x n_steps x n_steps
+            ).to(tokens.device)  # (batch * heads) x n_steps x n_steps
 
             attn_output = self.multiheadattention(queries, keys, values, att_mask=attn_mask)
             x = tokens + attn_output
