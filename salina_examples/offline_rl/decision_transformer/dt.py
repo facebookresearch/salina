@@ -154,6 +154,7 @@ def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
                 control_value=evaluation_rtg[evaluation_position],
             )
 
+        _st=time.time()
         batch_size = cfg_algorithm.batch_size
         replay_workspace = buffer.select_batch_n(batch_size).to(
             cfg_algorithm.loss_device
@@ -178,6 +179,10 @@ def run_bc(buffer, logger, action_agent, cfg_algorithm, cfg_env):
             logger.add_scalar("monitor/grad_norm", n.item(), epoch)
 
         optimizer_action.step()
+        _et=time.time()
+        nsteps=batch_size*T
+        logger.add_scalar("monitor/steps_per_seconds", nsteps/(_et-_st), epoch)
+
 
 
 @hydra.main(config_path=".", config_name="gym.yaml")

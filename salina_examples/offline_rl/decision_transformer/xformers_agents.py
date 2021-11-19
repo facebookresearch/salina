@@ -15,10 +15,10 @@ from gym.wrappers import TimeLimit
 from salina import Agent, TAgent, instantiate_class
 from salina.agents import Agents
 from salina.agents.xformers_transformers import *
-from salina_examples.offline_rl.bc_on_full_episodes.agents import *
+from salina_examples.offline_rl.decision_transformer.agents import *
 
 
-def xformers_transition_transformers(encoder, transformer, decoder):
+def transition_transformers(encoder, transformer, decoder):
     ns=None
     if "n_steps" in transformer:
         ns=transformer.n_steps
@@ -35,11 +35,7 @@ def xformers_transition_transformers(encoder, transformer, decoder):
     )
 
     internal_action_agent = ActionMLPAgentFromTransformer(
-        decoder.env, decoder.n_layers, decoder.hidden_size, encoder.embedding_size
+        decoder.env, decoder.n_layers, decoder.hidden_size, encoder.hidden_size
     )
     action_agent = Agents(_encoder, mblock, internal_action_agent)
     return action_agent
-
-
-def observation_mlp(**kwargs):
-    return ActionMLPAgentFromObservation(**kwargs)

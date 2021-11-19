@@ -158,12 +158,17 @@ class ActionMLPAgentFromObservation(Agent):
 
 
 def transition_transformers(encoder, transformer, decoder):
+    ns=None
+    if "n_steps" in transformer:
+        ns=transformer.n_steps
+
     _encoder = TransitionEncoder(**dict(encoder))
     mblock = TransformerMultiBlockAgent(
         transformer.n_layers,
         encoder.embedding_size,
         transformer.n_heads,
         use_layer_norm=transformer.use_layer_norm,
+        n_steps=ns
     )
     internal_action_agent = ActionMLPAgentFromTransformer(
         decoder.env, decoder.n_layers, decoder.hidden_size, encoder.embedding_size
