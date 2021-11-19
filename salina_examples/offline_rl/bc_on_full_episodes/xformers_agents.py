@@ -21,13 +21,13 @@ from salina_examples.offline_rl.bc_on_full_episodes.agents import *
 def xformers_transition_transformers(encoder, transformer, decoder):
     _encoder = TransitionEncoder(**dict(encoder))
     mblock =xFormerMultiBlockAgent(
-        n_layers: transformer.n_layers,
-        embedding_size: encoder.embedding_size,
-        n_heads: transformer.n_heads,
-        max_context_length: encoder.max_episode_steps,
-        n_steps: transformer.n_steps,
-        prefix: str = "attn_",
-        use_layer_norm: transformer.use_layer_norm,
+        n_layers= transformer.n_layers,
+        embedding_size= encoder.embedding_size,
+        n_heads= transformer.n_heads,
+        max_context_length= encoder.max_episode_steps+1,
+        n_steps= transformer.n_steps,
+        prefix= str = "attn_",
+        use_layer_norm= transformer.use_layer_norm,
     )
 
     internal_action_agent = ActionMLPAgentFromTransformer(
