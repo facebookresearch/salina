@@ -6,3 +6,6 @@ theme:
 plugins:
   - search
   - mkdocstrings
+      watch:
+        - salina
+        - salina/agents
