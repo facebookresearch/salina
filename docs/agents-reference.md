@@ -1,5 +1,2 @@
-# agents.brax
-## coucou
-::: salina.agents.brax.BraxAgent
-## machin
-::: salina.agents.brax.AutoResetBraxAgent
+# salina.agents.brax
+::: salina.agents.brax
