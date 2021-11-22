@@ -72,20 +72,20 @@ class TransformerBlockAgent(Agent):
         self._cached_mask: Optional[torch.Tensor] = None
         self._cached_mask_params: Tuple[int, Optional[int]] = (-1, None)
 
-    def _get_mask(self, context: int, steps: Optional[int], device: torch.device):
+    def _get_mask(self, T: int, n_steps: Optional[int], device: torch.device):
         """
         boolean mask convention:
         true means compute, and false means skip the computation
         """
 
-        if (context, steps) == self._cached_mask_params:
+        if (T, n_steps) == self._cached_mask_params:
             return self._cached_mask
 
         if self.n_steps is None or self.n_steps == 0:
                 attn_mask = (
                     torch.triu(torch.ones(T, T), diagonal=1).bool().to(keys.device)
                 )
-            else:
+        else:
                 attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(keys.device)
                 attn_mask2 = torch.triu(torch.ones(T, T), diagonal=1 - self.n_steps).to(
                     keys.device
@@ -95,7 +95,7 @@ class TransformerBlockAgent(Agent):
 
         # Cache the generated mask
         self._cached_mask = attn_mask
-        self._cached_mask_params = (context, steps)
+        self._cached_mask_params = (T, n_steps)
 
         return self._cached_mask
 
@@ -131,7 +131,6 @@ class TransformerBlockAgent(Agent):
             values = tokens
             queries = tokens
             T = queries.size()[0]
-
 
             attn_mask = self._get_mask(T, self.n_steps, keys.device)
 
