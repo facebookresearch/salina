@@ -6,6 +6,10 @@ theme:
 plugins:
   - search
   - mkdocstrings:
-      watch:
-        - salina
-        - salina/agents
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - import os
+            - print(os.path.abspath('./salina'))
+            - sys.path.insert(0, os.path.abspath('./salina'))

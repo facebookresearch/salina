@@ -1,2 +1,2 @@
-# salina.agents.brax
-::: salina.agents.brax
+# agents.brax
+::: agents.brax
