@@ -10,6 +10,7 @@ plugins:
         python:
           setup_commands:
             - import sys
+            - from unittest.mock import MagicMock as mock
             - sys.path.append("salina")
           selection:
             new_path_syntax: true

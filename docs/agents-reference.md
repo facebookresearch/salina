@@ -1,2 +1,0 @@
-# salina.agents
-::: salina.agents

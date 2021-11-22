@@ -1,3 +1,4 @@
+brax
 mkdocs==1.2.3
 mkdocstrings
 mkdocs-material
