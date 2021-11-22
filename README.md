@@ -1,5 +1,7 @@
 # SaLinA: SaLinA - A Flexible and Simple Library for Learning Sequential Agents (including Reinforcement Learning)
 
+**Documentation**:[Read the docs](https://salina.readthedocs.io/en/latest/)
+
 ## TL;DR
 
 `salina` is a lightweight library extending PyTorch modules for developping **sequential decision models**.  It can be used for **Reinforcement Learning** (including model-based with differentiable environments, multi-agent RL, etc...), but also in a supervised/unsupervised learning settings (for instance for NLP, Computer Vision, etc...).
@@ -24,6 +26,8 @@ Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs
 ```
 
 ## News
+* November 2021:
+* * Complete core documentation: [Read the docs](https://salina.readthedocs.io/en/latest/)
 
 * October 2021:
 * * Week 8th of November
