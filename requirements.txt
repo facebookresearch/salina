@@ -7,5 +7,6 @@ hydra-core
 numpy
 pandas
 opencv-python
+mkdocs==1.2.3
 mkdocstrings
 mkdocs-material
