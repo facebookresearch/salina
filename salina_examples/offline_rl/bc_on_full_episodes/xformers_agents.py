@@ -20,7 +20,7 @@ from salina_examples.offline_rl.bc_on_full_episodes.agents import *
 
 def xformers_transition_transformers(encoder, transformer, decoder):
     ns=None
-    if "n_steps" in transformer and transfomer.n_steps>0:
+    if "n_steps" in transformer and transformer.n_steps>0:
         ns=transformer.n_steps
 
 

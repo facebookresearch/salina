@@ -159,7 +159,7 @@ class ActionMLPAgentFromObservation(Agent):
 
 def transition_transformers(encoder, transformer, decoder):
     ns=None
-    if "n_steps" in transformer and transfomer.n_steps>0:
+    if "n_steps" in transformer and transformer.n_steps>0:
         ns=transformer.n_steps
 
     _encoder = TransitionEncoder(**dict(encoder))
