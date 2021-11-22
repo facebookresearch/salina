@@ -5,11 +5,4 @@ theme:
 
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          setup_commands:
-            - import sys
-            - import os
-            - print(os.path.abspath('./salina'))
-            - sys.path.insert(0, os.path.abspath('./salina'))
+  - mkdocstrings
