@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from salina import Agent, Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents
+from typing import Optional, Tuple
 
 
 def _layer_norm(module, x):
