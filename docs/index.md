@@ -65,7 +65,7 @@ Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs
 
 ## Note on the logger
 
-We provide a simple Logger that logs in both tensorboard format, but also as pickle files that can be re-read to make tables and figures. See [logger](https://github.com/facebookresearch/salina/tree/main/salina/logger.py). This logger can be easily replaced by any other logger.
+We provide a simple Logger that logs in both tensorboard format, but also as pickle files that can be re-read to make tables and figures. See [logger](https://github.com/facebookresearch/salina/tree/main/    salina/logger.py). This logger can be easily replaced by any other logger.
 
 # Description
 
@@ -97,7 +97,7 @@ We provide a simple Logger that logs in both tensorboard format, but also as pic
 
 # Papers using SaLinA:
 * Learning a subspace of policies for online adaptation in Reinforcement Learning. Jean-Baptiste Gaya, Laure Soulier, Ludovic Denoyer - [Arxiv](https://arxiv.org/abs/2110.05169)
-
+* Direct then Diffuse: Incremental Unsupervised Skill Discovery for State Covering and Goal Reaching. Pierre-Alexandre Kamienny, Jean Tarbouriech, Alessandro Lazaric, Ludovic Denoyer - [Arxiv](https://arxiv.org/abs/2110.14457)
 
 ## License
 
