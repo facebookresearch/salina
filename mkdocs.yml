@@ -1,7 +1,7 @@
 site_name: SaLinA
 
 theme:
-  name: "material"
+  name: readthedocs
 
 plugins:
   - search
