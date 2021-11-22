@@ -67,12 +67,8 @@ def _torch_cat_dict(d):
 
 
 class GymAgent(TAgent):
-    """A agent corresponding to a Gym environment.
-    The agent reads the action at t-1, and produces many variables
-    If t==0, then the environments are reset
-    use_seed: Some gym environments don't like to manually define the seed. If False, the agent.seed method has no effect
+    """ Create an Agent from a gyn environment
     """
-
     def __init__(
         self,
         make_env_fn=None,
@@ -82,6 +78,16 @@ class GymAgent(TAgent):
         output="env/",
         use_seed=True
     ):
+        """ Create an agent from a Gym environment
+
+        Args:
+            make_env_fn ([function that returns a gym.Env]): The function to create a single gym environments
+            make_env_args (dict): The arguments of the function that creates a gym.Env
+            n_envs ([int]): The number of environments to create.
+            input (str, optional): [the name of the action variable in the workspace]. Defaults to "action".
+            output (str, optional): [the output prefix of the environment]. Defaults to "env/".
+            use_seed (bool, optional): [If True, then the seed is chained to the environments, and each environment will have its own seed]. Defaults to True.
+        """
         super().__init__()
         self.use_seed=use_seed
         assert n_envs > 0
@@ -235,6 +241,16 @@ class AutoResetGymAgent(TAgent):
         output="env/",
         use_seed=True,
     ):
+        """ Create an agent from a Gym environment  with Autoreset
+
+        Args:
+            make_env_fn ([function that returns a gym.Env]): The function to create a single gym environments
+            make_env_args (dict): The arguments of the function that creates a gym.Env
+            n_envs ([int]): The number of environments to create.
+            input (str, optional): [the name of the action variable in the workspace]. Defaults to "action".
+            output (str, optional): [the output prefix of the environment]. Defaults to "env/".
+            use_seed (bool, optional): [If True, then the seed is chained to the environments, and each environment will have its own seed]. Defaults to True.
+        """
         super().__init__()
         self.use_seed=use_seed
         assert n_envs > 0

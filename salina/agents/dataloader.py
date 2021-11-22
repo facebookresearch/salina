@@ -15,9 +15,6 @@ from salina import Agent
 
 class ShuffledDatasetAgent(Agent):
     """An agent that read a dataset in a shuffle order, in an infinite way.
-
-    Args:
-        Agent ([type]): [description]
     """
 
     def __init__(
@@ -73,6 +70,12 @@ class DataLoaderAgent(Agent):
     """
 
     def __init__(self, dataloader, output_names=("x", "y")):
+        """ Create the agent based on a dataloader
+
+        Args:
+            dataloader ([DataLader]): The underlying pytoch daaloader object
+            output_names (tuple, optional): Names of the variable to write in the workspace. Defaults to ("x", "y").
+        """
         super().__init__()
         self.dataloader = dataloader
         self.iter = iter(self.dataloader)

@@ -1,13 +1,16 @@
 site_name: SaLinA
 
 theme:
-  name: "material"
+  name: material
 
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
+          rendering:
+            show_root_heading: true
+            show_source: true
           setup_commands:
             - import sys
             - from unittest.mock import MagicMock as mock

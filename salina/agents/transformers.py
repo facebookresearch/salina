@@ -128,6 +128,16 @@ class TransformerMultiBlockAgent(Agents):
         prefix="attn_",
         use_layer_norm=False,
     ):
+        """ A agent that is a transformers architecture. The agent will read the `prefix+'in'` variable and output the `prefix+'out'` variable.
+
+        Args:
+            n_layers ([int]): Number of layers
+            embedding_size ([int]): Size of the vectors
+            n_heads ([int]): number of heads
+            n_steps ([int], optional): If >0 then, it corresponds to the number of steps to look back. Defaults to None.
+            prefix (str, optional): The name of the variable in the workspace. Defaults to "attn_".
+            use_layer_norm (bool, optional): With/without layer normalization. Defaults to False.
+        """
         agents = []
         for k in range(n_layers):
             in_prefix = prefix + str(k + 1)

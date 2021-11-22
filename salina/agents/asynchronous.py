@@ -29,7 +29,7 @@ def f(agent,in_queue,out_queue):
         out_queue.put("ok")
 
 class AsynchronousAgent:
-    """ Implement an agent that is executed aynchronously in another process, and that returns its own workspace
+    """ Implements an agent that is executed aynchronously in another process, and that returns its own workspace
 
     Usage is:
     * agent(workspace)
@@ -37,13 +37,21 @@ class AsynchronousAgent:
     *     .....
     * workspace=agent.get_workspace()
     """
+
     def __init__(self,agent):
+        """ Create the AsynchronousAgent
+
+        Args:
+            agent ([salina.Agent]): The agent to execute in another process
+        """
         self._is_running=False
         self.process=None
         self._workspace=None
         self.agent=agent
 
     def __call__(self,**kwargs):
+        """ Executes the agent in non-blocking mode. A new workspace is created by the agent.
+        """
         assert not self._is_running
         if self.process is None:
             self.o_queue = mp.Queue()
@@ -59,6 +67,11 @@ class AsynchronousAgent:
         self.i_queue.put(kwargs)
 
     def is_running(self):
+        """ Is the agent still running ?
+
+        Returns:
+            [bool]: True is the agent is running
+        """
         if self._is_running:
             try:
                 r = self.o_queue.get(False)
@@ -76,11 +89,18 @@ class AsynchronousAgent:
         return self._is_running
 
     def get_workspace(self):
+        """ Returns the built workspace is the agent has stopped its execution
+
+        Returns:
+            [salina.Workspace]: The built workspace
+        """
         if self.is_running():
             return None
         return self._workspace
 
     def close(self):
+        """ Close the agent and kills the corresponding process
+        """
         if self.process is None:
             return
 

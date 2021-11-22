@@ -50,6 +50,7 @@ Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs
 
 ### Documentation
 
+* [Read the docs](https://salina.readthedocs.io/en/latest/)
 * [Principles of the library](md_docs/)
 * [Examples and Algorithms](salina_examples/)
 * [Tutorial through multiple A2C implementations](salina_examples/rl/a2c)

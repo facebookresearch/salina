@@ -13,7 +13,6 @@ from brax.envs.to_torch import JaxToTorchWrapper
 from salina import TAgent
 from salina.agents import Agents
 
-
 class EpisodesDone(TAgent):
     """
     If done is encountered at time t, then done=True for all timeteps t'>=t
@@ -41,9 +40,20 @@ def _torch_cat_dict(d):
 
 
 class BraxAgent(TAgent):
-    """An agent based on a brax environment, with autoreset"""
+    """An agent based on a brax environment, with autoreset
+
+    The agent reads `action` at `t-1` and outputs `env/env_obs`,`env/reward`,`env/initial_state`,`env/done`,`env/timestep`,`env/cumulated_reward`
+    """
 
     def __init__(self, n_envs, env_name, input="action", output="env/", **kwargs):
+        """ Initialize the agent
+
+        Args:
+            n_envs ([int]): number of envs (batch dimension)
+            env_name ([str]): [the BRAX environment name
+            input (str, optional):  Defaults to "action".
+            output (str, optional): Defaults to "env/".
+        """
         super().__init__()
         self.args = kwargs
         self.brax_env_name = env_name

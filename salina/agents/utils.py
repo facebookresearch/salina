@@ -18,6 +18,11 @@ class Agents(Agent):
         Agent ([salina.Agent]): The agents
     """
     def __init__(self, *agents, name=None):
+        """ Creates the agent from multiple agents
+
+        Args:
+            name ([str], optional): [name of the resulting agent]. Defaults to None.
+        """
         super().__init__(name=name)
         for a in agents:
             assert isinstance(a, Agent)
@@ -54,6 +59,12 @@ class TemporalAgent(Agent):
     """
 
     def __init__(self, agent, name=None):
+        """ The agent to transform to a temporal agent
+
+        Args:
+            agent ([salina.Agent]): The agent to encapsulate
+            name ([str], optional): Name of the agent
+        """
         super().__init__(name=name)
         self.agent = agent
 
