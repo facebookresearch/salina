@@ -1,2 +1,2 @@
 # salina.workspace
-::: salina.workspace
+::: salina.agents.gyma
