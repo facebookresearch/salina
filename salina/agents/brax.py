@@ -40,7 +40,10 @@ def _torch_cat_dict(d):
 
 
 class BraxAgent(TAgent):
-    """An agent based on a brax environment, with autoreset"""
+    """An agent based on a brax environment, with autoreset
+
+    The agent reads `action` at `t-1` and outputs `env/env_obs`,`env/reward`,`env/initial_state`,`env/done`,`env/timestep`,`env/cumulated_reward`
+    """
 
     def __init__(self, n_envs, env_name, input="action", output="env/", **kwargs):
         super().__init__()
