@@ -84,12 +84,12 @@ class TransformerBlockAgent(Agent):
 
         if self.n_steps is None or self.n_steps == 0:
                 attn_mask = (
-                    torch.triu(torch.ones(T, T), diagonal=1).bool().to(keys.device)
+                    torch.triu(torch.ones(T, T), diagonal=1).bool().to(device)
                 )
         else:
-                attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(keys.device)
+                attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(device)
                 attn_mask2 = torch.triu(torch.ones(T, T), diagonal=1 - self.n_steps).to(
-                    keys.device
+                    device
                 )
                 attn_mask = attn_mask + 1 - attn_mask2
                 attn_mask = attn_mask.bool()
