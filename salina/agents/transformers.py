@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from salina import Agent, Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents
+from typing import Optional, Tuple
 
 
 def _layer_norm(module, x):
@@ -69,6 +70,40 @@ class TransformerBlockAgent(Agent):
             # nn.Dropout(config.resid_pdrop),
         )
 
+        self._cached_mask: Optional[torch.Tensor] = None
+        self._cached_mask_params: Tuple[int, Optional[int]] = (-1, None)
+
+    def _get_mask(self, T: int, n_steps: Optional[int], device: torch.device):
+        """
+        boolean mask convention:
+        true means compute, and false means skip the computation
+        """
+
+        if (T, n_steps) == self._cached_mask_params:
+            return self._cached_mask
+
+        if self.n_steps is None or self.n_steps == 0:
+                attn_mask = (
+                    torch.triu(torch.ones(T, T), diagonal=1).bool().to(device)
+                )
+        else:
+                attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(device)
+                attn_mask2 = torch.triu(torch.ones(T, T), diagonal=1 - self.n_steps).to(
+                    device
+                )
+                attn_mask = attn_mask + 1 - attn_mask2
+                attn_mask = attn_mask.bool()
+
+        # Cache the generated mask
+        self._cached_mask = attn_mask
+        self._cached_mask_params = (T, n_steps)
+
+        return self._cached_mask
+
+
+
+
+
     def forward(self, t=None, **kwargs):
         if not t is None:
             if self.n_steps is None or self.n_steps == 0:
@@ -97,17 +132,8 @@ class TransformerBlockAgent(Agent):
             values = tokens
             queries = tokens
             T = queries.size()[0]
-            if self.n_steps is None or self.n_steps == 0:
-                attn_mask = (
-                    torch.triu(torch.ones(T, T), diagonal=1).bool().to(keys.device)
-                )
-            else:
-                attn_mask = torch.triu(torch.ones(T, T), diagonal=1).to(keys.device)
-                attn_mask2 = torch.triu(torch.ones(T, T), diagonal=1 - self.n_steps).to(
-                    keys.device
-                )
-                attn_mask = attn_mask + 1 - attn_mask2
-                attn_mask = attn_mask.bool()
+
+            attn_mask = self._get_mask(T, self.n_steps, keys.device)
 
             attn_output, attn_output_weights = self.multiheadattention(
                 queries, keys, values, attn_mask=attn_mask

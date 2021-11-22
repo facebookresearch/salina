@@ -152,11 +152,6 @@ class Agent(nn.Module):
             return [self]
         return []
 
-    def __del__(self):
-        if self.__trace_file is not None:
-            self.__trace_file.close()
-
-
 class TAgent(Agent):
     """ `TAgent` is used as a convention to represent agents that use a time index in their `__call__` function (not mandatory)
     """

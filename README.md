@@ -66,6 +66,16 @@ Link to the paper: [SaLinA: Sequential Learning of Agents](https://arxiv.org/abs
 * * [Tutorial 4: A2C on multi-CPUs](https://youtu.be/euDqlmcC_1Q)
 * [Arxiv Paper](https://arxiv.org/abs/2110.07910)
 
+## A note on transformers
+
+We include both classical pytorch transformers, and [xformers-based](https://github.com/facebookresearch/xformers) implementations. On the [Behavioral Cloning](https://github.com/facebookresearch/salina/tree/main/salina_examples/offline_rl/bc_on_full_episodes) examples xformers-based models perform faster than classical pytorch implementations since they benefit from the use of sparse attention. Here is a small table describing the obtained results.
+
+| n transitions (in the past) |             5 |             10 |            50 |           100 | All previous transitions (episode size is 1000 transitions) |
+|-----------------------------|--------------:|---------------:|--------------:|--------------:|-------------------------------------------------------------|
+| xformers                    | 1200K / 2.3Gb | 1000K / 2.3 Gb | 890K / 2.5 Gb | 810K / 2.1 Gb | 390K / 3.8 Gb                                               |
+| pytorch                     | 460K / 4.5 Gb | 460K / 4.5 Gb  | 460K / 4.5 Gb | 460K / 4.5 Gb | 460K / 4.5 Gb                                               |
+
+The table contains the number of transitions processed per second (during learning) and the memory used (using GPU)
 
 **For development, set up [pre-commit](https://pre-commit.com) hooks:**
 

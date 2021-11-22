@@ -6,31 +6,33 @@ logger:
   verbose: True
 
 n_envs: 1
-env_name: walker2d-medium-expert-v0
-embedding_size: 64
+env_name: hopper-medium-replay-v2
+#env_name: antmaze-medium-diverse-v0
+embedding_size: 128
 env:
   classname: salina_examples.offline_rl.d4rl.make_d4rl_env
   env_name: ${env_name}
   max_episode_steps: 1000
 
 agent:
-  classname: salina_examples.offline_rl.bc_on_full_episodes.agents.transition_transformers
+  classname: salina_examples.offline_rl.decision_transformer.xformers_agents.transition_transformers
   encoder:
     env: ${env}
-    n_layers: 1
-    hidden_size: 64
+    n_layers: 0
+    hidden_size: 128
     embedding_size: ${embedding_size}
     max_episode_steps: 1000
+    use_timestep: True
+    use_reward_to_go: True
   transformer:
     n_layers: 3
-    n_heads: 2
-    use_layer_norm: False
+    n_heads: 1
     n_steps: 10
+    use_layer_norm: False
   decoder:
     env: ${env}
-    n_layers: 1
-    hidden_size: 64
-
+    n_layers: 0
+    hidden_size: 128
 
 algorithm:
   env_seed: 432
@@ -40,11 +42,16 @@ algorithm:
   optimizer:
     classname: torch.optim.Adam
     lr: 0.001
-
-
+  reward_scale: 1000.0
+  target_rewards:
+    - 4000
+    - 3600
+    - 2500
+    - 1800
+    - 0
   loss_device: cpu
 
   evaluation:
     env_seed: 23
-    n_envs: 4
-    n_processes: 4
+    n_envs: 64
+    n_processes: 1
