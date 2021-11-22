@@ -5,4 +5,14 @@ theme:
 
 plugins:
   - search
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - import os
+            - import salina
+            - import salina.agents
+            - print(sys.modules.keys())
+            - sys.modules["agents"]=sys.modules["salina.agents"]
+            - print("coucou")
