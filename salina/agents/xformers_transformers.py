@@ -11,10 +11,17 @@ import torch.nn as nn
 
 from salina import Agent, Workspace
 from salina.agents import Agents
+from xformers import _is_triton_available
 from xformers.components.attention import ScaledDotProduct, maybe_sparsify
 from xformers.components.feedforward import MLP
 from xformers.components import MultiHeadDispatch, Activation
 from typing import Optional, Tuple
+
+if _is_triton_available:
+    from xformers.components.attention import BlockSparseAttention
+    from xformers.components.attention.attention_patterns import pattern_to_layout
+
+_BLOCK_SIZE = 16
 
 
 def _layer_norm(module, x):
@@ -63,6 +70,7 @@ class xFormerBlockAgent(Agent):
         self.output_name = output_name
         self.embedding_size = embedding_size
         self.n_heads = n_heads
+        self.max_context_length = max_context_length
 
         # The sparse-aware attention mechanism
         self.multiheadattention = MultiHeadDispatch(
@@ -81,10 +89,16 @@ class xFormerBlockAgent(Agent):
             self.ln1 = Id()
             self.ln2 = Id()
 
-        self.mlp = MLP(dim_model=embedding_size, dropout=0.0, activation=Activation.GeLU, hidden_layer_multiplier=4)
+        self.mlp = MLP(
+            dim_model=embedding_size,
+            dropout=0.0,
+            activation=Activation.GeLU,
+            hidden_layer_multiplier=4,
+        )
 
         self._cached_mask: Optional[torch.Tensor] = None
         self._cached_mask_params: Tuple[int, Optional[int]] = (-1, None)
+        self._cached_layout: Optional[torch.Tensor] = None
 
     def _get_mask(self, context: int, steps: Optional[int], device: torch.device):
         """
@@ -111,6 +125,28 @@ class xFormerBlockAgent(Agent):
         self._cached_mask_params = (context, steps)
 
         return self._cached_mask
+
+    def _get_layout(self, context: int, steps: Optional[int]):
+        """
+        Returns (layout: torch.Tensor, renewed: bool)
+        """
+        if (context, steps) == self._cached_mask_params:
+            return self._cached_layout, False
+
+        if steps is None or steps == 0:
+            # No time span, consider all the past tokens
+            attn_mask = torch.tril(torch.ones(context, context), diagonal=0).bool()
+        else:
+            # Time span specified, mask out the older results
+            attn_mask = torch.tril(torch.ones(context, context), diagonal=0)
+            attn_mask2 = torch.tril(torch.ones(context, context), diagonal=-steps)
+            attn_mask = (attn_mask - attn_mask2).bool()
+
+        # Cache the generated layout
+        self._cached_layout = pattern_to_layout(attn_mask, block_size=_BLOCK_SIZE)
+        self._cached_mask_params = (context, steps)
+
+        return self._cached_layout, True
 
     def forward(self, t: Optional[int] = None, **_):
         """ "
@@ -162,14 +198,35 @@ class xFormerBlockAgent(Agent):
 
             T = queries.size()[1]
 
-            attn_mask = self._get_mask(T, self.n_steps, tokens.device)  # n_steps x n_steps
+            if not _is_triton_available:
+                # Sparse attention
+                attn_mask = self._get_mask(
+                    T, self.n_steps, tokens.device
+                )  # n_steps x n_steps
 
-            if not attn_mask.is_sparse:
-                attn_mask = attn_mask.unsqueeze(0).expand(
-                    queries.shape[0] * self.n_heads, -1, -1
-                )  # (batch * heads) x n_steps x n_steps
+                if not attn_mask.is_sparse:
+                    attn_mask = attn_mask.unsqueeze(0).expand(
+                        queries.shape[0] * self.n_heads, -1, -1
+                    )  # (batch * heads) x n_steps x n_steps
+            else:
+                layout, renewed = self._get_layout(T, self.n_steps)
 
-            attn_output = self.multiheadattention(queries, keys, values, att_mask=attn_mask)
+                if renewed:
+                    self.multiheadattention = MultiHeadDispatch(
+                        seq_len=self.max_context_length,
+                        dim_model=self.embedding_size,
+                        residual_dropout=0.0,
+                        num_heads=self.n_heads,
+                        attention=BlockSparseAttention(
+                            layout, block_size=_BLOCK_SIZE, num_heads=self.n_heads
+                        ),
+                    )
+
+                attn_mask = None  # This is already handled by the layout
+
+            attn_output = self.multiheadattention(
+                queries, keys, values, att_mask=attn_mask
+            )
             x = tokens + attn_output
 
             x = x.transpose(1, 0)
@@ -213,7 +270,9 @@ class xFormerMultiBlockAgent(Agents):
 
 
 if __name__ == "__main__":
-    print("Check that transformers and batch transformers are computing the same output")
+    print(
+        "Check that transformers and batch transformers are computing the same output"
+    )
     a = torch.randn(5, 3, 4).cuda()  # Time x Batch x Embedding
     workspace = Workspace()
     workspace.set_full("x", a)
