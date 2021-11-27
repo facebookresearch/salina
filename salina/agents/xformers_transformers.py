@@ -42,6 +42,18 @@ class Id(nn.Module):
         return x
 
 
+def _next_power_of_2(n):
+    """Return the smallest power of 2 greater than or equal to n"""
+    n -= 1
+    n |= n >> 1
+    n |= n >> 2
+    n |= n >> 4
+    n |= n >> 8
+    n |= n >> 16
+    n += 1
+    return n
+
+
 class xFormerBlockAgent(Agent):
     def __init__(
         self,
@@ -126,27 +138,41 @@ class xFormerBlockAgent(Agent):
 
         return self._cached_mask
 
-    def _get_layout(self, context: int, steps: Optional[int]):
+    def _get_layout(self, context: int, steps: Optional[int], device: torch.device):
         """
         Returns (layout: torch.Tensor, renewed: bool)
         """
+
+        # Round up the context length
+        context_round = _next_power_of_2(context)
+
+        # Return a cached mask/layout if this is not new
         if (context, steps) == self._cached_mask_params:
-            return self._cached_layout, False
+            return self._cached_layout, self._cached_mask, False, context_round
 
         if steps is None or steps == 0:
             # No time span, consider all the past tokens
-            attn_mask = torch.tril(torch.ones(context, context), diagonal=0).bool()
+            attn_mask = torch.tril(
+                torch.ones(context_round, context_round), diagonal=0
+            ).bool()
         else:
             # Time span specified, mask out the older results
-            attn_mask = torch.tril(torch.ones(context, context), diagonal=0)
-            attn_mask2 = torch.tril(torch.ones(context, context), diagonal=-steps)
+            attn_mask = torch.tril(torch.ones(context_round, context_round), diagonal=0)
+            attn_mask2 = torch.tril(
+                torch.ones(context_round, context_round), diagonal=-steps
+            )
             attn_mask = (attn_mask - attn_mask2).bool()
 
         # Cache the generated layout
         self._cached_layout = pattern_to_layout(attn_mask, block_size=_BLOCK_SIZE)
-        self._cached_mask_params = (context, steps)
+        self._cached_mask_params = (context_round, steps)
 
-        return self._cached_layout, True
+        # Move the mask to additive
+        add_attn_mask = torch.zeros_like(attn_mask, device=device, dtype=torch.float16)
+        add_attn_mask.masked_fill_(~attn_mask, float("-inf"))
+        self._cached_mask = add_attn_mask
+
+        return self._cached_layout, self._cached_mask, True, context_round
 
     def forward(self, t: Optional[int] = None, **_):
         """ "
@@ -198,7 +224,7 @@ class xFormerBlockAgent(Agent):
 
             T = queries.size()[1]
 
-            if not _is_triton_available:
+            if not _is_triton_available or queries.device.type != torch.device("cuda").type:
                 # Sparse attention
                 attn_mask = self._get_mask(
                     T, self.n_steps, tokens.device
@@ -209,7 +235,9 @@ class xFormerBlockAgent(Agent):
                         queries.shape[0] * self.n_heads, -1, -1
                     )  # (batch * heads) x n_steps x n_steps
             else:
-                layout, renewed = self._get_layout(T, self.n_steps)
+                layout, attn_mask, renewed, context_round = self._get_layout(
+                    T, self.n_steps, device=queries.device
+                )
 
                 if renewed:
                     self.multiheadattention = MultiHeadDispatch(
@@ -222,11 +250,20 @@ class xFormerBlockAgent(Agent):
                         ),
                     )
 
-                attn_mask = None  # This is already handled by the layout
+                # pad the inputs
+                padding = (0, 0, 0, context_round - T)
+                queries = torch.nn.functional.pad(queries, padding)
+                keys = torch.nn.functional.pad(keys, padding)
+                values = torch.nn.functional.pad(values, padding)
+                print(queries.device)
+                print(keys.device)
+                print(values.device)
 
             attn_output = self.multiheadattention(
                 queries, keys, values, att_mask=attn_mask
             )
+            # TODO: crop the outputs, if needed
+            print(attn_output.shape)
             x = tokens + attn_output
 
             x = x.transpose(1, 0)
