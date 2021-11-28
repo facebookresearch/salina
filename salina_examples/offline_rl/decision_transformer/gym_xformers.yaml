@@ -27,7 +27,7 @@ agent:
   transformer:
     n_layers: 3
     n_heads: 1
-    n_steps: 16
+    n_steps: 10
     use_layer_norm: False
   decoder:
     env: ${env}
@@ -49,7 +49,7 @@ algorithm:
     - 2500
     - 1800
     - 0
-  loss_device: cpu
+  loss_device: cuda
 
   evaluation:
     env_seed: 23

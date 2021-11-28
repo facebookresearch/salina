@@ -164,11 +164,14 @@ class xFormerBlockAgent(Agent):
             attn_mask = (attn_mask - attn_mask2).bool()
 
         # Cache the generated layout
-        self._cached_layout = pattern_to_layout(attn_mask, block_size=_BLOCK_SIZE)
+        self._cached_layout = pattern_to_layout(
+            attn_mask, block_size=_BLOCK_SIZE
+        ).unsqueeze(0)
         self._cached_mask_params = (context_round, steps)
 
         # Move the mask to additive
-        add_attn_mask = torch.zeros_like(attn_mask, device=device, dtype=torch.float16)
+        attn_mask = attn_mask.to(device=device)
+        add_attn_mask = torch.zeros_like(attn_mask, dtype=torch.float16)
         add_attn_mask.masked_fill_(~attn_mask, float("-inf"))
         self._cached_mask = add_attn_mask
 
@@ -224,7 +227,10 @@ class xFormerBlockAgent(Agent):
 
             T = queries.size()[1]
 
-            if not _is_triton_available or queries.device.type != torch.device("cuda").type:
+            if (
+                not _is_triton_available
+                or queries.device.type != torch.device("cuda").type
+            ):
                 # Sparse attention
                 attn_mask = self._get_mask(
                     T, self.n_steps, tokens.device
@@ -248,24 +254,21 @@ class xFormerBlockAgent(Agent):
                         attention=BlockSparseAttention(
                             layout, block_size=_BLOCK_SIZE, num_heads=self.n_heads
                         ),
-                    )
+                    ).to(queries.device)
 
                 # pad the inputs
                 padding = (0, 0, 0, context_round - T)
                 queries = torch.nn.functional.pad(queries, padding)
                 keys = torch.nn.functional.pad(keys, padding)
                 values = torch.nn.functional.pad(values, padding)
-                print(queries.device)
-                print(keys.device)
-                print(values.device)
 
             attn_output = self.multiheadattention(
                 queries, keys, values, att_mask=attn_mask
             )
-            # TODO: crop the outputs, if needed
-            print(attn_output.shape)
-            x = tokens + attn_output
+            # Crop the outputs, if needed
+            attn_output = attn_output[:, :T, :]
 
+            x = tokens + attn_output
             x = x.transpose(1, 0)
 
             nx = _layer_norm(self.ln2, x)
