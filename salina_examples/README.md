@@ -6,7 +6,7 @@ We provide examples of different algorithms in different domains.
 
 We provide a set of [Benchmarked RL algorithms](rl/) and also **simplified versions** to allow to well understand the principle of the library. These algorithms can be easily modified to start a new project.
 
-* [A2C](rl/a2c/) Algorithms are used as a **tutorial** to present different functionnalities of `salina`
+* [A2C](rl/a2c/) Algorithms are used as a **tutorial** to present different functionalities of `salina`
 * [REINFORCE](rl/reinforce/) shows a simple implementation of REINFORCE with `salina`.
 * [DQN](rl/dqn/) proposes implementations of Q-Learning algorithms
 * [TD3](rl/td3/)
