@@ -1,0 +1,70 @@
+env:
+  env_name: gym/Pendulum-v1
+  max_episode_steps: 200
+
+device: cpu
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./pendulum
+  every_n_seconds: 10
+  modulo: 1
+  verbose: True
+
+action_agent:
+  classname: salina_examples.rl.ppo_brax.agents.ActionAgent
+  hidden_size: 256
+  n_layers: 2
+  env: ${env}
+
+critic_agent:
+  classname: salina_examples.rl.ppo_brax.agents.CriticAgent
+  hidden_size: 256
+  n_layers: 2
+  env: ${env}
+
+algorithm:
+  env_seed: 432
+  n_timesteps: 2048
+  n_envs: 16
+  use_observation_normalizer: False
+
+  clip_grad: 10.0
+  update_epochs: 250
+
+  n_mini_batches: 4
+  n_envs_per_minibatch: 16
+  n_timesteps_per_minibatch: 32
+  n_times_per_minibatch: 1
+
+  max_epochs: 5001
+  discount_factor: 0.95
+  clip_ratio: 0.2
+  action_std: 0.4
+  gae: 0.95
+  reward_scaling: 0.1
+  lr_policy: 0.0003
+  lr_critic: 0.0003
+
+  validation:
+    n_envs: 64
+    env_seed: 532
+    evaluate_every: 1
+
+
+hydra:
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 60
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - override hydra/launcher: submitit_slurm
