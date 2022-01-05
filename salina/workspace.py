@@ -114,6 +114,7 @@ class SlicedTemporalTensor:
         """
         var = SlicedTemporalTensor()
         for t, v in enumerate(self.tensors):
+            batch_indexes=batch_indexes.to(v.device)
             var.set(t, v[batch_indexes], None)
         return var
 
@@ -582,6 +583,46 @@ class Workspace:
                 k, take_per_row_strided(v, t, num_elem=window_size), batch_dims=None
             )
         return workspace
+
+    #Static
+    def sample_subworkspace(self,n_times,n_batch_elements,n_timesteps):
+        """ Sample a workspace from the  workspace. The process is the following:
+                * Let us consider that workspace batch_size is B and time_size is T
+                * For n_times iterations:
+                    * We sample a time window of size n_timesteps
+                    * We then sample a n_batch_elements elements on the batch size
+                    * =>> we obtain a worspace of size n_batch_elements x n_timesteps
+                * We concatenate all the workspaces collected (over the batch diimension)
+
+        Args:
+            n_times ([type]): The number of sub workspaces to sample (and concatenate)
+            n_batch_elements ([type]): <=workspace.batch_size() : the number of batch elements to sample for each sub workspace
+            n_timesteps ([type]): <=workspace.time_size() : the number of tiimesteps to keep
+
+        Returns:
+            [Workspace]: The resulting workspace
+        """
+        B=self.batch_size()
+        T=self.time_size()
+        to_aggregate=[]
+        for _ in range(n_times):
+            assert not n_timesteps>T
+            mini_workspace=self
+            if n_timesteps<T:
+                t=np.random.randint(T-n_timesteps)
+                mini_workspace=self.subtime(t,t+n_timesteps)
+
+            # Batch sampling
+            if n_batch_elements<B:
+                idx_envs=torch.randperm(B)[:n_batch_elements]
+                mini_workspace=mini_workspace.select_batch(idx_envs)
+            to_aggregate.append(mini_workspace)
+
+        if len(to_aggregate)>1:
+            mini_workspace=Workspace.cat_batch(to_aggregate)
+        else:
+            mini_workspace=to_aggregate[0]
+        return mini_workspace
 
 
 class _SplitSharedWorkspace:

@@ -11,25 +11,22 @@ import time
 import hydra
 import torch
 import torch.nn as nn
-from brax.envs import _envs, create_gym_env
-from brax.envs.to_torch import JaxToTorchWrapper
 
 import salina.rl.functional as RLF
 from salina import Agent, Workspace, instantiate_class
 from salina.agents import Agents, TemporalAgent
-from salina.agents.brax import BraxAgent
+from salina.agents.brax import AutoResetBraxAgent,NoAutoResetBraxAgent
+from salina.agents.gyma import AutoResetGymAgent,NoAutoResetGymAgent
 from salina.logger import TFLogger
-
-
-def make_brax_env(env_name):
-    e = create_gym_env(env_name)
-    return JaxToTorchWrapper(e)
-
+from salina_examples.rl.ppo_brax.agents import make_brax_env,make_gym_env,make_env
+import numpy as np
+import random
 
 class Normalizer(Agent):
     def __init__(self, env):
         super().__init__()
-        env = make_brax_env(env.env_name)
+        env = make_env(env)
+
         self.n_features = env.observation_space.shape[0]
         self.n = None
 
@@ -82,12 +79,35 @@ def clip_grad(parameters, grad):
 def run_ppo(action_agent, critic_agent, logger, cfg):
     if cfg.algorithm.use_observation_normalizer:
         # norm_agent=BatchNormalizer(cfg.algorithm.env,momentum=None)
-        norm_agent = Normalizer(cfg.algorithm.env)
+        norm_agent = Normalizer(cfg.env)
     else:
         norm_agent = NoAgent()
-    env_acquisition_agent = BraxAgent(
-        env_name=cfg.algorithm.env.env_name, n_envs=cfg.algorithm.n_envs
-    )
+
+    env_acquisition_agent=None
+    env_validation_agent=None
+    env_name=cfg.env.env_name
+    if env_name.startswith("brax/"):
+        env_name=env_name[5:]
+        env_acquisition_agent = AutoResetBraxAgent(
+            env_name=env_name, n_envs=cfg.algorithm.n_envs
+        )
+        env_validation_agent = NoAutoResetBraxAgent(
+            env_name=env_name,
+            n_envs=cfg.algorithm.validation.n_envs,
+        )
+    else:
+        assert env_name.startswith("gym/")
+        env_name=env_name[4:]
+        env_acquisition_agent = AutoResetGymAgent(
+            make_gym_env,
+            {"env_name":env_name,"max_episode_steps":cfg.env.max_episode_steps},
+            n_envs=cfg.algorithm.n_envs,
+        )
+        env_validation_agent = NoAutoResetGymAgent(
+            make_gym_env,
+            {"env_name":env_name,"max_episode_steps":cfg.env.max_episode_steps},
+            n_envs=cfg.algorithm.validation.n_envs,
+        )
 
     acquisition_agent = TemporalAgent(
         Agents(env_acquisition_agent, norm_agent, action_agent)
@@ -103,10 +123,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
         critic_agent.parameters(), lr=cfg.algorithm.lr_critic
     )
 
-    env_validation_agent = BraxAgent(
-        env_name=cfg.algorithm.validation.env.env_name,
-        n_envs=cfg.algorithm.validation.n_envs,
-    )
+
     validation_agent = TemporalAgent(
         Agents(env_validation_agent, norm_agent, action_agent)
     ).to(cfg.device)
@@ -160,19 +177,30 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
             "monitor/nb_interactions", (nb_interactions * (epoch + 1)), epoch
         )
 
-        # === Update
+        workspace.zero_grad()
+
+        #Saving acquisition action probabilities
+        workspace.set_full("old_action_logprobs",workspace["action_logprobs"].detach())
+
+
+        #Building mini workspaces
+        #Learning for cfg.algorithm.update_epochs epochs
         for _ in range(cfg.algorithm.update_epochs):
-            minibatches_idx = (
-                torch.randperm(workspace.batch_size())
-                .to(cfg.device)
-                .split(cfg.algorithm.minibatch_size)
-            )
-            all_actions_lp = workspace["action_logprobs"].detach()
+            miniworkspaces=[]
+            _stb=time.time()
+            for _ in range(cfg.algorithm.n_mini_batches):
+                miniworkspace=workspace.sample_subworkspace(cfg.algorithm.n_times_per_minibatch,cfg.algorithm.n_envs_per_minibatch,cfg.algorithm.n_timesteps_per_minibatch)
+                miniworkspaces.append(miniworkspace)
 
-            for minibatch_idx in minibatches_idx:
-                workspace.zero_grad()
-                miniworkspace = workspace.select_batch(minibatch_idx)
+            _etb=time.time()
+            logger.add_scalar("monitor/minibatches_building_time",_etb-_stb,epoch)
+            _B,_T=miniworkspaces[0].batch_size(),miniworkspaces[0].time_size()
+            print("Resulting in ",len(miniworkspaces)," workspaces of size ",(_B,_T)," => ",_B*_T," time = ",_etb-_stb)
 
+            random.shuffle(miniworkspaces)
+
+            #Learning on batches
+            for miniworkspace in miniworkspaces:
                 # === Update policy
                 train_agent(
                     miniworkspace,
@@ -181,7 +209,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
                     action_std=cfg.algorithm.action_std,
                 )
                 critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
-                old_action_lp = all_actions_lp[:, minibatch_idx].detach()
+                old_action_lp = miniworkspace["old_action_logprobs"]
                 reward = reward * cfg.algorithm.reward_scaling
                 gae = RLF.gae(
                     critic,
@@ -222,7 +250,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
         epoch += 1
 
 
-@hydra.main(config_path=".", config_name="halfcheetah.yaml")
+@hydra.main(config_path=".", config_name="pendulum.yaml")
 def main(cfg):
     import torch.multiprocessing as mp
 
