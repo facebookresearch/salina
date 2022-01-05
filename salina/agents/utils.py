@@ -103,6 +103,31 @@ class TemporalAgent(Agent):
             r = r + [self]
         return r
 
+class AgentsSwitch(Agent):
+    """ An agent that contain many agents, but only one will be exectuted at forward time
+    using the which_agent parameter in forward
+
+    Args:
+        Agent ([type]): The list of agents
+    """
+    def __init__(self,*agents):
+        super().__init__()
+        for a in agents:
+            assert isinstance(a, Agent)
+        self.agents = nn.ModuleList(agents)
+
+    def __call__(self, workspace, which_agent, **kwargs):
+        self.agents[which_agent](workspace, **kwargs)
+
+    def forward(**kwargs):
+        raise NotImplementedError
+
+    def seed(self, seed):
+        for a in self.agents:
+            a.seed(seed)
+
+    def __getitem__(self, k):
+        return self.agents[k]
 
 class CopyTAgent(Agent):
     """An agent that copies a variable

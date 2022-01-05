@@ -14,11 +14,12 @@ import torch.nn as nn
 
 import salina.rl.functional as RLF
 from salina import Agent, Workspace, instantiate_class
-from salina.agents import Agents, TemporalAgent
+from salina.agents import Agents, TemporalAgent, AgentsSwitch
 from salina.agents.brax import AutoResetBraxAgent,NoAutoResetBraxAgent
 from salina.agents.gyma import AutoResetGymAgent,NoAutoResetGymAgent
 from salina.logger import TFLogger
-from salina_examples.rl.ppo_brax.agents import make_brax_env,make_gym_env,make_env
+from salina_examples.meta_rl.env_tools import make_brax_env,make_gym_env,make_env,make_class_env
+from salina_examples.meta_rl.env_tools import MetaRLEnvAutoReset,MetaRLEnvNoAutoReset
 import numpy as np
 import random
 
@@ -59,14 +60,12 @@ class Normalizer(Agent):
     def seed(self, seed):
         torch.manual_seed(seed)
 
-
 class NoAgent(Agent):
     def __init__(self):
         super().__init__()
 
     def forward(self, **kwargs):
         pass
-
 
 def clip_grad(parameters, grad):
     return (
@@ -75,6 +74,32 @@ def clip_grad(parameters, grad):
         else torch.Tensor([0.0])
     )
 
+def create_env_agent(cfg_env,n_envs):
+    env_agent=None
+
+    if not "env_name" in cfg_env:
+        env_agent = AutoResetGymAgent(
+            make_class_env,
+            cfg_env,
+            n_envs=n_envs,
+        )
+    else:
+        env_name=cfg_env.env_name
+        if env_name.startswith("brax/"):
+            env_name=env_name[5:]
+            env_agent = AutoResetBraxAgent(
+                env_name=env_name, n_envs=n_envs
+            )
+
+        else:
+            assert env_name.startswith("gym/")
+            env_name=env_name[4:]
+            env_agent = AutoResetGymAgent(
+                make_gym_env,
+                {"env_name":env_name,"max_episode_steps":cfg_env.max_episode_steps},
+                n_envs=n_envs,
+            )
+    return env_agent
 
 def run_ppo(action_agent, critic_agent, logger, cfg):
     if cfg.algorithm.use_observation_normalizer:
@@ -83,37 +108,28 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
     else:
         norm_agent = NoAgent()
 
-    env_acquisition_agent=None
-    env_validation_agent=None
-    env_name=cfg.env.env_name
-    if env_name.startswith("brax/"):
-        env_name=env_name[5:]
-        env_acquisition_agent = AutoResetBraxAgent(
-            env_name=env_name, n_envs=cfg.algorithm.n_envs
-        )
-        env_validation_agent = NoAutoResetBraxAgent(
-            env_name=env_name,
-            n_envs=cfg.algorithm.validation.n_envs,
-        )
-    else:
-        assert env_name.startswith("gym/")
-        env_name=env_name[4:]
-        env_acquisition_agent = AutoResetGymAgent(
-            make_gym_env,
-            {"env_name":env_name,"max_episode_steps":cfg.env.max_episode_steps},
-            n_envs=cfg.algorithm.n_envs,
-        )
-        env_validation_agent = NoAutoResetGymAgent(
-            make_gym_env,
-            {"env_name":env_name,"max_episode_steps":cfg.env.max_episode_steps},
-            n_envs=cfg.algorithm.validation.n_envs,
-        )
+    env_acquisition_agents=[]
+    for i,cfg_env in enumerate(cfg.training_envs):
+        env_acquisition_agent=create_env_agent(cfg_env,cfg.algorithm.n_envs)
+        env_acquisition_agent=MetaRLEnvAutoReset(env_acquisition_agent,cfg.algorithm.n_exploration_episodes,cfg.algorithm.n_exploitation_episodes,keep_exploration_reward=cfg.algorithm.keep_exploration_reward,task_id=i)
+        env_acquisition_agents.append(env_acquisition_agent)
+    n_training_envs=len(cfg.training_envs)
+
+    env_validation_agents=[]
+    for cfg_env in cfg.validation_envs:
+        env_validation_agent=create_env_agent(cfg_env,cfg.algorithm.validation.n_envs)
+        env_validation_agent=MetaRLEnvNoAutoReset(env_validation_agent,cfg.algorithm.n_exploration_episodes,cfg.algorithm.n_exploitation_episodes,keep_exploration_reward=cfg.algorithm.keep_exploration_reward)
+        env_validation_agents.append(env_validation_agent)
+    n_validation_envs=len(cfg.validation_envs)
+
+    env_acquisition_agent=AgentsSwitch(*env_acquisition_agents)
+    env_validation_agent=AgentsSwitch(*env_validation_agents)
 
     acquisition_agent = TemporalAgent(
         Agents(env_acquisition_agent, norm_agent, action_agent)
     ).to(cfg.device)
     acquisition_agent.seed(cfg.algorithm.env_seed)
-    workspace = Workspace()
+    workspaces = [Workspace() for _ in range(n_training_envs)]
 
     train_agent = Agents(action_agent, critic_agent).to(cfg.device)
     optimizer_policy = torch.optim.Adam(
@@ -133,55 +149,75 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
     # === Running algorithm
     epoch = 0
     iteration = 0
-    nb_interactions = cfg.algorithm.n_envs * cfg.algorithm.n_timesteps
+    nb_interactions = 0
     print("[PPO] Learning")
     _epoch_start_time = time.time()
     while epoch < cfg.algorithm.max_epochs:
         # === Validation
-        if (epoch % cfg.algorithm.validation.evaluate_every == 0) and (epoch > 0):
-            validation_agent.eval()
-            validation_agent(
-                validation_workspace,
-                t=0,
-                stop_variable="env/done",
-                replay=False,
-                action_std=0.0,
-                update_normalizer=False,
-            )
-            length = validation_workspace["env/done"].float().argmax(0)
-            arange = torch.arange(length.size()[0], device=length.device)
-            creward = (
-                validation_workspace["env/cumulated_reward"][length, arange]
-                .mean()
-                .item()
-            )
-            logger.add_scalar("validation/reward", creward, epoch)
-            print("reward at epoch", epoch, ":\t", round(creward, 0))
-            validation_agent.train()
 
+        if (epoch % cfg.algorithm.validation.evaluate_every == 0): # and (epoch > 0):
+            validation_agent.eval()
+            rewards=[]
+            for idx_env in range(n_validation_envs):
+                validation_workspace=Workspace()
+                validation_agent(
+                    validation_workspace,
+                    which_agent=idx_env,
+                    t=0,
+                    stop_variable="env/meta/done",
+                    replay=False,
+                    action_std=0.0,
+                    update_normalizer=False,
+                )
+                length = validation_workspace["env/meta/done"].float().argmax(0)
+                arange = torch.arange(length.size()[0], device=length.device)
+                creward = (
+                    validation_workspace["env/meta/cumulated_exploitation_reward"][length, arange]
+                    .mean()
+                    .item()
+                )
+                creward/=cfg.algorithm.n_exploitation_episodes
+                rewards.append(creward)
+                logger.add_scalar("validation/avg_exploitation_reward/"+str(idx_env), creward, epoch)
+            logger.add_scalar("validation/avg_exploitation_reward", np.mean(rewards) , epoch)
+            validation_agent.train()
         # === Acquisition
-        workspace.zero_grad()
-        if epoch > 0:
-            workspace.copy_n_last_steps(1)
-        acquisition_agent.train()
-        acquisition_agent(
-            workspace,
-            t=1 if epoch > 0 else 0,
-            n_steps=cfg.algorithm.n_timesteps - 1
-            if epoch > 0
-            else cfg.algorithm.n_timesteps,
-            replay=False,
-            action_std=cfg.algorithm.action_std,
-        )
+        for idx_env in range(n_training_envs):
+            workspace=workspaces[idx_env]
+            workspace.zero_grad()
+            if epoch > 0:
+                workspace.copy_n_last_steps(1)
+            acquisition_agent.train()
+            acquisition_agent(
+                workspace,
+                which_agent=idx_env,
+                t=1 if epoch > 0 else 0,
+                n_steps=cfg.algorithm.n_timesteps - 1
+                if epoch > 0
+                else cfg.algorithm.n_timesteps,
+                replay=False,
+                action_std=cfg.algorithm.action_std,
+            )
+        workspace=Workspace.cat_batch(workspaces)
+        nb_interactions+=(workspace.batch_size()*workspace.time_size())
+        d=workspace["env/meta/done"]
+        if d.any():
+            r=workspace["env/meta/cumulated_exploitation_reward"][d].mean().item()
+            r/=cfg.algorithm.n_exploitation_episodes
+            logger.add_scalar("monitor/avg_training_exploitation_reward",r,epoch)
+
         logger.add_scalar(
-            "monitor/nb_interactions", (nb_interactions * (epoch + 1)), epoch
+            "monitor/nb_interactions", nb_interactions, epoch
         )
+        # d=workspace["env/done"]
+        # if d.any():
+        #     r=workspace["env/cumulated_reward"][d].mean().item()
+        #     logger.add_scalar("monitor/training_reward",r,epoch)
 
         workspace.zero_grad()
 
         #Saving acquisition action probabilities
         workspace.set_full("old_action_logprobs",workspace["action_logprobs"].detach())
-
 
         #Building mini workspaces
         #Learning for cfg.algorithm.update_epochs epochs
@@ -208,7 +244,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
                     replay=True,
                     action_std=cfg.algorithm.action_std,
                 )
-                critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
+                critic, done, reward = miniworkspace["critic", "env/meta/done", "env/reward"]
                 old_action_lp = miniworkspace["old_action_logprobs"]
                 reward = reward * cfg.algorithm.reward_scaling
                 gae = RLF.gae(
@@ -250,7 +286,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
         epoch += 1
 
 
-@hydra.main(config_path=".", config_name="halfcheetah.yaml")
+@hydra.main(config_path=".", config_name="meta_maze.yaml")
 def main(cfg):
     import torch.multiprocessing as mp
 

@@ -85,3 +85,4 @@ hydra:
 
 defaults:
   - hydra/launcher: submitit_slurm
+  - env: gym_mujocoß

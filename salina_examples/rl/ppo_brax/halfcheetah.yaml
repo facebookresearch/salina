@@ -1,5 +1,5 @@
 env:
-  env_name: halfcheetah
+  env_name: brax/halfcheetah
 
 device: cuda:0
 
@@ -31,7 +31,11 @@ algorithm:
 
   clip_grad: 100
   update_epochs: 16
-  minibatch_size: 512
+  n_mini_batches: 4
+  n_envs_per_minibatch: 512
+  n_timesteps_per_minibatch: 20
+  n_times_per_minibatch: 1
+
   max_epochs: 5001
   discount_factor: 0.99
   clip_ratio: 0.2

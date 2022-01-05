@@ -9,7 +9,7 @@ logger:
   log_dir: ./pendulum
   every_n_seconds: 10
   modulo: 1
-  verbose: True
+  verbose: False
 
 action_agent:
   classname: salina_examples.rl.ppo_brax.agents.ActionAgent

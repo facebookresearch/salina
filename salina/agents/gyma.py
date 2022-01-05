@@ -19,7 +19,7 @@ def _format_frame(frame):
         return r
     elif isinstance(frame, list):
         t = torch.tensor(frame).unsqueeze(0)
-        if t.dtype == torch.float64:
+        if t.dtype == torch.float64 or t.dtype == torch.float32:
             t = t.float()
         else:
             t = t.long()
@@ -366,3 +366,24 @@ class AutoResetGymAgent(TAgent):
         assert (
             self.envs is None
         ), "[GymAgent.seed] Seeding only possible before running the agent"
+
+class NoAutoResetGymAgent(GymAgent):
+    """ Create an Agent from a gyn environment
+    """
+    def __init__(
+        self,
+        make_env_fn=None,
+        make_env_args={},
+        n_envs=None,
+        input="action",
+        output="env/",
+        use_seed=True
+    ):
+        super().__init__(
+            make_env_fn=make_env_fn,
+            make_env_args=make_env_args,
+            n_envs=n_envs,
+            input=input,
+            output=output,
+            use_seed=use_seed
+        )

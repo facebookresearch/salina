@@ -1,0 +1,105 @@
+max_episode_steps: 100
+goal_size: 0.1
+goal_distance: 1.0
+sparse: False
+
+agent_env:
+  classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
+  task: 10
+  max_episode_steps: ${max_episode_steps}
+  sparse: ${sparse}
+  goal_distance: ${goal_distance}
+
+training_envs:
+  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
+    task: 1
+    max_episode_steps: ${max_episode_steps}
+    sparse: ${sparse}
+    goal_distance: ${goal_distance}
+  # - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
+  #   task: 1
+  #   max_episode_steps: ${max_episode_steps}
+  #   sparse: ${sparse}
+  #   goal_distance: ${goal_distance}
+
+validation_envs:
+  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
+    task: 10
+    max_episode_steps: ${max_episode_steps}
+    sparse: ${sparse}
+    goal_distance: ${goal_distance}
+  # - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
+  #   task: 1
+  #   max_episode_steps: ${max_episode_steps}
+  #   sparse: ${sparse}
+  #   goal_distance: ${goal_distance}
+
+device: cpu
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./experiments/halfcheetah
+  every_n_seconds: 10
+  modulo: 1
+  verbose: True
+
+action_agent:
+  classname: salina_examples.meta_rl.ppo.mlp_agents.ActionAgent
+  hidden_size: 256
+  n_layers: 2
+  env: ${agent_env}
+
+critic_agent:
+  classname: salina_examples.meta_rl.ppo.mlp_agents.CriticAgent
+  hidden_size: 256
+  n_layers: 2
+  env: ${agent_env}
+
+algorithm:
+  env_seed: 432
+  n_exploration_episodes: 0
+  n_exploitation_episodes: 1
+  keep_exploration_reward: False
+  n_timesteps: 20
+  n_envs: 16
+  use_observation_normalizer: False
+
+  clip_grad: 10.0
+
+  update_epochs: 16
+  n_mini_batches: 8
+  n_envs_per_minibatch: 4
+  n_timesteps_per_minibatch: 20
+  n_times_per_minibatch: 1
+
+  max_epochs: 5001
+  discount_factor: 0.95
+  clip_ratio: 0.2
+  action_std: 0.4
+  gae: 0.95
+  reward_scaling: 1.0
+  lr_policy: 0.0003
+  lr_critic: 0.003
+
+  validation:
+    n_envs: 64
+    env_seed: 532
+    evaluate_every: 1
+
+
+hydra:
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 60
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - override hydra/launcher: submitit_slurm

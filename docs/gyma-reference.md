@@ -5,7 +5,7 @@
       members:
         - __init__
 
-::: salina.agents.gyma:GymAgent
+::: salina.agents.gyma:AutoResetGymAgent
     handler: python
     selection:
       members:
