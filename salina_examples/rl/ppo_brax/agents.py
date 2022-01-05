@@ -18,16 +18,28 @@ from torch.distributions.normal import Normal
 from salina import Agent, instantiate_class
 from salina_examples.rl.atari_wrappers import make_atari, wrap_deepmind, wrap_pytorch
 
+def make_env(args):
+    if args["env_name"].startswith("brax/"):
+        env_name=args["env_name"][5:]
+        return make_brax_env(env_name)
+    else:
+        assert args["env_name"].startswith("gym/")
+        env_name=args["env_name"][4:]
+        return make_gym_env(env_name,args["max_episode_steps"])
 
 def make_brax_env(env_name):
     e = create_gym_env(env_name)
     return JaxToTorchWrapper(e)
 
+def make_gym_env(env_name,max_episode_steps):
+    e = gym.make(env_name)
+    e = TimeLimit(e, max_episode_steps=max_episode_steps)
+    return e
 
 class ActionAgent(Agent):
     def __init__(self, env, n_layers, hidden_size):
         super().__init__()
-        env = make_brax_env(env.env_name)
+        env = make_env(env)
         input_size = env.observation_space.shape[0]
         num_outputs = env.action_space.shape[0]
         hs = hidden_size
@@ -77,7 +89,7 @@ class ActionAgent(Agent):
 class CriticAgent(Agent):
     def __init__(self, env, n_layers, hidden_size):
         super().__init__()
-        env = make_brax_env(env.env_name)
+        env = make_env(env)
         input_size = env.observation_space.shape[0]
         hs = hidden_size
         n_layers = n_layers
