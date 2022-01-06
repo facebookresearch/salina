@@ -17,27 +17,7 @@ training_envs:
     sparse: ${sparse}
     goal_distance: ${goal_distance}
   - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 11
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 21
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 31
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 41
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 51
+    task: 10
     max_episode_steps: ${max_episode_steps}
     sparse: ${sparse}
     goal_distance: ${goal_distance}
@@ -49,27 +29,7 @@ validation_envs:
     sparse: ${sparse}
     goal_distance: ${goal_distance}
   - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 11
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 21
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 31
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 41
-    max_episode_steps: ${max_episode_steps}
-    sparse: ${sparse}
-    goal_distance: ${goal_distance}
-  - classname: salina_examples.meta_rl.goalmaze2d.Navigation2DEnv
-    task: 51
+    task: 10
     max_episode_steps: ${max_episode_steps}
     sparse: ${sparse}
     goal_distance: ${goal_distance}
@@ -84,22 +44,22 @@ logger:
   verbose: True
 
 action_agent:
-  classname: salina_examples.meta_rl.ppo.mlp_agents.ActionAgent
+  classname: salina_examples.meta_rl.ppo.rl2_agents.RL2_ActionAgent
   hidden_size: 256
   n_layers: 2
   env: ${agent_env}
 
 critic_agent:
-  classname: salina_examples.meta_rl.ppo.mlp_agents.CriticAgent
+  classname: salina_examples.meta_rl.ppo.rl2_agents.RL2_CriticAgent
   hidden_size: 256
   n_layers: 2
   env: ${agent_env}
 
 algorithm:
   env_seed: 432
-  n_exploration_episodes: 0
+  n_exploration_episodes: 1
   n_exploitation_episodes: 1
-  keep_exploration_reward: False
+  keep_exploration_reward: True
   n_timesteps: 20
   n_envs: 16
   use_observation_normalizer: False

@@ -159,6 +159,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
             validation_agent.eval()
             rewards=[]
             for idx_env in range(n_validation_envs):
+                print(" for env ",idx_env)
                 validation_workspace=Workspace()
                 validation_agent(
                     validation_workspace,

@@ -29,7 +29,6 @@ class Navigation2DEnv(gym.Env):
         else:
             angle=np_random.rand()*2*math.pi-math.pi
             self.goal=math.cos(angle)*goal_distance,math.sin(angle)*goal_distance,
-            print(self.goal)
         self._state = np.zeros(2, dtype=np.float32)
 
     def seed(self, seed=None):
@@ -43,6 +42,7 @@ class Navigation2DEnv(gym.Env):
         return distance<self.goal_size
 
     def reset(self, env=True):
+        #print("Goal position is ",self.goal,self._task)
         self._state = np.zeros(2, dtype=np.float32)
 
         og=self.on_goal()

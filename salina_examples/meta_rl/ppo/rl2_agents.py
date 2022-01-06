@@ -15,14 +15,71 @@ from torch import nn
 from torch.distributions.normal import Normal
 
 from salina import Agent, instantiate_class
-
+from salina.agents import Agents
 from salina_examples.meta_rl.env_tools import make_env
 
-class ActionAgent(Agent):
-    def __init__(self, env, n_layers, hidden_size):
+def masked_tensor(tensor0, tensor1, mask):
+    """Compute a tensor by combining two tensors with a mask
+
+    :param tensor0: a Bx(N) tensor
+    :type tensor0: torch.Tensor
+    :param tensor1: a Bx(N) tensor
+    :type tensor1: torch.Tensor
+    :param mask: a B tensor
+    :type mask: torch.Tensor
+    :return: (1-m) * tensor 0 + m *tensor1 (averafging is made ine by line)
+    :rtype: tensor0.dtype
+    """
+    s = tensor0.size()
+    assert s[0] == mask.size()[0]
+    m = mask
+    for i in range(len(s) - 1):
+        m = mask.unsqueeze(-1)
+    m = m.repeat(1, *s[1:])
+    m = m.float()
+    out = ((1.0 - m) * tensor0 + m * tensor1).type(tensor0.dtype)
+    return out
+
+class GRUAgent(Agent):
+    def __init__(self, env, hidden_size,output_name):
         super().__init__()
         env = make_env(env)
         input_size = env.observation_space.shape[0]
+        self.action_size = env.action_space.shape[0]
+        self.output_name=output_name
+        self.gru=nn.GRUCell(input_size+self.action_size,hidden_size)
+        self.hidden_size=hidden_size
+
+    def forward(self, t=None, **kwargs):
+        if t is None:
+            for t in range(1,self.workspace.time_size()):
+                self.forward(t)
+        else:
+            ts=self.get(("env/meta/timestep",t))
+            B=ts.size()[0]
+            _initial_state=torch.zeros(B,self.hidden_size).to(ts.device)
+            _empty_action=torch.zeros(B,self.action_size).to(ts.device)
+            _previous_state=None
+            if t==0:
+                assert ts.eq(0).all()
+                _previous_state=_initial_state
+                _previous_action=_empty_action
+            else:
+                _previous_state=self.get((self.output_name,t-1))
+                _previous_state=masked_tensor(_previous_state,_initial_state,ts.eq(0))
+                _previous_action=self.get(("action",t-1))
+                _previous_action=masked_tensor(_previous_action,_empty_action,ts.eq(0))
+
+            obs=self.get(("env/env_obs",t))
+            obs=torch.cat([obs,_previous_action],dim=1)
+            new_z=self.gru(obs,_previous_state)
+            self.set((self.output_name,t),new_z)
+
+class ActionAgent(Agent):
+    def __init__(self,env, n_layers, hidden_size,input_name):
+        super().__init__()
+        env = make_env(env)
+        self.input_name=input_name
         num_outputs = env.action_space.shape[0]
         hs = hidden_size
         n_layers = n_layers
@@ -35,7 +92,7 @@ class ActionAgent(Agent):
             else [nn.Identity()]
         )
         self.model = nn.Sequential(
-            nn.Linear(input_size, hs),
+            nn.Linear(hidden_size, hs),
             nn.ReLU(),
             *hidden_layers,
             nn.Linear(hs, num_outputs),
@@ -44,7 +101,7 @@ class ActionAgent(Agent):
     def forward(self, t=None, replay=False, action_std=0.1, **kwargs):
         if replay:
             assert t == None
-            input = self.get("env/env_obs")
+            input = self.get(self.input_name)
             mean = self.model(input)
             var = torch.ones_like(mean) * action_std + 0.000001
             dist = Normal(mean, var)
@@ -55,7 +112,7 @@ class ActionAgent(Agent):
 
         else:
             assert not t is None
-            input = self.get(("env/env_obs", t))
+            input = self.get((self.input_name, t))
             mean = self.model(input)
             var = torch.ones_like(mean) * action_std + 0.000001
             dist = Normal(mean, var)
@@ -69,9 +126,11 @@ class ActionAgent(Agent):
 
 
 class CriticAgent(Agent):
-    def __init__(self, env, n_layers, hidden_size):
+    def __init__(self, env, n_layers, hidden_size,input_name):
         super().__init__()
         env = make_env(env)
+        self.input_name=input_name
+
         input_size = env.observation_space.shape[0]
         hs = hidden_size
         n_layers = n_layers
@@ -84,13 +143,23 @@ class CriticAgent(Agent):
             else [nn.Identity()]
         )
         self.model_critic = nn.Sequential(
-            nn.Linear(input_size, hs),
+            nn.Linear(hs, hs),
             nn.ReLU(),
             *hidden_layers,
             nn.Linear(hs, 1),
         )
 
     def forward(self, **kwargs):
-        input = self.get("env/env_obs")
+        input = self.get(self.input_name)
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)
+
+def RL2_ActionAgent(env,n_layers,hidden_size):
+    gru_a=GRUAgent(env,hidden_size,"z")
+    gru_critic=GRUAgent(env,hidden_size,"z_critic")
+    action=ActionAgent(env,n_layers,hidden_size,"z")
+    return Agents(gru_a,gru_critic,action)
+
+def RL2_CriticAgent(env,n_layers,hidden_size):
+    critic=CriticAgent(env,n_layers,hidden_size,"z_critic")
+    return critic
