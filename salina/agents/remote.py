@@ -118,7 +118,7 @@ class RemoteAgent(Agent):
         if self.process is None:
             return
         if f:
-            self.i_queue.put(("train_mode"))
+            self.i_queue.put(("train_mode",))
             a = self.o_queue.get()
             assert a == "ok"
         else:
@@ -128,7 +128,7 @@ class RemoteAgent(Agent):
         self.train_mode = False
         if self.process is None:
             return
-        self.i_queue.put(("eval_mode"))
+        self.i_queue.put(("eval_mode",))
         a = self.o_queue.get()
         assert a == "ok"
 
