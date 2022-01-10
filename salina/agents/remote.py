@@ -253,3 +253,7 @@ class NRemoteAgent(Agent):
     def eval(self):
         for a in self.agents:
             a.eval()
+
+    def close(self):
+        for a in self.agents:
+            a.close()
