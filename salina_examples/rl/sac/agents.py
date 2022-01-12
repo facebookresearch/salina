@@ -80,7 +80,6 @@ class ActionMLPAgent(TAgent):
         else:
             saction=mean
         action=torch.tanh(saction)
-        print(saction[0])
         self.set(("saction", t), saction)
         self.set(("action", t), action)
 

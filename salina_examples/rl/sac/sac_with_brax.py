@@ -18,7 +18,7 @@ import salina
 import salina.rl.functional as RLF
 from salina import Workspace, get_arguments, get_class, instantiate_class
 from salina.agents import Agents, TemporalAgent
-from salina.agents.brax import BraxAgent
+from salina.agents.brax import AutoResetBraxAgent,NoAutoResetBraxAgent
 from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
@@ -96,16 +96,26 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
 
     action_agent.set_name("action_agent")
-    env_agent = BraxAgent(
+    env_agent = AutoResetBraxAgent(
         env_name=cfg.algorithm.brax_env.env_name,
         n_envs=cfg.algorithm.n_envs,
     )
+    env_validation_agent = NoAutoResetBraxAgent(
+            env_name=cfg.algorithm.brax_env.env_name,
+            n_envs=cfg.algorithm.validation.n_envs,
+        )
     q_target_agent_1 = copy.deepcopy(q_agent_1)
     q_target_agent_2 = copy.deepcopy(q_agent_2)
 
-    acq_action_agent = copy.deepcopy(action_agent)
-    acq_agent = TemporalAgent(Agents(env_agent, norm_agent,acq_action_agent))
+    acq_agent = TemporalAgent(Agents(env_agent, norm_agent,action_agent)).to(cfg.algorithm.device)
     acq_agent.seed(cfg.algorithm.env_seed)
+
+    taction_agent=TemporalAgent(action_agent).to(cfg.algorithm.device)
+
+    validation_agent = TemporalAgent(
+        Agents(env_validation_agent, norm_agent, action_agent)
+    ).to(cfg.algorithm.device)
+    validation_agent.seed(cfg.algorithm.validation.env_seed)
 
     # == Setting up the training agents
     train_temporal_q_agent_1 = TemporalAgent(q_agent_1)
@@ -113,12 +123,10 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     train_temporal_action_agent = TemporalAgent(action_agent)
     train_temporal_q_target_agent_1 = TemporalAgent(q_target_agent_1)
     train_temporal_q_target_agent_2 = TemporalAgent(q_target_agent_2)
-
-    train_temporal_q_agent_1.to(cfg.algorithm.loss_device)
-    train_temporal_q_agent_2.to(cfg.algorithm.loss_device)
-    train_temporal_action_agent.to(cfg.algorithm.loss_device)
-    train_temporal_q_target_agent_1.to(cfg.algorithm.loss_device)
-    train_temporal_q_target_agent_2.to(cfg.algorithm.loss_device)
+    train_temporal_q_agent_1.to(cfg.algorithm.device)
+    train_temporal_q_agent_2.to(cfg.algorithm.device)
+    train_temporal_q_target_agent_1.to(cfg.algorithm.device)
+    train_temporal_q_target_agent_2.to(cfg.algorithm.device)
 
     acq_workspace=Workspace()
     acq_agent(
@@ -129,7 +137,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     )
 
     # == Setting up & initializing the replay buffer for DQN
-    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size)
+    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=torch.device("cpu"))
     replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
     logger.message("[DDQN] Initializing replay buffer")
@@ -152,9 +160,30 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         action_agent.parameters(), **optimizer_args
     )
     iteration = 0
+
     for epoch in range(cfg.algorithm.max_epoch):
-        for a in acq_agent.get_by_name("action_agent"):
-            a.load_state_dict(_state_dict(action_agent, "cpu"))
+        # === Validation
+        if (epoch % cfg.algorithm.validation.evaluate_every == 0):
+            validation_workspace=Workspace()
+            print("Starting evaluation...")
+            validation_agent.eval()
+            validation_agent(
+                validation_workspace,
+                t=0,
+                stop_variable="env/done",
+                deterministic=True,
+                update_normalizer=False,
+            )
+            length = validation_workspace["env/done"].float().argmax(0)
+            arange = torch.arange(length.size()[0], device=length.device)
+            creward = (
+                validation_workspace["env/cumulated_reward"][length, arange]
+                .mean()
+                .item()
+            )
+            logger.add_scalar("validation/reward", creward, epoch)
+            print("\treward at epoch", epoch, ":\t", round(creward, 0))
+            validation_agent.train()
 
         acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
         acq_agent(
@@ -181,7 +210,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         for inner_epoch in range(cfg.algorithm.inner_epochs):
             batch_size = cfg.algorithm.batch_size
             replay_workspace = replay_buffer.get(batch_size).to(
-                cfg.algorithm.loss_device
+                cfg.algorithm.device
             )
             done, reward = replay_workspace["env/done", "env/reward"]
             reward=reward*cfg.algorithm.reward_scaling
@@ -202,7 +231,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             q_2 = replay_workspace["q"].squeeze(-1)
 
             with torch.no_grad():
-                train_temporal_action_agent(
+                taction_agent(
                     replay_workspace,
                     deterministic=False,
                     t=0,
@@ -265,12 +294,12 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
                 batch_size = cfg.algorithm.batch_size
                 replay_workspace = Workspace(replay_buffer.get(batch_size)).to(
-                    cfg.algorithm.loss_device
+                    cfg.algorithm.device
                 )
                 replay_workspace.zero_grad()
                 done = replay_workspace["env/done"]
 
-                train_temporal_action_agent(
+                taction_agent(
                     replay_workspace,
                     deterministic=False,
                     t=0,
