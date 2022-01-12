@@ -37,16 +37,17 @@ algorithm:
 
   use_observation_normalizer: True
   alpha: 0.2
+  learning_alpha: True
   policy_delay: 2
   clip_grad: 2
-  inner_epochs: 32
+  inner_epochs: 2
   batch_size: 128
   discount_factor: 0.97
   update_target_tau: 0.005
   device: cpu
 
   n_envs: 128
-  n_timesteps: 32
+  n_timesteps: 2
   overlapping_timesteps: 1
   buffer_time_size: 2
   buffer_size: 5000000

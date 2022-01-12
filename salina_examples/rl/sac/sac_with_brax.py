@@ -147,6 +147,11 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         acq_workspace.zero_grad()
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
+
+    action_shape=acq_workspace["action"].size()[2:]
+    _alpha = cfg.algorithm.alpha
+    _target_entropy = -torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
+    _log_alpha = torch.tensor([math.log(cfg.algorithm.alpha)], requires_grad=True, device=cfg.algorithm.device)
     logger.message("[DDQN] Learning")
     n_interactions = 0
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -159,6 +164,11 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     optimizer_action = get_class(cfg.algorithm.optimizer)(
         action_agent.parameters(), **optimizer_args
     )
+    optimizer_alpha = get_class(cfg.algorithm.optimizer)(
+        [_log_alpha], **optimizer_args
+    )
+
+
     iteration = 0
 
     for epoch in range(cfg.algorithm.max_epoch):
@@ -258,7 +268,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 reward[1:]
                 + cfg.algorithm.discount_factor
                 * (1.0 - done[1:].float())
-                * (q_target[1:]-cfg.algorithm.alpha*_logp[1:])
+                * (q_target[1:]-_alpha*_logp[1:])
             )
 
             td_1 = q_1[:-1] - target
@@ -324,8 +334,9 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 log_std=replay_workspace["sac/log_std"]
 
                 logp=replay_workspace["sac/log_prob_action"]
+
                 q = q * (1.0 - done.float())
-                loss = -(q-cfg.algorithm.alpha*logp).mean()
+                loss = -(q-_alpha*logp).mean()
                 loss.backward()
                 logger.add_scalar("monitor/action_std",log_std.exp().mean().item(),iteration)
 
@@ -337,6 +348,20 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
                 logger.add_scalar("loss/q_loss", loss.item(), iteration)
                 optimizer_action.step()
+
+                T,B=logp.size()
+                _e_alpha=_log_alpha.unsqueeze(0).repeat(T,B).exp()
+                alpha_loss = (_e_alpha *
+                          (-logp - _target_entropy).detach()).mean()
+                logger.add_scalar("loss/alpha_loss", alpha_loss.item(), iteration)
+
+                if (cfg.algorithm.learning_alpha):
+                    optimizer_alpha.zero_grad()
+                    alpha_loss.backward()
+                    optimizer_alpha.step()
+                    _alpha=_log_alpha.exp().item()
+                logger.add_scalar("monitor/alpha", _alpha, iteration)
+
 
             tau = cfg.algorithm.update_target_tau
             soft_update_params(q_agent_1, q_target_agent_1, tau)
