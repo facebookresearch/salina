@@ -151,7 +151,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     action_shape=acq_workspace["action"].size()[2:]
 
     _alpha = cfg.algorithm.alpha
-    _target_entropy = -torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
+    _target_entropy = - 0.5 * torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
     _log_alpha = torch.tensor([math.log(cfg.algorithm.alpha)], requires_grad=True, device=cfg.algorithm.device)
     logger.message("[DDQN] Learning")
     n_interactions = 0
@@ -203,7 +203,6 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             t=cfg.algorithm.overlapping_timesteps,
             n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps,
         )
-        #print(acq_workspace["action"][:,0])
         acq_workspace.zero_grad()
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
@@ -240,7 +239,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 detach_action=True,
             )
             q_2 = replay_workspace["q"].squeeze(-1)
-
+            assert not q_1.eq(q_2).all()
             with torch.no_grad():
                 taction_agent(
                     replay_workspace,
@@ -262,6 +261,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
                 q_target_2 = replay_workspace["q"]
+            assert not q_target_1.eq(q_target_2).all()
 
             q_target = torch.min(q_target_1, q_target_2).squeeze(-1)
             _logp=replay_workspace["sac/log_prob_action"].detach()
@@ -298,7 +298,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             optimizer_q_1.step()
             optimizer_q_2.step()
 
-            if (inner_epoch+1) % cfg.algorithm.policy_delay:
+            if ((inner_epoch+1) % cfg.algorithm.policy_delay==0):
                 optimizer_action.zero_grad()
                 optimizer_q_1.zero_grad()
                 optimizer_q_2.zero_grad()
@@ -330,15 +330,15 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
                 q2 = replay_workspace["q"].squeeze(-1)
+                assert not q1.eq(q2).all()
                 q = torch.min(q1, q2)
 
-                log_std=replay_workspace["sac/log_std"]
 
                 logp=replay_workspace["sac/log_prob_action"]
-
-                q = q * (1.0 - done.float())
-                loss = -(q-_alpha*logp).mean()
+                loss =(_alpha*logp-q).mean()
                 loss.backward()
+
+                log_std=replay_workspace["sac/log_std"]
                 logger.add_scalar("monitor/action_std",log_std.exp().mean().item(),iteration)
 
                 if cfg.algorithm.clip_grad > 0:

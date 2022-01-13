@@ -153,6 +153,7 @@ class QMLPAgent(TAgent):
             [input_size + output_size] + list(hidden_sizes) + [1],
             activation=nn.ReLU,
         )
+        self.fc.apply(weight_init)
 
     def forward(self, t, detach_action=False, **kwargs):
         input = self.get(("env/env_obs", t))
