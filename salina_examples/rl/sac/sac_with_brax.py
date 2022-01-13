@@ -149,6 +149,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
 
     action_shape=acq_workspace["action"].size()[2:]
+
     _alpha = cfg.algorithm.alpha
     _target_entropy = -torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
     _log_alpha = torch.tensor([math.log(cfg.algorithm.alpha)], requires_grad=True, device=cfg.algorithm.device)
@@ -173,7 +174,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
     for epoch in range(cfg.algorithm.max_epoch):
         # === Validation
-        if (epoch % cfg.algorithm.validation.evaluate_every == 0):
+        if (epoch % cfg.algorithm.validation.evaluate_every == 0) and epoch>0:
             validation_workspace=Workspace()
             print("Starting evaluation...")
             validation_agent.eval()
