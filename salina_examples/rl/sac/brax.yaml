@@ -58,3 +58,20 @@ algorithm:
     evaluate_every: 100
     n_envs: 16
     env_seed: 32
+
+hydra:
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 60
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - override hydra/launcher: submitit_slurm
