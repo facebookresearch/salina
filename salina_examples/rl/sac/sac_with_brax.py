@@ -220,6 +220,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         ) * acq_workspace.batch_size()
         logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
+        _st_inner_epoch=time.time()
         for inner_epoch in range(cfg.algorithm.inner_epochs):
             _alpha=_log_alpha.exp().detach()
             batch_size = cfg.algorithm.batch_size
@@ -377,7 +378,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             soft_update_params(q_agent_2, q_target_agent_2, tau)
 
             iteration += 1
-        print(_target_entropy)
+        _et_inner_epoch=time.time()
+        logger.add_scalar("monitor/epoch_time",_et_inner_epoch-_st_inner_epoch,epoch)
 
 @hydra.main(config_path=".", config_name="brax.yaml")
 def main(cfg):
