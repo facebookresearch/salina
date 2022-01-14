@@ -32,20 +32,20 @@ algorithm:
 
   optimizer:
     classname: torch.optim.Adam
-    lr: 0.0003
+    lr: 0.0001
 
   use_observation_normalizer: False
   alpha: 1.0
   learning_alpha: True
   policy_delay: 1
   clip_grad: 40
-  inner_epochs: 16
-  batch_size: 256
-  discount_factor: 0.99
+  inner_epochs: 32
+  batch_size: 512
+  discount_factor: 0.97
   update_target_tau: 0.005
   device: cpu
 
-  n_envs: 128
+  n_envs: 256
   n_timesteps: 2
   overlapping_timesteps: 1
   buffer_time_size: 2
@@ -54,7 +54,7 @@ algorithm:
   reward_scaling: 5.0
 
   validation:
-    evaluate_every: 10
+    evaluate_every: 100
     n_envs: 16
     env_seed: 32
 

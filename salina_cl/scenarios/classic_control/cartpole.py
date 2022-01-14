@@ -20,6 +20,17 @@ def make_env(env,max_episode_steps):
     e=TimeLimit(e,max_episode_steps=max_episode_steps)
     return e
 
+def cartpole_test(n_train_envs,n_evaluation_envs):
+    classes=[
+       "StrongPushCartPole",
+       "WeakPushCartPole",
+       "ShortPoleCartPole",
+       "LongPoleCartPole",
+       "LightPoleCartPole",
+       "HeavyPoleCartPole"
+    ]
+    return CartPoleScenario(n_train_envs,n_evaluation_envs,100,classes)
+
 class CartPoleScenario(Scenario):
     def __init__(self,n_train_envs,n_evaluation_envs,max_episode_steps,classes=["ContinuousCartPoleEnv","ContinuousCartPoleEnv"]):
         input_dimension = [4]

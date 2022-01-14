@@ -36,7 +36,7 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo):
+def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_interactions):
     time_unit=None
     if cfg_ppo.stop_criterion=="time":
         time_unit=compute_time_unit(cfg_ppo.device)
@@ -156,12 +156,12 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo):
             iteration += 1
         epoch += 1
 
-        if cfg_ppo.stop_criterion=="epochs":
-            is_training=epoch<cfg_ppo.max_epochs
-        elif cfg_ppo.stop_criterion=="steps":
-            is_training=n_interactions<cfg_ppo.max_steps
-        elif cfg_ppo.stop_criterion=="time":
-            is_training=time.time()-_epoch_start_time<cfg_ppo.time_limit*time_unit
+        if n_interactions>n_max_interactions:
+            logger.message("== Maximum interactions reached")
+            is_training=False
+        else
+            if cfg_ppo.time_limit>0:
+                is_training=time.time()-_epoch_start_time<cfg_ppo.time_limit*time_unit
         else:
             assert False
     r={"n_epochs":epoch,"training_time":time.time()-_epoch_start_time,"n_interactions":n_interactions}

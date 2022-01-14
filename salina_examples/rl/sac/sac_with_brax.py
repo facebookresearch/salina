@@ -191,7 +191,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     action_shape=acq_workspace["action"].size()[2:]
 
 
-    _target_entropy = - torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
+    _target_entropy = -0.5 * torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
     _log_alpha = torch.tensor(math.log(cfg.algorithm.alpha), requires_grad=True, device=cfg.algorithm.device)
     logger.message("[DDQN] Learning")
     n_interactions = 0

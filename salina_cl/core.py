@@ -32,11 +32,12 @@ class Model:
 # RL Specific Classes
 
 class RLTask(Task):
-    def __init__(self,env_agent_cfg,input_dimension,output_dimension,task_id):
+    def __init__(self,env_agent_cfg,input_dimension,output_dimension,task_id,n_interactions=99999999999999):
         self._env_agent_cfg=env_agent_cfg
         self._task_id=task_id
         self._input_dimension=input_dimension
         self._output_dimension=output_dimension
+        self._n_interactions=n_interactions
 
     def output_dimension(self):
         return self._output_dimension
@@ -49,6 +50,9 @@ class RLTask(Task):
 
     def make(self):
         return instantiate_class(self._env_agent_cfg)
+
+    def n_interactions(self):
+        return self._n_interactions
 
 class RLModel(Model):
     def __init__(self,params):
