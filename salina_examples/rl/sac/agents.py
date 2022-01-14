@@ -116,7 +116,7 @@ class ActionMLPAgent(TAgent):
         self.fc2.apply(weight_init)
 
     def forward(self, t, deterministic,**kwargs):
-        input = self.get(("env/env_obs", t))
+        input = self.get(("env/_env_obs", t))
         B=input.size()[0]
 
         mean=self.fc(input)
@@ -156,7 +156,7 @@ class QMLPAgent(TAgent):
         self.fc.apply(weight_init)
 
     def forward(self, t, detach_action=False, **kwargs):
-        input = self.get(("env/env_obs", t))
+        input = self.get(("env/_env_obs", t))
         action = self.get(("action", t))
         if detach_action:
             action = action.detach()

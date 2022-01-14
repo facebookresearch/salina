@@ -45,7 +45,7 @@ class Normalizer(Agent):
             self.update(input)
         input = self.normalize(input)
         assert torch.isnan(input).sum() == 0.0, "problem"
-        self.set(("env/env_obs", t), input)
+        self.set(("env/_env_obs", t), input)
 
     def update(self, x):
         if self.n is None:
@@ -67,13 +67,13 @@ class Normalizer(Agent):
     def seed(self, seed):
         torch.manual_seed(seed)
 
-
 class NoAgent(Agent):
     def __init__(self):
         super().__init__()
 
-    def forward(self, **kwargs):
-        pass
+    def forward(self, t, **kwargs):
+        input = self.get(("env/env_obs", t))
+        self.set(("env/_env_obs", t), input)
 
 
 def soft_update_params(net, target_net, tau):
@@ -94,6 +94,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     else:
         norm_agent = NoAgent()
 
+    tnorm_agent=TemporalAgent(norm_agent)
 
     action_agent.set_name("action_agent")
     env_agent = AutoResetBraxAgent(
@@ -174,7 +175,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
     for epoch in range(cfg.algorithm.max_epoch):
         # === Validation
-        if (epoch % cfg.algorithm.validation.evaluate_every == 0) and epoch>0:
+        if (epoch % cfg.algorithm.validation.evaluate_every == 0):
             validation_workspace=Workspace()
             print("Starting evaluation...")
             validation_agent.eval()
@@ -186,6 +187,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 update_normalizer=False,
             )
             length = validation_workspace["env/done"].float().argmax(0)
+            ml=length[0]
+            assert length.eq(ml).all()
             arange = torch.arange(length.size()[0], device=length.device)
             creward = (
                 validation_workspace["env/cumulated_reward"][length, arange]
@@ -200,6 +203,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         acq_agent(
             acq_workspace,
             deterministic=False,
+            update_normalizer=True,
             t=cfg.algorithm.overlapping_timesteps,
             n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps,
         )
@@ -207,6 +211,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
         done, creward = acq_workspace["env/done", "env/cumulated_reward"]
+
         creward = creward[done]
         if creward.size()[0] > 0:
             logger.add_scalar("monitor/reward", creward.mean().item(), epoch)
@@ -223,8 +228,9 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 cfg.algorithm.device
             )
             done, reward = replay_workspace["env/done", "env/reward"]
+            not_done=1.0-done.float()
             reward=reward*cfg.algorithm.reward_scaling
-
+            tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
             train_temporal_q_agent_1(
                 replay_workspace,
                 t=0,
@@ -268,21 +274,22 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             target = (
                 reward[1:]
                 + cfg.algorithm.discount_factor
-                * (1.0 - done[1:].float())
-                * (q_target[1:]-_alpha*_logp[1:])
+                * not_done[1:]
+                * (q_target[1:]-_alpha*_logp[1:].detach())
             )
 
-            td_1 = q_1[:-1] - target
-            td_2 = q_2[:-1] - target
-            error_1 = td_1 ** 2
-            error_2 = td_2 ** 2
+            td_1 = (q_1[:-1] - target)*not_done[:-1]
+            td_2 = (q_2[:-1] - target)*not_done[:-1]
+            error_1 = (td_1 ** 2).sqrt()
+            error_2 = (td_2 ** 2).sqrt()
 
+            optimizer_q_1.zero_grad()
+            optimizer_q_2.zero_grad()
             error = error_1 + error_2
             loss = error.mean()
             logger.add_scalar("loss/td_loss_1", error_1.mean().item(), iteration)
             logger.add_scalar("loss/td_loss_2", error_2.mean().item(), iteration)
-            optimizer_q_1.zero_grad()
-            optimizer_q_2.zero_grad()
+
             loss.backward()
 
             if cfg.algorithm.clip_grad > 0:
@@ -298,15 +305,15 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             optimizer_q_1.step()
             optimizer_q_2.step()
 
-            if ((inner_epoch+1) % cfg.algorithm.policy_delay==0):
+            #if ((inner_epoch+1) % cfg.algorithm.policy_delay==0):
+            for _ in range(1):
                 optimizer_action.zero_grad()
-                optimizer_q_1.zero_grad()
-                optimizer_q_2.zero_grad()
-
                 batch_size = cfg.algorithm.batch_size
                 replay_workspace = Workspace(replay_buffer.get(batch_size)).to(
                     cfg.algorithm.device
                 )
+                tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
+
                 replay_workspace.zero_grad()
                 done = replay_workspace["env/done"]
 
@@ -333,9 +340,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 assert not q1.eq(q2).all()
                 q = torch.min(q1, q2)
 
-
                 logp=replay_workspace["sac/log_prob_action"]
-                loss =(_alpha*logp-q).mean()
+                loss =(_alpha*logp[0]-q[0]).mean()
                 loss.backward()
 
                 log_std=replay_workspace["sac/log_std"]
@@ -351,9 +357,9 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 optimizer_action.step()
 
                 T,B=logp.size()
-                _e_alpha=_log_alpha.unsqueeze(0).repeat(T,B).exp()
+                _e_alpha=_log_alpha.repeat(B).exp()
                 alpha_loss = (_e_alpha *
-                          (-logp - _target_entropy).detach()).mean()
+                          (-logp[0] - _target_entropy).detach()).mean()
                 logger.add_scalar("loss/alpha_loss", alpha_loss.item(), iteration)
 
                 if (cfg.algorithm.learning_alpha):
@@ -363,13 +369,12 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     _alpha=_log_alpha.exp().item()
                 logger.add_scalar("monitor/alpha", _alpha, iteration)
 
-
             tau = cfg.algorithm.update_target_tau
             soft_update_params(q_agent_1, q_target_agent_1, tau)
             soft_update_params(q_agent_2, q_target_agent_2, tau)
 
             iteration += 1
-
+        print(_target_entropy)
 
 @hydra.main(config_path=".", config_name="brax.yaml")
 def main(cfg):
