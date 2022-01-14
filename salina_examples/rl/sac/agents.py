@@ -129,15 +129,15 @@ class ActionMLPAgent(TAgent):
         self.set(("sac/log_std",t),log_std)
         std=log_std.exp()
 
-        normal=SquashedNormal(mean, std)
+        dist=SquashedNormal(mean, std)
         if not deterministic:
-            action=normal.rsample()
+            action=dist.rsample()
         else:
-            action=normal.mean
+            action=dist.mean
         #print("Action = ",action)
         self.set(("action", t), action)
 
-        log_prob=normal.log_prob(action)
+        log_prob=dist.log_prob(action)
         #log_prob -= torch.log(1.0 * (1 - action.pow(2)) + epsilon)
         #print(torch.log(1.0 * (1 - action.pow(2)) + epsilon),log_prob)
         self.set(("sac/log_prob_action",t),log_prob.sum(-1))

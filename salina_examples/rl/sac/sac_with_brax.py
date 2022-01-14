@@ -138,7 +138,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     )
 
     # == Setting up & initializing the replay buffer for DQN
-    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=torch.device("cpu"))
+    replay_buffer = ReplayBuffer(cfg.algorithm.buffer_size,device=cfg.algorithm.device)
     replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
 
     logger.message("[DDQN] Initializing replay buffer")
@@ -151,9 +151,9 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
     action_shape=acq_workspace["action"].size()[2:]
 
-    _alpha = cfg.algorithm.alpha
-    _target_entropy = - 0.5 * torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
-    _log_alpha = torch.tensor([math.log(cfg.algorithm.alpha)], requires_grad=True, device=cfg.algorithm.device)
+
+    _target_entropy = - torch.prod(torch.Tensor(action_shape).to(cfg.algorithm.device)).item()
+    _log_alpha = torch.tensor(math.log(cfg.algorithm.alpha), requires_grad=True, device=cfg.algorithm.device)
     logger.message("[DDQN] Learning")
     n_interactions = 0
     optimizer_args = get_arguments(cfg.algorithm.optimizer)
@@ -169,8 +169,6 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     optimizer_alpha = get_class(cfg.algorithm.optimizer)(
         [_log_alpha], **optimizer_args
     )
-
-
     iteration = 0
 
     for epoch in range(cfg.algorithm.max_epoch):
@@ -223,6 +221,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
         for inner_epoch in range(cfg.algorithm.inner_epochs):
+            _alpha=_log_alpha.exp().detach()
             batch_size = cfg.algorithm.batch_size
             replay_workspace = replay_buffer.get(batch_size).to(
                 cfg.algorithm.device
@@ -307,12 +306,12 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
             #if ((inner_epoch+1) % cfg.algorithm.policy_delay==0):
             for _ in range(1):
-                optimizer_action.zero_grad()
-                batch_size = cfg.algorithm.batch_size
-                replay_workspace = Workspace(replay_buffer.get(batch_size)).to(
-                    cfg.algorithm.device
-                )
-                tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
+
+                # batch_size = cfg.algorithm.batch_size
+                # replay_workspace = Workspace(replay_buffer.get(batch_size)).to(
+                #     cfg.algorithm.device
+                # )
+                # tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
 
                 replay_workspace.zero_grad()
                 done = replay_workspace["env/done"]
@@ -340,8 +339,11 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 assert not q1.eq(q2).all()
                 q = torch.min(q1, q2)
 
+                optimizer_action.zero_grad()
                 logp=replay_workspace["sac/log_prob_action"]
-                loss =(_alpha*logp[0]-q[0]).mean()
+                loss_1=(_alpha*logp[0]).mean()
+                loss_2=(-q[0]).mean()
+                loss =loss_1+loss_2
                 loss.backward()
 
                 log_std=replay_workspace["sac/log_std"]
@@ -354,11 +356,12 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
 
                 logger.add_scalar("loss/q_loss", loss.item(), iteration)
+                logger.add_scalar("loss/q_loss/alpha_term", loss_1.item(), iteration)
+                logger.add_scalar("loss/q_loss/q_term", loss_2.item(), iteration)
                 optimizer_action.step()
 
-                T,B=logp.size()
-                _e_alpha=_log_alpha.repeat(B).exp()
-                alpha_loss = (_e_alpha *
+                _alpha=_log_alpha.exp()
+                alpha_loss = (_alpha *
                           (-logp[0] - _target_entropy).detach()).mean()
                 logger.add_scalar("loss/alpha_loss", alpha_loss.item(), iteration)
 

@@ -38,7 +38,7 @@ algorithm:
   alpha: 1.0
   learning_alpha: True
   policy_delay: 1
-  clip_grad: 0
+  clip_grad: 40
   inner_epochs: 16
   batch_size: 256
   discount_factor: 0.99
