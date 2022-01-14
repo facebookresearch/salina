@@ -1,0 +1,73 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./finetune_mnist
+  every_n_seconds: 10
+  modulo: 1
+  verbose: True
+
+model:
+  classname: cl_rl.ppo.finetune.model.FineTune
+  params:
+    evaluation:
+      device: cpu
+      seed: 10
+      n_rollouts: 10
+      evaluate_success: True
+
+    ppo:
+      seed: 11
+
+      device: cpu
+      lr_policy: 0.0003
+      lr_critic: 0.0003
+      clip_grad: 10.0
+
+      n_timesteps: 200
+      n_processes: 8
+      update_epochs: 15
+      n_mini_batches: 4
+      n_envs_per_minibatch: 32
+      n_timesteps_per_minibatch: 32
+      n_times_per_minibatch: 2
+
+      discount_factor: 0.95
+      clip_ratio: 0.2
+      action_std: 0.4
+      gae: 0.95
+      reward_scaling: 0.1
+
+      stop_criterion: epochs
+      max_epochs: 1000
+
+      # stop_criterion: steps
+      # max_steps: 1000000
+
+      # stop_criterion: time
+      # time_limit: 20
+
+    ppo_agent:
+      classname: cl_rl.ppo.finetune.agents._ActionAgent
+      hidden_size: 256
+      n_layers: 2
+      use_normalizer: True
+      input_dimension: nil
+      output_dimension: nil
+
+    critic_agent:
+      classname: cl_rl.ppo.finetune.agents._CriticAgent
+      hidden_size: 256
+      n_layers: 2
+      use_normalizer: True
+      input_dimension: nil
+
+scenario:
+  classname: cl.rl.scenarios.metaworld.MT10
+  n_train_envs: 4
+  n_evaluation_envs: 32
+  seed: 0
+
+
+  # classname: cl.classification.scenarios.alma.ALMAMNIST
+  # n_megabatches: 10
+  # directory: ~/.mnist
+  # seed: 10
