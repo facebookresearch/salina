@@ -34,7 +34,7 @@ algorithm:
     classname: torch.optim.Adam
     lr: 0.0003
 
-  use_observation_normalizer: True
+  use_observation_normalizer: False
   alpha: 1.0
   learning_alpha: True
   policy_delay: 1
@@ -54,8 +54,8 @@ algorithm:
   reward_scaling: 5.0
 
   validation:
-    evaluate_every: 100
-    n_envs: 32
+    evaluate_every: 10
+    n_envs: 16
     env_seed: 32
 
 hydra:

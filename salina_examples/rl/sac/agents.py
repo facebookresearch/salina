@@ -67,8 +67,6 @@ class SquashedNormal(pyd.transformed_distribution.TransformedDistribution):
         return mu
 
 
-
-
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -5
 epsilon = epsilon = 1e-6

@@ -35,37 +35,77 @@ class Normalizer(Agent):
         super().__init__()
         env = make_brax_env(env_name)
 
-        self.n_features = env.observation_space.shape[0]
-        self.n = None
-
-    def forward(self, t, update_normalizer=True, **kwargs):
-        input = self.get(("env/env_obs", t))
-        assert torch.isnan(input).sum() == 0.0, "problem"
-        if update_normalizer:
-            self.update(input)
-        input = self.normalize(input)
-        assert torch.isnan(input).sum() == 0.0, "problem"
-        self.set(("env/_env_obs", t), input)
+        num_inputs = env.observation_space.shape[0]
+        self.n = torch.zeros(num_inputs)
+        self.mean = torch.zeros(num_inputs)
+        self.mean_diff = torch.zeros(num_inputs)
+        self.var = torch.zeros(num_inputs)
 
     def update(self, x):
-        if self.n is None:
-            device = x.device
-            self.n = torch.zeros(self.n_features).to(device)
-            self.mean = torch.zeros(self.n_features).to(device)
-            self.mean_diff = torch.zeros(self.n_features).to(device)
-            self.var = torch.ones(self.n_features).to(device)
-        self.n += 1.0
+        if not x.device==self.n.device:
+            self.n=self.n.to(x.device)
+            self.mean=self.mean.to(x.device)
+            self.mean_diff=self.mean_diff.to(x.device)
+            self.var=self.var.to(x.device)
+        self.n += 1.
         last_mean = self.mean.clone()
-        self.mean += (x - self.mean).mean(dim=0) / self.n
-        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
-        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
+        self.mean += (x-self.mean)/self.n
+        self.mean_diff += (x-last_mean)*(x-self.mean)
+        self.var = torch.clamp(self.mean_diff/self.n, min=1e-2)
 
-    def normalize(self, inputs):
+    def forward(self, t, update_normalizer=True, **kwargs):
+        x = self.get(("env/env_obs", t))
+        B=x.size()[0]
+        if update_normalizer or self.n[0]==0:
+            for i in range(B):
+                self.update(x[i])
         obs_std = torch.sqrt(self.var)
-        return (inputs - self.mean) / obs_std
+        print(self.mean,self.var)
+        m=self.mean.unsqueeze(0).repeat(B,1)
+        os=obs_std.unsqueeze(0).repeat(B,1)
+        x=(x - m)/os
+        print(" ==> X = ",x)
+        self.set(("env/_env_obs",t),x)
 
-    def seed(self, seed):
-        torch.manual_seed(seed)
+# class Normalizer(Agent):
+#     def __init__(self, env_name):
+#         super().__init__()
+#         env = make_brax_env(env_name)
+
+#         self.n_features = env.observation_space.shape[0]
+#         self.n = None
+
+#     def forward(self, t, update_normalizer=True, **kwargs):
+#         with torch.no_grad():
+#             input = self.get(("env/env_obs", t))
+#             assert torch.isnan(input).sum() == 0.0, "problem"
+#             if update_normalizer:
+#                 self.update(input)
+#             input = self.normalize(input)
+#             assert torch.isnan(input).sum() == 0.0, "problem"
+#             self.set(("env/_env_obs", t), input)
+
+#     def update(self, x):
+#         with torch.no_grad():
+#             if self.n is None:
+#                 device = x.device
+#                 self.n = torch.zeros(self.n_features).to(device)
+#                 self.mean = torch.zeros(self.n_features).to(device)
+#                 self.mean_diff = torch.zeros(self.n_features).to(device)
+#                 self.var = torch.ones(self.n_features).to(device)
+#             self.n += 1.0
+#             last_mean = self.mean.clone()
+#             self.mean += (x - self.mean).mean(dim=0) / self.n
+#             self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
+#             self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
+
+#     def normalize(self, inputs):
+#         with torch.no_grad():
+#             obs_std = torch.sqrt(self.var)
+#             return (inputs - self.mean) / obs_std
+
+#     def seed(self, seed):
+#         torch.manual_seed(seed)
 
 class NoAgent(Agent):
     def __init__(self):
@@ -144,10 +184,9 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     logger.message("[DDQN] Initializing replay buffer")
     while replay_buffer.size() < cfg.algorithm.initial_buffer_size:
         acq_workspace.copy_n_last_steps(cfg.algorithm.overlapping_timesteps)
-        acq_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,deterministic=False,n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps)
+        acq_agent(acq_workspace,t=cfg.algorithm.overlapping_timesteps,update_normalizer=True,deterministic=False,n_steps=cfg.algorithm.n_timesteps - cfg.algorithm.overlapping_timesteps)
         acq_workspace.zero_grad()
         replay_buffer.put(acq_workspace, time_size=cfg.algorithm.buffer_time_size)
-
 
     action_shape=acq_workspace["action"].size()[2:]
 
@@ -345,8 +384,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
                 optimizer_action.zero_grad()
                 logp=replay_workspace["sac/log_prob_action"]
-                loss_1=(_alpha*logp[0]).mean()
-                loss_2=(-q[0]).mean()
+                loss_1=(_alpha*logp).mean()
+                loss_2=(-q).mean()
                 loss =loss_1+loss_2
                 loss.backward()
 
@@ -372,6 +411,11 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 if (cfg.algorithm.learning_alpha):
                     optimizer_alpha.zero_grad()
                     alpha_loss.backward()
+                    n = torch.nn.utils.clip_grad_norm_(
+                        [_log_alpha], cfg.algorithm.clip_grad
+                    )
+                    logger.add_scalar("monitor/grad_norm_alpha", n.item(), iteration)
+
                     optimizer_alpha.step()
                     _alpha=_log_alpha.exp().item()
                 logger.add_scalar("monitor/alpha", _alpha, iteration)
