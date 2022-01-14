@@ -358,7 +358,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
                 replay_workspace.zero_grad()
                 done = replay_workspace["env/done"]
-
+                not_done = (1.0-done.float())
                 taction_agent(
                     replay_workspace,
                     deterministic=False,
@@ -384,8 +384,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
                 optimizer_action.zero_grad()
                 logp=replay_workspace["sac/log_prob_action"]
-                loss_1=(_alpha*logp).mean()
-                loss_2=(-q).mean()
+                loss_1=(not_done*(_alpha*logp)).mean()
+                loss_2=(not_done*(-q)).mean()
                 loss =loss_1+loss_2
                 loss.backward()
 
@@ -405,7 +405,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
 
                 _alpha=_log_alpha.exp()
                 alpha_loss = (_alpha *
-                          (-logp[0] - _target_entropy).detach()).mean()
+                          (-logp - _target_entropy).detach()*not_done).mean()
                 logger.add_scalar("loss/alpha_loss", alpha_loss.item(), iteration)
 
                 if (cfg.algorithm.learning_alpha):
