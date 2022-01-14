@@ -54,7 +54,7 @@ algorithm:
   reward_scaling: 5.0
 
   validation:
-    evaluate_every: 200
+    evaluate_every: 100
     n_envs: 32
     env_seed: 32
 

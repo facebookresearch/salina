@@ -278,8 +278,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 * (q_target[1:]-_alpha*_logp[1:].detach())
             )
 
-            td_1 = (q_1[:-1] - target)*not_done[:-1]
-            td_2 = (q_2[:-1] - target)*not_done[:-1]
+            td_1 = (q_1[:-1] - target)*not_done[:-1]+0.000001
+            td_2 = (q_2[:-1] - target)*not_done[:-1]+0.000001
             error_1 = (td_1 ** 2).sqrt()
             error_2 = (td_2 ** 2).sqrt()
 
