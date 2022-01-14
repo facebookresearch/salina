@@ -221,12 +221,15 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
         logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
         _st_inner_epoch=time.time()
+        _sampling_time=0
         for inner_epoch in range(cfg.algorithm.inner_epochs):
             _alpha=_log_alpha.exp().detach()
+            __e=time.time()
             batch_size = cfg.algorithm.batch_size
             replay_workspace = replay_buffer.get(batch_size).to(
                 cfg.algorithm.device
             )
+            _sampling_time+=(time.time()-__e)
             done, reward = replay_workspace["env/done", "env/reward"]
             not_done=1.0-done.float()
             reward=reward*cfg.algorithm.reward_scaling
@@ -380,6 +383,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             iteration += 1
         _et_inner_epoch=time.time()
         logger.add_scalar("monitor/epoch_time",_et_inner_epoch-_st_inner_epoch,epoch)
+        logger.add_scalar("monitor/epoch_time/sampling_time",_sampling_time,epoch)
+        _sampling_time=0
 
 @hydra.main(config_path=".", config_name="brax.yaml")
 def main(cfg):
