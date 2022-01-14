@@ -349,7 +349,7 @@ class AutoResetGymAgent(TAgent):
 
         observations = []
         for k, env in enumerate(self.envs):
-            if not self.is_running[k]:
+            if not self.is_running[k] or t==0:
                 observations.append(self._reset(k, save_render))
             else:
                 assert t > 0

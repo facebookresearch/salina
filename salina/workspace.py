@@ -350,11 +350,16 @@ class Workspace:
         assert var_name in self.variables, "Unknoanw variable '" + var_name + "'"
         return self.variables[var_name].get(t, batch_dims=batch_dims)
 
-    def clear(self):
+    def clear(self,name=None):
         """ Remove all the variables from the workspace
         """
-        for k, v in self.variables.items():
-            v.clear()
+        if name is None:
+            for k, v in self.variables.items():
+                v.clear()
+            self.variables={}
+        else:
+            self.variables[name].clear()
+            del(self.variables[name])
 
     def contiguous(self) -> Workspace:
         """ Generates a workspace where all tensors are stored in the Compact format.

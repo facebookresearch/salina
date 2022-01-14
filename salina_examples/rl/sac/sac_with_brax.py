@@ -265,7 +265,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             _alpha=_log_alpha.exp().detach()
             __e=time.time()
             batch_size = cfg.algorithm.batch_size
-            replay_workspace = replay_buffer.get(batch_size).to(
+            _workspace=replay_buffer.get(batch_size)
+            replay_workspace = _workspace.to(
                 cfg.algorithm.device
             )
             _sampling_time+=(time.time()-__e)
@@ -273,6 +274,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             not_done=1.0-done.float()
             reward=reward*cfg.algorithm.reward_scaling
             tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
+
             train_temporal_q_agent_1(
                 replay_workspace,
                 t=0,
@@ -280,6 +282,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 detach_action=True,
             )
             q_1 = replay_workspace["q"].squeeze(-1)
+            replay_workspace.clear("q")
             train_temporal_q_agent_2(
                 replay_workspace,
                 t=0,
@@ -287,6 +290,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 detach_action=True,
             )
             q_2 = replay_workspace["q"].squeeze(-1)
+            replay_workspace.clear("q")
+
             assert not q_1.eq(q_2).all()
             with torch.no_grad():
                 taction_agent(
@@ -295,6 +300,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     t=0,
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
+
                 train_temporal_q_target_agent_1(
                     replay_workspace,
                     t=0,
@@ -302,6 +308,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
                 q_target_1 = replay_workspace["q"]
+                replay_workspace.clear("q")
+
                 train_temporal_q_target_agent_2(
                     replay_workspace,
                     t=0,
@@ -309,6 +317,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
                 q_target_2 = replay_workspace["q"]
+                replay_workspace.clear("q")
+
             assert not q_target_1.eq(q_target_2).all()
 
             q_target = torch.min(q_target_1, q_target_2).squeeze(-1)
@@ -356,7 +366,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                 # )
                 # tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
 
-                replay_workspace.zero_grad()
+                replay_workspace = _workspace.to(cfg.algorithm.device)
                 done = replay_workspace["env/done"]
                 not_done = (1.0-done.float())
                 taction_agent(
@@ -372,6 +382,7 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
                 q1 = replay_workspace["q"].squeeze(-1)
+                replay_workspace.clear("q")
                 train_temporal_q_agent_2(
                     replay_workspace,
                     t=0,
@@ -379,6 +390,8 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
                     n_steps=cfg.algorithm.buffer_time_size,
                 )
                 q2 = replay_workspace["q"].squeeze(-1)
+                replay_workspace.clear("q")
+
                 assert not q1.eq(q2).all()
                 q = torch.min(q1, q2)
 
