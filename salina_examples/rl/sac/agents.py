@@ -19,6 +19,7 @@ from salina_examples.rl.sac.continuouscartpole import CartPoleEnv
 import numpy as np
 import torch.nn.functional as F
 from torch import distributions as pyd
+#import torch.scr
 
 class TanhTransform(pyd.transforms.Transform):
     domain = pyd.constraints.real
@@ -91,7 +92,8 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     for j in range(len(sizes) - 1):
         act = activation if j < len(sizes) - 2 else output_activation
         layers += [nn.Linear(sizes[j], sizes[j + 1]), act()]
-    return nn.Sequential(*layers)
+    m=nn.Sequential(*layers)
+    return m
 
 
 class ActionMLPAgent(TAgent):
@@ -113,32 +115,56 @@ class ActionMLPAgent(TAgent):
         self.fc.apply(weight_init)
         self.fc2.apply(weight_init)
 
-    def forward(self, t, deterministic,**kwargs):
-        input = self.get(("env/_env_obs", t))
-        B=input.size()[0]
+    def forward(self, deterministic,t=None, **kwargs):
+        if not t is None:
+            input = self.get(("env/_env_obs", t))
+            B=input.size()[0]
 
-        mean=self.fc(input)
-        log_std = self.fc2(input)
+            mean=self.fc(input)
+            log_std = self.fc2(input)
 
-        log_std = torch.tanh(log_std)
-        log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +
-                                                                     1)
-        self.set(("sac/mean",t),mean)
-        self.set(("sac/log_std",t),log_std)
-        std=log_std.exp()
+            log_std = torch.tanh(log_std)
+            log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +
+                                                                        1)
+            self.set(("sac/mean",t),mean)
+            self.set(("sac/log_std",t),log_std)
+            std=log_std.exp()
 
-        dist=SquashedNormal(mean, std)
-        if not deterministic:
-            action=dist.rsample()
+            dist=SquashedNormal(mean, std)
+            if not deterministic:
+                action=dist.rsample()
+            else:
+                action=dist.mean
+            #print("Action = ",action)
+            self.set(("action", t), action)
+
+            log_prob=dist.log_prob(action)
+            #log_prob -= torch.log(1.0 * (1 - action.pow(2)) + epsilon)
+            #print(torch.log(1.0 * (1 - action.pow(2)) + epsilon),log_prob)
+            self.set(("sac/log_prob_action",t),log_prob.sum(-1))
         else:
-            action=dist.mean
-        #print("Action = ",action)
-        self.set(("action", t), action)
+            input = self.get("env/_env_obs")
+            B=input.size()[0]
 
-        log_prob=dist.log_prob(action)
-        #log_prob -= torch.log(1.0 * (1 - action.pow(2)) + epsilon)
-        #print(torch.log(1.0 * (1 - action.pow(2)) + epsilon),log_prob)
-        self.set(("sac/log_prob_action",t),log_prob.sum(-1))
+            mean=self.fc(input)
+            log_std = self.fc2(input)
+
+            log_std = torch.tanh(log_std)
+            log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +
+                                                                        1)
+            self.set("sac/mean",mean)
+            self.set("sac/log_std",log_std)
+            std=log_std.exp()
+
+            dist=SquashedNormal(mean, std)
+            if not deterministic:
+                action=dist.rsample()
+            else:
+                action=dist.mean
+            self.set("action", action)
+
+            log_prob=dist.log_prob(action)
+            self.set("sac/log_prob_action",log_prob.sum(-1))
 
 class QMLPAgent(TAgent):
     def __init__(self, env, n_layers, hidden_size):
@@ -153,11 +179,20 @@ class QMLPAgent(TAgent):
         )
         self.fc.apply(weight_init)
 
-    def forward(self, t, detach_action=False, **kwargs):
-        input = self.get(("env/_env_obs", t))
-        action = self.get(("action", t))
-        if detach_action:
-            action = action.detach()
-        x = torch.cat([input, action], dim=1)
-        q = self.fc(x)
-        self.set(("q", t), q)
+    def forward(self, t=None, detach_action=False, **kwargs):
+        if not t is None:
+            input = self.get(("env/_env_obs", t))
+            action = self.get(("action", t))
+            if detach_action:
+                action = action.detach()
+            x = torch.cat([input, action], dim=-1)
+            q = self.fc(x)
+            self.set(("q", t), q)
+        else:
+            input = self.get("env/_env_obs")
+            action = self.get("action")
+            if detach_action:
+                action = action.detach()
+            x = torch.cat([input, action], dim=-1)
+            q = self.fc(x)
+            self.set("q", q)

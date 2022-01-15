@@ -159,15 +159,11 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
     validation_agent.seed(cfg.algorithm.validation.env_seed)
 
     # == Setting up the training agents
-    train_temporal_q_agent_1 = TemporalAgent(q_agent_1)
-    train_temporal_q_agent_2 = TemporalAgent(q_agent_2)
     train_temporal_action_agent = TemporalAgent(action_agent)
-    train_temporal_q_target_agent_1 = TemporalAgent(q_target_agent_1)
-    train_temporal_q_target_agent_2 = TemporalAgent(q_target_agent_2)
-    train_temporal_q_agent_1.to(cfg.algorithm.device)
-    train_temporal_q_agent_2.to(cfg.algorithm.device)
-    train_temporal_q_target_agent_1.to(cfg.algorithm.device)
-    train_temporal_q_target_agent_2.to(cfg.algorithm.device)
+    q_agent_1.to(cfg.algorithm.device)
+    q_agent_2.to(cfg.algorithm.device)
+    q_target_agent_1.to(cfg.algorithm.device)
+    q_target_agent_2.to(cfg.algorithm.device)
 
     acq_workspace=Workspace()
     acq_agent(
@@ -275,49 +271,21 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             reward=reward*cfg.algorithm.reward_scaling
             tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
 
-            train_temporal_q_agent_1(
-                replay_workspace,
-                t=0,
-                n_steps=cfg.algorithm.buffer_time_size,
-                detach_action=True,
-            )
+            q_agent_1(replay_workspace,detach_action=True,)
             q_1 = replay_workspace["q"].squeeze(-1)
-            replay_workspace.clear("q")
-            train_temporal_q_agent_2(
-                replay_workspace,
-                t=0,
-                n_steps=cfg.algorithm.buffer_time_size,
-                detach_action=True,
-            )
+            q_agent_2(replay_workspace,detach_action=True,)
             q_2 = replay_workspace["q"].squeeze(-1)
             replay_workspace.clear("q")
 
             assert not q_1.eq(q_2).all()
             with torch.no_grad():
-                taction_agent(
-                    replay_workspace,
-                    deterministic=False,
-                    t=0,
-                    n_steps=cfg.algorithm.buffer_time_size,
-                )
+                action_agent(replay_workspace,deterministic=False,)
 
-                train_temporal_q_target_agent_1(
-                    replay_workspace,
-                    t=0,
-                    detach_action=True,
-                    n_steps=cfg.algorithm.buffer_time_size,
-                )
+                q_target_agent_1(replay_workspace,detach_action=True)
                 q_target_1 = replay_workspace["q"]
-                replay_workspace.clear("q")
 
-                train_temporal_q_target_agent_2(
-                    replay_workspace,
-                    t=0,
-                    detach_action=True,
-                    n_steps=cfg.algorithm.buffer_time_size,
-                )
+                q_target_agent_2(replay_workspace,detach_action=True)
                 q_target_2 = replay_workspace["q"]
-                replay_workspace.clear("q")
 
             assert not q_target_1.eq(q_target_2).all()
 
@@ -357,81 +325,63 @@ def run_sac(q_agent_1, q_agent_2, action_agent, logger, cfg):
             optimizer_q_1.step()
             optimizer_q_2.step()
 
-            #if ((inner_epoch+1) % cfg.algorithm.policy_delay==0):
-            for _ in range(1):
+            #Actor loss
+            replay_workspace = _workspace.to(cfg.algorithm.device)
+            done = replay_workspace["env/done"]
+            not_done = (1.0-done.float())
 
-                # batch_size = cfg.algorithm.batch_size
-                # replay_workspace = Workspace(replay_buffer.get(batch_size)).to(
-                #     cfg.algorithm.device
-                # )
-                # tnorm_agent(replay_workspace,t=0,n_steps=cfg.algorithm.buffer_time_size,update_normalizer=False)
+            action_agent(replay_workspace,deterministic=False,)
 
-                replay_workspace = _workspace.to(cfg.algorithm.device)
-                done = replay_workspace["env/done"]
-                not_done = (1.0-done.float())
-                taction_agent(
-                    replay_workspace,
-                    deterministic=False,
-                    t=0,
-                    n_steps=cfg.algorithm.buffer_time_size,
+            q_agent_1(replay_workspace,detach_action=False,)
+            q1 = replay_workspace["q"].squeeze(-1)
+
+            q_agent_2(replay_workspace,detach_action=False,)
+            q2 = replay_workspace["q"].squeeze(-1)
+
+            assert not q1.eq(q2).all()
+            q = torch.min(q1, q2)
+
+            optimizer_action.zero_grad()
+            logp=replay_workspace["sac/log_prob_action"]
+            loss_1=(not_done*(_alpha*logp)).mean()
+            loss_2=(not_done*(-q)).mean()
+            loss =loss_1+loss_2
+            loss.backward()
+
+            log_std=replay_workspace["sac/log_std"]
+            logger.add_scalar("monitor/action_std",log_std.exp().mean().item(),iteration)
+
+            if cfg.algorithm.clip_grad > 0:
+                n = torch.nn.utils.clip_grad_norm_(
+                    action_agent.parameters(), cfg.algorithm.clip_grad
                 )
-                train_temporal_q_agent_1(
-                    replay_workspace,
-                    t=0,
-                    detach_action=False,
-                    n_steps=cfg.algorithm.buffer_time_size,
-                )
-                q1 = replay_workspace["q"].squeeze(-1)
-                replay_workspace.clear("q")
-                train_temporal_q_agent_2(
-                    replay_workspace,
-                    t=0,
-                    detach_action=False,
-                    n_steps=cfg.algorithm.buffer_time_size,
-                )
-                q2 = replay_workspace["q"].squeeze(-1)
-                replay_workspace.clear("q")
+                logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
 
-                assert not q1.eq(q2).all()
-                q = torch.min(q1, q2)
+            logger.add_scalar("loss/q_loss", loss.item(), iteration)
+            logger.add_scalar("loss/q_loss/alpha_term", loss_1.item(), iteration)
+            logger.add_scalar("loss/q_loss/q_term", loss_2.item(), iteration)
+            optimizer_action.step()
 
-                optimizer_action.zero_grad()
+            #Alpha loss
+            if (cfg.algorithm.learning_alpha) and iteration>100:
+                action_agent(replay_workspace,deterministic=False,)
                 logp=replay_workspace["sac/log_prob_action"]
-                loss_1=(not_done*(_alpha*logp)).mean()
-                loss_2=(not_done*(-q)).mean()
-                loss =loss_1+loss_2
-                loss.backward()
-
-                log_std=replay_workspace["sac/log_std"]
-                logger.add_scalar("monitor/action_std",log_std.exp().mean().item(),iteration)
-
-                if cfg.algorithm.clip_grad > 0:
-                    n = torch.nn.utils.clip_grad_norm_(
-                        action_agent.parameters(), cfg.algorithm.clip_grad
-                    )
-                    logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
-
-                logger.add_scalar("loss/q_loss", loss.item(), iteration)
-                logger.add_scalar("loss/q_loss/alpha_term", loss_1.item(), iteration)
-                logger.add_scalar("loss/q_loss/q_term", loss_2.item(), iteration)
-                optimizer_action.step()
-
                 _alpha=_log_alpha.exp()
                 alpha_loss = (_alpha *
-                          (-logp - _target_entropy).detach()*not_done).mean()
+                            (-logp - _target_entropy).detach()*not_done).mean()
                 logger.add_scalar("loss/alpha_loss", alpha_loss.item(), iteration)
 
-                if (cfg.algorithm.learning_alpha):
-                    optimizer_alpha.zero_grad()
-                    alpha_loss.backward()
-                    n = torch.nn.utils.clip_grad_norm_(
-                        [_log_alpha], cfg.algorithm.clip_grad
-                    )
-                    logger.add_scalar("monitor/grad_norm_alpha", n.item(), iteration)
 
-                    optimizer_alpha.step()
-                    _alpha=_log_alpha.exp().item()
-                logger.add_scalar("monitor/alpha", _alpha, iteration)
+                optimizer_alpha.zero_grad()
+                alpha_loss.backward()
+                n = torch.nn.utils.clip_grad_norm_(
+                    [_log_alpha], cfg.algorithm.clip_grad
+                )
+                logger.add_scalar("monitor/grad_norm_alpha", n.item(), iteration)
+
+                optimizer_alpha.step()
+            _alpha=_log_alpha.exp().item()
+            logger.add_scalar("monitor/alpha", _alpha, iteration)
 
             tau = cfg.algorithm.update_target_tau
             soft_update_params(q_agent_1, q_target_agent_1, tau)
