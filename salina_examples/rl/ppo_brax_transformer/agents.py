@@ -19,11 +19,9 @@ from salina import Agent, instantiate_class
 from salina.agents.transformers import *
 from salina_examples.rl.atari_wrappers import make_atari, wrap_deepmind, wrap_pytorch
 
-
 def make_brax_env(env_name):
     e = create_gym_env(env_name)
     return JaxToTorchWrapper(e)
-
 
 def mlp(sizes, activation=nn.ReLU, output_activation=nn.Identity):
     layers = []

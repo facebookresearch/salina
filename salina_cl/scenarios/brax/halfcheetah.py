@@ -58,32 +58,35 @@ def make_halfcheetah(seed = 0,
         return wrappers.GymWrapper(env, seed=seed, backend=backend)
     return wrappers.VectorGymWrapper(env, seed=seed, backend=backend)
 
+def halfcheetah_test(n_train_envs,n_evaluation_envs,n_steps):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
+
 class MultiHalfcheetah(Scenario):
-    def __init__(self,n_train_tasks,n_train_envs,n_evaluation_envs,max_episode_steps):
+    def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):
+        print("Scenario is ",cfgs)
         env = make_halfcheetah(10)
         input_dimension = [env.observation_space.shape[0]]
         output_dimension = [env.action_space.shape[0]]
 
-        cfgs = list(env_cfgs.keys())
         self._train_tasks=[]
-        for k in range(n_train_tasks):
+        for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"cl.rl.scenarios.brax.AutoResetBraxAgent",
+                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
                 "make_env_args":{
-                                "max_episode_steps":max_episode_steps,
-                                 "env_cfg":cfgs[k % len(cfgs)]},
+                                "max_episode_steps":1000,
+                                 "env_cfg":cfg},
                 "n_envs":n_train_envs
             }
-            self._train_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k))
+            self._train_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k,n_steps))
 
         self._test_tasks=[]
-        for k in range(n_train_tasks):
+        for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"cl.rl.scenarios.brax.AutoResetBraxAgent",
+                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
-                "make_env_args":{"max_episode_steps":max_episode_steps,
-                                 "env_cfg":cfgs[k % len(cfgs)]},
+                "make_env_args":{"max_episode_steps":1000,
+                                 "env_cfg":cfg},
                 "n_envs":n_evaluation_envs
             }
             self._test_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k))

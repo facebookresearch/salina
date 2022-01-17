@@ -3,7 +3,7 @@ from omegaconf import DictConfig, OmegaConf
 from salina import instantiate_class
 import torch
 
-@hydra.main(config_path=".", config_name="pendulum.yaml")
+@hydra.main(config_path=".", config_name="cartpole.yaml")
 def main(cfg):
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg)

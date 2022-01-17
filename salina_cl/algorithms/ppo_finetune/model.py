@@ -1,6 +1,7 @@
 from salina_cl.core import RLModel
 from salina import instantiate_class
 from salina_cl.algorithms.optimizers.ppo import ppo_train
+from salina_cl.algorithms.optimizers.tools import weight_init
 import time
 
 class FineTune(RLModel):
@@ -26,10 +27,9 @@ class FineTune(RLModel):
     def _train(self,task,logger):
         if self.ppo_agent is None:
             self._create_agent(task,logger)
-
-
+        self.critic_agent.apply(weight_init)
         env_agent=task.make()
-        r=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo)
+        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,n_max_interactions=task.n_interactions(),control_env_agent=task.make())
 
         return r
 

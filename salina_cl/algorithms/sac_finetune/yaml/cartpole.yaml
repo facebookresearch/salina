@@ -9,11 +9,11 @@ scenario:
   classname: salina_cl.scenarios.classic_control.cartpole.cartpole_test
   n_train_envs: 32
   n_evaluation_envs: 32
-  n_tasks: 6
   n_steps: 100000
+  n_tasks: 6
 
 model:
-  classname: salina_cl.algorithms.ppo_finetune.model.FineTune
+  classname: salina_cl.algorithms.sac_finetune.model.FineTune
 
   params:
     evaluation:
@@ -22,47 +22,53 @@ model:
       n_rollouts: 10
       evaluate_success: False
 
-    ppo:
+    sac:
       seed: 11
 
       learning_device: cpu
       acquisition_device: cpu
+      buffer_device: cpu
 
       optimizer_policy:
         classname: torch.optim.Adam
         lr: 0.0003
 
-      optimizer_critic:
+      optimizer_q:
+        classname: torch.optim.Adam
+        lr: 0.0003
+
+      optimizer_alpha:
         classname: torch.optim.Adam
         lr: 0.0003
 
       clip_grad: 10.0
+      n_processes: 1
 
       control_every_n_epochs: 10
-      n_timesteps: 32
-      n_processes: 1
-      n_mini_batches: 4
-      n_envs_per_minibatch: 16
-      n_timesteps_per_minibatch: 16
-      n_times_per_minibatch: 1
-
+      buffer_time_size: 2
+      initial_buffer_size: 1
+      buffer_size: 1000000
+      n_timesteps: 16
+      batch_size: 64
+      inner_epochs: 16
+      update_target_tau: 0.005
+      alpha: 0.1
+      learning_alpha: False
       discount_factor: 0.95
-      clip_ratio: 0.2
-      action_std: 0.4
-      gae: 0.95
       reward_scaling: 1.0
 
       time_limit: 0
 
-    ppo_agent:
-      classname: salina_cl.algorithms.ppo_finetune.agents.ActionAgent
+    sac_agent:
+      classname: salina_cl.algorithms.sac_finetune.agents.ActionAgent
       hidden_size: 256
       n_layers: 2
       input_dimension: nil
       output_dimension: nil
 
-    critic_agent:
-      classname: salina_cl.algorithms.ppo_finetune.agents.CriticAgent
+    q_agent:
+      classname: salina_cl.algorithms.sac_finetune.agents.QAgent
       hidden_size: 256
       n_layers: 2
       input_dimension: nil
+      output_dimension: nil

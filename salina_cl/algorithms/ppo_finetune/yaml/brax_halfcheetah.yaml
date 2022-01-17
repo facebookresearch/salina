@@ -6,11 +6,10 @@ logger:
   verbose: False
 
 scenario:
-  classname: salina_cl.scenarios.classic_control.cartpole.cartpole_test
+  classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_test
   n_train_envs: 32
   n_evaluation_envs: 32
-  n_tasks: 6
-  n_steps: 100000
+  n_steps: 10000
 
 model:
   classname: salina_cl.algorithms.ppo_finetune.model.FineTune
@@ -38,11 +37,11 @@ model:
 
       clip_grad: 10.0
 
-      control_every_n_epochs: 10
+      control_every_n_epochs: 100
       n_timesteps: 32
       n_processes: 1
-      n_mini_batches: 4
-      n_envs_per_minibatch: 16
+      n_mini_batches: 2
+      n_envs_per_minibatch: 256
       n_timesteps_per_minibatch: 16
       n_times_per_minibatch: 1
 

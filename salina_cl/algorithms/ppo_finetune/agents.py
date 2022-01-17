@@ -39,11 +39,10 @@ class ActionAgent(Agent):
             nn.Linear(hs, num_outputs),
         )
 
-    def forward(self, t=None, replay=False, action_std=0.0, train=False,**kwargs):
-        if not train: assert action_std==0.0
+    def forward(self, t=None, action_std=0.0, **kwargs):
+        if not self.training: assert action_std==0.0
 
-        if replay:
-            assert t == None
+        if t is None:
             input = self.get("env/env_obs")
             mean = self.model(input)
             var = torch.ones_like(mean) * action_std + 0.000001
@@ -52,9 +51,7 @@ class ActionAgent(Agent):
             logp_pi = dist.log_prob(action).sum(axis=-1)
             logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
             self.set("action_logprobs", logp_pi)
-
         else:
-            assert not t is None
             input = self.get(("env/env_obs", t))
             mean = self.model(input)
             var = torch.ones_like(mean) * action_std + 0.000001
@@ -88,7 +85,7 @@ class CriticAgent(Agent):
             nn.Linear(hs, 1),
         )
 
-    def forward(self, train=False,**kwargs):
+    def forward(self, **kwargs):
         input = self.get("env/env_obs")
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)

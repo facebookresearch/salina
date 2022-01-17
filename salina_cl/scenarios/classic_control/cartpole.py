@@ -20,19 +20,22 @@ def make_env(env,max_episode_steps):
     e=TimeLimit(e,max_episode_steps=max_episode_steps)
     return e
 
-def cartpole_test(n_train_envs,n_evaluation_envs):
+def cartpole_test(n_train_envs,n_evaluation_envs,n_tasks,n_steps):
     classes=[
-       "StrongPushCartPole",
-       "WeakPushCartPole",
-       "ShortPoleCartPole",
-       "LongPoleCartPole",
-       "LightPoleCartPole",
-       "HeavyPoleCartPole"
+       ("StrongPushCartPole",n_steps),
+       ("WeakPushCartPole",n_steps),
+       ("ShortPoleCartPole",n_steps),
+       ("LongPoleCartPole",n_steps),
+       ("LightPoleCartPole",n_steps),
+       ("HeavyPoleCartPole",n_steps),
     ]
+    assert n_tasks<=len(classes)
+    classes=classes[:n_tasks]
+
     return CartPoleScenario(n_train_envs,n_evaluation_envs,100,classes)
 
 class CartPoleScenario(Scenario):
-    def __init__(self,n_train_envs,n_evaluation_envs,max_episode_steps,classes=["ContinuousCartPoleEnv","ContinuousCartPoleEnv"]):
+    def __init__(self,n_train_envs,n_evaluation_envs,max_episode_steps,classes=None):
         input_dimension = [4]
         output_dimension = [1]
 
@@ -41,20 +44,21 @@ class CartPoleScenario(Scenario):
                 agent_cfg={
                         "classname":"salina.agents.gyma.AutoResetGymAgent",
                         "make_env_fn":make_env,
-                        "make_env_args":{"env":{"classname":"salina_cl.scenarios.classic_control.cartpole."+c},"max_episode_steps":max_episode_steps},
-                        "n_envs":n_train_envs
+                        "make_env_args":{"env":{"classname":"salina_cl.scenarios.classic_control.cartpole."+c[0]},"max_episode_steps":max_episode_steps},
+                        "n_envs":n_train_envs,
                 }
-                self._train_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k))
+                self._train_tasks.append(RLTask(env_agent_cfg=agent_cfg,input_dimension=input_dimension,output_dimension=output_dimension,task_id=k,n_interactions=c[1]))
 
         self._test_tasks=[]
         for k,c in enumerate(classes):
             agent_cfg={
                     "classname":"salina.agents.gyma.AutoResetGymAgent",
                     "make_env_fn":make_env,
-                    "make_env_args":{"env":{"classname":"salina_cl.scenarios.classic_control.cartpole."+c},"max_episode_steps":max_episode_steps},
+                    "make_env_args":{"env":{"classname":"salina_cl.scenarios.classic_control.cartpole."+c[0]},"max_episode_steps":max_episode_steps},
                 "n_envs":n_evaluation_envs
             }
             self._test_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k))
+
     def train_tasks(self):
         return self._train_tasks
 

@@ -93,3 +93,7 @@ class ReplayBuffer:
             workspace.set_full(k, self.variables[k][who].transpose(0,1))
 
         return workspace
+
+    def to(self,device):
+        n_vars={k:v.to(device) for k,v in self.variables.items()}
+        self.variables=n_vars

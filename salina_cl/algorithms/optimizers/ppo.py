@@ -13,8 +13,8 @@ import torch
 import torch.nn as nn
 
 import salina.rl.functional as RLF
-from salina import Agent, Workspace, instantiate_class
-from salina.agents import Agents, TemporalAgent
+from salina import Agent, Workspace, instantiate_class, get_arguments, get_class
+from salina.agents import Agents, TemporalAgent, EpisodesDone
 from salina.agents.brax import AutoResetBraxAgent,NoAutoResetBraxAgent
 from salina.agents.gyma import AutoResetGymAgent,NoAutoResetGymAgent
 from salina.logger import TFLogger
@@ -36,31 +36,71 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_interactions):
+def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_interactions,control_env_agent=None):
+    action_agent.train()
+    critic_agent.train()
     time_unit=None
-    if cfg_ppo.stop_criterion=="time":
+    if cfg_ppo.time_limit>0:
         time_unit=compute_time_unit(cfg_ppo.device)
         logger.message("Time unit is "+str(time_unit)+" seconds.")
 
+    _original_action_agent=copy.deepcopy(action_agent)
+    _original_critic_agent=copy.deepcopy(critic_agent)
+
     action_agent.set_name("action")
-    acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(cfg_ppo.acquisition_device)
+    acq_action_agent=copy.deepcopy(action_agent)
+    acquisition_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(cfg_ppo.acquisition_device)
     acquisition_workspace=Workspace()
     if cfg_ppo.n_processes>1:
-        acquisition_agent,acquisition_workspace=NRemoteAgent.create(acquisition_agent, num_processes=cfg_ppo.n_processes, time_size=cfg_ppo.n_timesteps, n_steps=1, replay=False,train=True)
+        acquisition_agent,acquisition_workspace=NRemoteAgent.create(acquisition_agent, num_processes=cfg_ppo.n_processes, time_size=cfg_ppo.n_timesteps, n_steps=1)
     acquisition_agent.seed(cfg_ppo.seed)
 
+    if not control_env_agent is None:
+        control_action_agent=copy.deepcopy(action_agent)
+        control_agent = TemporalAgent(Agents(control_env_agent, EpisodesDone(),control_action_agent)).to(cfg_ppo.acquisition_device)
+        control_agent.seed(cfg_ppo.seed)
+
     train_agent = Agents(action_agent, critic_agent).to(cfg_ppo.learning_device)
-    optimizer_policy = torch.optim.Adam(action_agent.parameters(), lr=cfg_ppo.lr_policy)
-    optimizer_critic = torch.optim.Adam(critic_agent.parameters(), lr=cfg_ppo.lr_critic)
+
+    optimizer_args = get_arguments(cfg_ppo.optimizer_policy)
+    optimizer_policy = get_class(cfg_ppo.optimizer_policy)(
+        action_agent.parameters(), **optimizer_args
+    )
+
+    optimizer_args = get_arguments(cfg_ppo.optimizer_critic)
+    optimizer_critic = get_class(cfg_ppo.optimizer_critic)(
+        critic_agent.parameters(), **optimizer_args
+    )
 
     # === Running algorithm
     epoch = 0
     iteration = 0
     n_interactions = 0
 
-    _epoch_start_time = time.time()
+    _training_start_time = time.time()
     is_training=True
     while is_training:
+        if not control_env_agent is None and epoch%cfg_ppo.control_every_n_epochs==0:
+            for a in control_agent.get_by_name("action"):
+                a.load_state_dict(_state_dict(action_agent, cfg_ppo.acquisition_device))
+
+            control_agent.eval()
+            w=Workspace()
+            control_agent(
+                w,
+                t=0,
+                stop_variable="env/done"
+            )
+            length=w["env/done"].max(0)[1]
+            arange = torch.arange(length.size()[0], device=length.device)
+            creward = (
+                w["env/cumulated_reward"][length, arange]
+                .mean()
+                .item()
+            )
+            logger.add_scalar("validation/reward", creward, epoch)
+            print("reward at ",epoch," = ",creward)
+
         # Acquisition of trajectories
         for a in acquisition_agent.get_by_name("action"):
             a.load_state_dict(_state_dict(action_agent, cfg_ppo.acquisition_device))
@@ -74,8 +114,6 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
             n_steps=cfg_ppo.n_timesteps - 1
             if epoch > 0
             else cfg_ppo.n_timesteps,
-            replay=False,
-            train=True,
             action_std=cfg_ppo.action_std,
         )
         workspace=Workspace(acquisition_workspace).to(cfg_ppo.learning_device)
@@ -93,7 +131,6 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
                 logger.add_scalar("monitor/success",r,epoch)
 
         workspace.zero_grad()
-        workspace.set_full("old_action_logprobs",workspace["action_logprobs"].detach())
 
         #Building mini workspaces
         #Learning for cfg.algorithm.update_epochs epochs
@@ -107,16 +144,16 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
 
         #Learning on batches
         for miniworkspace in miniworkspaces:
+            action,old_action_lp=miniworkspace["action","action_logprobs"]
             # === Update policy
+            train_agent.train()
             train_agent(
                 miniworkspace,
                 t=None,
-                replay=True,
-                train=True,
                 action_std=cfg_ppo.action_std,
             )
             critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
-            old_action_lp = miniworkspace["old_action_logprobs"]
+
             reward = reward * cfg_ppo.reward_scaling
             gae = RLF.gae(
                 critic,
@@ -159,11 +196,12 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
         if n_interactions>n_max_interactions:
             logger.message("== Maximum interactions reached")
             is_training=False
-        else
-            if cfg_ppo.time_limit>0:
-                is_training=time.time()-_epoch_start_time<cfg_ppo.time_limit*time_unit
         else:
-            assert False
-    r={"n_epochs":epoch,"training_time":time.time()-_epoch_start_time,"n_interactions":n_interactions}
+            if cfg_ppo.time_limit>0:
+                    is_training=time.time()-_epoch_start_time<cfg_ppo.time_limit*time_unit
+
+    r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+    action_agent.to("cpu")
+    critic_agent.to("cpu")
     if cfg_ppo.n_processes>1: acquisition_agent.close()
-    return r
+    return r,action_agent,critic_agent
