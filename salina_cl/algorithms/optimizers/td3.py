@@ -36,89 +36,86 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_max_interactions,control_env_agent=None):
+def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_max_interactions,control_env_agent=None):
     time_unit=None
-    if cfg_sac.time_limit>0:
+    if cfg_td3.time_limit>0:
         time_unit=compute_time_unit(cfg_ppo.device)
         logger.message("Time unit is "+str(time_unit)+" seconds.")
 
-    action_agent.set_name("action")
-
-
+    action_agent.set_name("action")  
     acq_action_agent=copy.deepcopy(action_agent)
-    acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(cfg_sac.acquisition_device)
+    
+    acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(cfg_td3.acquisition_device)
     acquisition_workspace=Workspace()
-    if cfg_sac.n_processes>1:
-        acq_agent,acquisition_workspace=NRemoteAgent.create(acq_agent, num_processes=cfg_sac.n_processes, time_size=cfg_sac.n_timesteps, n_steps=1)
-    acq_agent.seed(cfg_sac.seed)
+    if cfg_td3.n_processes>1:
+        acq_agent,acquisition_workspace=NRemoteAgent.create(acq_agent, num_processes=cfg_td3.n_processes, time_size=cfg_td3.n_timesteps, n_steps=1)
+    acq_agent.seed(cfg_td3.seed)
 
     if not control_env_agent is None:
         control_action_agent=copy.deepcopy(action_agent)
-        control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_sac.acquisition_device)
-        control_agent.seed(cfg_sac.seed)
+        control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_td3.acquisition_device)
+        control_agent.seed(cfg_td3.seed)
 
     # == Setting up the training agents
+    target_action_agent=copy.deepcopy(action_agent)    
+    action_agent.to(cfg_td3.learning_device)
+    target_action_agent.to(cfg_td3.learning_device)
+    
     q_target_agent_1 = copy.deepcopy(q_agent_1)
     q_target_agent_2 = copy.deepcopy(q_agent_2)
-    q_agent_1.to(cfg_sac.learning_device)
-    q_agent_2.to(cfg_sac.learning_device)
-    q_target_agent_1.to(cfg_sac.learning_device)
-    q_target_agent_2.to(cfg_sac.learning_device)
-    action_agent.to(cfg_sac.learning_device)
+    q_agent_1.to(cfg_td3.learning_device)
+    q_agent_2.to(cfg_td3.learning_device)
+    q_target_agent_1.to(cfg_td3.learning_device)
+    q_target_agent_2.to(cfg_td3.learning_device)
+    
 
     # == Setting up & initializing the replay buffer for DQN
-    replay_buffer = ReplayBuffer(cfg_sac.buffer_size,device=cfg_sac.buffer_device)
+    replay_buffer = ReplayBuffer(cfg_td3.buffer_size,device=cfg_td3.buffer_device)
     acq_agent.train()
     action_agent.train()
 
-    logger.message("[SAC] Initializing replay buffer")
+    logger.message("[td3] Initializing replay buffer")
     acq_agent(
         acquisition_workspace,
         t=0,
-        n_steps=cfg_sac.n_timesteps,
+        epsilon=cfg_td3.action_noise,
+        epsilon_clip=None,
+        n_steps=cfg_td3.n_timesteps,
     )
-    replay_buffer.put(acquisition_workspace, time_size=cfg_sac.buffer_time_size)
+    replay_buffer.put(acquisition_workspace, time_size=cfg_td3.buffer_time_size)
 
-    while replay_buffer.size() < cfg_sac.initial_buffer_size:
+    while replay_buffer.size() < cfg_td3.initial_buffer_size:
         acquisition_workspace.copy_n_last_steps(1)
-        acq_agent(acquisition_workspace,t=1,n_steps=cfg_sac.n_timesteps - 1)
+        acq_agent(acquisition_workspace,t=1,n_steps=cfg_td3.n_timesteps - 1,epsilon=cfg_td3.action_noise,epsilon_clip=None)
         acquisition_workspace.zero_grad()
-        replay_buffer.put(acquisition_workspace, time_size=cfg_sac.buffer_time_size)
+        replay_buffer.put(acquisition_workspace, time_size=cfg_td3.buffer_time_size)
 
-    action_shape=acquisition_workspace["action"].size()[2:]
-    _target_entropy = -0.5 * torch.prod(torch.Tensor(action_shape).to(cfg_sac.learning_device)).item()
-    _log_alpha = torch.tensor(math.log(cfg_sac.alpha), requires_grad=True, device=cfg_sac.learning_device)
-
-    logger.message("[SAC] Learning")
+    logger.message("[td3] Learning")
     n_interactions = 0
 
-    optimizer_args = get_arguments(cfg_sac.optimizer_q)
-    optimizer_q_1 = get_class(cfg_sac.optimizer_q)(
+    optimizer_args = get_arguments(cfg_td3.optimizer_q)
+    optimizer_q_1 = get_class(cfg_td3.optimizer_q)(
         q_agent_1.parameters(), **optimizer_args
     )
-    optimizer_q_2 = get_class(cfg_sac.optimizer_q)(
+    optimizer_q_2 = get_class(cfg_td3.optimizer_q)(
         q_agent_2.parameters(), **optimizer_args
     )
 
-    optimizer_args = get_arguments(cfg_sac.optimizer_policy)
-    optimizer_action = get_class(cfg_sac.optimizer_policy)(
+    optimizer_args = get_arguments(cfg_td3.optimizer_policy)
+    optimizer_action = get_class(cfg_td3.optimizer_policy)(
         action_agent.parameters(), **optimizer_args
     )
 
-    optimizer_args = get_arguments(cfg_sac.optimizer_alpha)
-    optimizer_alpha = get_class(cfg_sac.optimizer_alpha)(
-        [_log_alpha], **optimizer_args
-    )
+   
     iteration = 0
 
     epoch=0
     is_training=True
     _training_start_time=time.time()
     while is_training:
-
-        if not control_env_agent is None and epoch%cfg_sac.control_every_n_epochs==0:
+        if not control_env_agent is None and epoch%cfg_td3.control_every_n_epochs==0:
             for a in control_agent.get_by_name("action"):
-                a.load_state_dict(_state_dict(action_agent, cfg_sac.acquisition_device))
+                a.load_state_dict(_state_dict(action_agent, cfg_td3.acquisition_device))
 
             control_agent.eval()
             w=Workspace()
@@ -138,16 +135,16 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
             print("reward at ",epoch," = ",creward)
 
         for a in acq_agent.get_by_name("action"):
-            a.load_state_dict(_state_dict(action_agent, cfg_sac.acquisition_device))
+            a.load_state_dict(_state_dict(action_agent, cfg_td3.acquisition_device))
 
         acquisition_workspace.copy_n_last_steps(1)
         acquisition_workspace.zero_grad()
         acq_agent(
             acquisition_workspace,
             t=1,
-            n_steps=cfg_sac.n_timesteps - 1,
+            n_steps=cfg_td3.n_timesteps - 1,
         )
-        replay_buffer.put(acquisition_workspace, time_size=cfg_sac.buffer_time_size)
+        replay_buffer.put(acquisition_workspace, time_size=cfg_td3.buffer_time_size)
         done, creward = acquisition_workspace["env/done", "env/cumulated_reward"]
 
         creward = creward[done]
@@ -161,17 +158,19 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
         logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
         _st_inner_epoch=time.time()
-        for inner_epoch in range(cfg_sac.inner_epochs):
-            _alpha=_log_alpha.exp().detach()
+        for inner_epoch in range(cfg_td3.inner_epochs):
+            action_agent.train()
+            target_action_agent.train()
+            
             __e=time.time()
-            batch_size = cfg_sac.batch_size
+            batch_size = cfg_td3.batch_size
             _workspace=replay_buffer.get(batch_size)
             replay_workspace = _workspace.to(
-                cfg_sac.learning_device
+                cfg_td3.learning_device
             )
             done, reward = replay_workspace["env/done", "env/reward"]
             not_done=1.0-done.float()
-            reward=reward*cfg_sac.reward_scaling
+            reward=reward*cfg_td3.reward_scaling
 
             q_agent_1(replay_workspace)
             q_1 = replay_workspace["q"].squeeze(-1)
@@ -181,7 +180,7 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
 
             assert not q_1.eq(q_2).all()
             with torch.no_grad():
-                action_agent(replay_workspace)
+                target_action_agent(replay_workspace,epsilon=cfg_td3.target_noise,epsilon_clip=cfg_td3.noise_clip)
 
                 q_target_agent_1(replay_workspace)
                 q_target_1 = replay_workspace["q"]
@@ -192,12 +191,11 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
             assert not q_target_1.eq(q_target_2).all()
 
             q_target = torch.min(q_target_1, q_target_2).squeeze(-1)
-            _logp=replay_workspace["action_logprobs"].detach()
             target = (
                 reward[1:]
-                + cfg_sac.discount_factor
+                + cfg_td3.discount_factor
                 * not_done[1:]
-                * (q_target[1:]-_alpha*_logp[1:].detach())
+                * q_target[1:]
             )
 
             td_1 = (q_1[:-1] - target)*not_done[:-1]+0.000001
@@ -214,13 +212,13 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
 
             loss.backward()
 
-            if cfg_sac.clip_grad > 0:
+            if cfg_td3.clip_grad > 0:
                 n = torch.nn.utils.clip_grad_norm_(
-                    q_agent_1.parameters(), cfg_sac.clip_grad
+                    q_agent_1.parameters(), cfg_td3.clip_grad
                 )
                 logger.add_scalar("monitor/grad_norm_q_1", n.item(), iteration)
                 n = torch.nn.utils.clip_grad_norm_(
-                    q_agent_2.parameters(), cfg_sac.clip_grad
+                    q_agent_2.parameters(), cfg_td3.clip_grad
                 )
                 logger.add_scalar("monitor/grad_norm_q_2", n.item(), iteration)
 
@@ -243,51 +241,26 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
             q = torch.min(q1, q2)
 
             optimizer_action.zero_grad()
-            logp=replay_workspace["action_logprobs"]
-            loss_1=(not_done*(_alpha*logp)).mean()
-            loss_2=(not_done*(-q)).mean()
-            loss =loss_1+loss_2
+            loss=(not_done*(-q)).mean()
             loss.backward()
 
             if "action_std" in list(replay_workspace.keys()):
                 _std=replay_workspace["action_std"]
                 logger.add_scalar("monitor/action_std",_std.exp().mean().item(),iteration)
 
-            if cfg_sac.clip_grad > 0:
+            if cfg_td3.clip_grad > 0:
                 n = torch.nn.utils.clip_grad_norm_(
-                    action_agent.parameters(), cfg_sac.clip_grad
+                    action_agent.parameters(), cfg_td3.clip_grad
                 )
                 logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
 
             logger.add_scalar("loss/q_loss", loss.item(), iteration)
-            logger.add_scalar("loss/q_loss/alpha_term", loss_1.item(), iteration)
-            logger.add_scalar("loss/q_loss/q_term", loss_2.item(), iteration)
             optimizer_action.step()
 
-            #Alpha loss
-            if (cfg_sac.learning_alpha):
-                action_agent(replay_workspace,deterministic=False,)
-                logp=replay_workspace["action_logprobs"]
-                _alpha=_log_alpha.exp()
-                alpha_loss = (_alpha *
-                            (-logp - _target_entropy).detach()*not_done).mean()
-                logger.add_scalar("loss/alpha_loss", alpha_loss.item(), iteration)
-
-
-                optimizer_alpha.zero_grad()
-                alpha_loss.backward()
-                n = torch.nn.utils.clip_grad_norm_(
-                    [_log_alpha], cfg_sac.clip_grad
-                )
-                logger.add_scalar("monitor/grad_norm_alpha", n.item(), iteration)
-
-                optimizer_alpha.step()
-            _alpha=_log_alpha.exp().item()
-            logger.add_scalar("monitor/alpha", _alpha, iteration)
-
-            tau = cfg_sac.update_target_tau
+            tau = cfg_td3.update_target_tau
             soft_update_params(q_agent_1, q_target_agent_1, tau)
             soft_update_params(q_agent_2, q_target_agent_2, tau)
+            soft_update_params(action_agent, target_action_agent, tau)
 
             iteration += 1
         _et_inner_epoch=time.time()
@@ -297,12 +270,12 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
             logger.message("== Maximum interactions reached")
             is_training=False
         else:
-            if cfg_sac.time_limit>0:
-                is_training=time.time()-_epoch_start_time<cfg_sac.time_limit*time_unit
+            if cfg_td3.time_limit>0:
+                is_training=time.time()-_training_start_time<cfg_td3.time_limit*time_unit
 
     r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
     action_agent.to("cpu")
     q_agent_1.to("cpu")
     q_agent_2.to("cpu")
-    if cfg_sac.n_processes>1: acq_agent.close()
+    if cfg_td3.n_processes>1: acq_agent.close()
     return r,action_agent,q_agent_1,q_agent_2,replay_buffer.to("cpu")
