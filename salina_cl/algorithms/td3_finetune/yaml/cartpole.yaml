@@ -25,9 +25,9 @@ model:
     td3:
       seed: 11
 
-      learning_device: cuda:0
+      learning_device: cpu
       acquisition_device: cpu
-      buffer_device: cuda:0
+      buffer_device: cpu
 
       optimizer_policy:
         classname: torch.optim.Adam
@@ -45,17 +45,19 @@ model:
       n_processes: 1
 
       control_every_n_epochs: 10
+      n_control_rollouts: 1
+      
       buffer_time_size: 2
       initial_buffer_size: 1
       buffer_size: 1000000
       n_timesteps: 16
       batch_size: 64
-      inner_epochs: 16
+      inner_epochs: 64
       update_target_tau: 0.005
       action_noise: 0.2
       target_noise: 0.1
       noise_clip: 0.5
-      discount_factor: 0.95
+      discount_factor: 0.99
       reward_scaling: 1.0
 
       time_limit: 0

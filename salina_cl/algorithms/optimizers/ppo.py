@@ -36,7 +36,7 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_interactions,control_env_agent=None):
+def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_interactions):
     action_agent.train()
     critic_agent.train()
     time_unit=None
@@ -55,10 +55,12 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
         acquisition_agent,acquisition_workspace=NRemoteAgent.create(acquisition_agent, num_processes=cfg_ppo.n_processes, time_size=cfg_ppo.n_timesteps, n_steps=1)
     acquisition_agent.seed(cfg_ppo.seed)
 
-    if not control_env_agent is None:
-        control_action_agent=copy.deepcopy(action_agent)
-        control_agent = TemporalAgent(Agents(control_env_agent, EpisodesDone(),control_action_agent)).to(cfg_ppo.acquisition_device)
-        control_agent.seed(cfg_ppo.seed)
+    control_env_agent=copy.deepcopy(env_agent)
+    control_action_agent=copy.deepcopy(action_agent)
+    control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_ppo.acquisition_device)  
+    control_env_agent.to(cfg_ppo.acquisition_device)
+    control_agent.seed(cfg_ppo.seed)
+    control_agent.eval()
 
     train_agent = Agents(action_agent, critic_agent).to(cfg_ppo.learning_device)
 
@@ -79,27 +81,38 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
 
     _training_start_time = time.time()
     is_training=True
+    best_model=None
+    best_performance=None
     while is_training:
-        if not control_env_agent is None and epoch%cfg_ppo.control_every_n_epochs==0:
+    # Compute average performance of multiple rollouts
+        if epoch%cfg_ppo.control_every_n_epochs==0:
             for a in control_agent.get_by_name("action"):
                 a.load_state_dict(_state_dict(action_agent, cfg_ppo.acquisition_device))
 
             control_agent.eval()
-            w=Workspace()
-            control_agent(
-                w,
-                t=0,
-                stop_variable="env/done"
-            )
-            length=w["env/done"].max(0)[1]
-            arange = torch.arange(length.size()[0], device=length.device)
-            creward = (
-                w["env/cumulated_reward"][length, arange]
-                .mean()
-                .item()
-            )
-            logger.add_scalar("validation/reward", creward, epoch)
-            print("reward at ",epoch," = ",creward)
+            rewards=[]
+            for _ in range(cfg_ppo.n_control_rollouts):
+                w=Workspace()
+                control_agent(
+                    w,
+                    t=0,
+                    stop_variable="env/done"
+                )
+                length=w["env/done"].max(0)[1]
+                n_interactions+=length.sum().item()
+                arange = torch.arange(length.size()[0], device=length.device)
+                creward = w["env/cumulated_reward"][length, arange]
+                rewards=rewards+creward.to("cpu").tolist()
+
+            mean_reward=np.mean(rewards)
+            logger.add_scalar("validation/reward", mean_reward, epoch)
+            print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
+           
+            if best_performance is None or mean_reward>best_performance:
+                best_performance=mean_reward
+                best_model=copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
+            logger.add_scalar("validation/best_reward", best_performance, epoch)
+
 
         # Acquisition of trajectories
         for a in acquisition_agent.get_by_name("action"):
@@ -201,6 +214,7 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
                     is_training=time.time()-_epoch_start_time<cfg_ppo.time_limit*time_unit
 
     r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+    action_agent,critic_agent=best_model
     action_agent.to("cpu")
     critic_agent.to("cpu")
     if cfg_ppo.n_processes>1: acquisition_agent.close()

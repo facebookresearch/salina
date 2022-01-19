@@ -13,7 +13,7 @@ import hydra
 import torch
 import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
-
+import numpy as np
 import salina
 import salina.rl.functional as RLF
 from salina import Workspace, get_arguments, get_class, instantiate_class
@@ -23,8 +23,6 @@ from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
 from salina import Agent
-from brax.envs import create_gym_env
-from brax.envs.to_torch import JaxToTorchWrapper
 
 def soft_update_params(net, target_net, tau):
     for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -36,7 +34,7 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_max_interactions,control_env_agent=None):
+def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_max_interactions):
     time_unit=None
     if cfg_td3.time_limit>0:
         time_unit=compute_time_unit(cfg_ppo.device)
@@ -51,10 +49,12 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
         acq_agent,acquisition_workspace=NRemoteAgent.create(acq_agent, num_processes=cfg_td3.n_processes, time_size=cfg_td3.n_timesteps, n_steps=1)
     acq_agent.seed(cfg_td3.seed)
 
-    if not control_env_agent is None:
-        control_action_agent=copy.deepcopy(action_agent)
-        control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_td3.acquisition_device)
-        control_agent.seed(cfg_td3.seed)
+    control_env_agent=copy.deepcopy(env_agent)
+    control_action_agent=copy.deepcopy(action_agent)
+    control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_td3.acquisition_device)  
+    control_env_agent.to(cfg_td3.acquisition_device)
+    control_agent.seed(cfg_td3.seed)
+    control_agent.eval()
 
     # == Setting up the training agents
     target_action_agent=copy.deepcopy(action_agent)    
@@ -67,7 +67,6 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
     q_agent_2.to(cfg_td3.learning_device)
     q_target_agent_1.to(cfg_td3.learning_device)
     q_target_agent_2.to(cfg_td3.learning_device)
-    
 
     # == Setting up & initializing the replay buffer for DQN
     replay_buffer = ReplayBuffer(cfg_td3.buffer_size,device=cfg_td3.buffer_device)
@@ -91,7 +90,6 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
         replay_buffer.put(acquisition_workspace, time_size=cfg_td3.buffer_time_size)
 
     logger.message("[td3] Learning")
-    n_interactions = 0
 
     optimizer_args = get_arguments(cfg_td3.optimizer_q)
     optimizer_q_1 = get_class(cfg_td3.optimizer_q)(
@@ -108,31 +106,43 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
 
    
     iteration = 0
+    n_interactions = 0
 
     epoch=0
     is_training=True
     _training_start_time=time.time()
+    best_model=None
+    best_performance=None
     while is_training:
-        if not control_env_agent is None and epoch%cfg_td3.control_every_n_epochs==0:
+        # Compute average performance of multiple rollouts
+        if epoch%cfg_td3.control_every_n_epochs==0:
             for a in control_agent.get_by_name("action"):
                 a.load_state_dict(_state_dict(action_agent, cfg_td3.acquisition_device))
 
             control_agent.eval()
-            w=Workspace()
-            control_agent(
-                w,
-                t=0,
-                stop_variable="env/done"
-            )
-            length=w["env/done"].max(0)[1]
-            arange = torch.arange(length.size()[0], device=length.device)
-            creward = (
-                w["env/cumulated_reward"][length, arange]
-                .mean()
-                .item()
-            )
-            logger.add_scalar("validation/reward", creward, epoch)
-            print("reward at ",epoch," = ",creward)
+            rewards=[]
+            for _ in range(cfg_td3.n_control_rollouts):
+                w=Workspace()
+                control_agent(
+                    w,
+                    t=0,
+                    stop_variable="env/done"
+                )
+                length=w["env/done"].max(0)[1]
+                n_interactions+=length.sum().item()
+                arange = torch.arange(length.size()[0], device=length.device)
+                creward = w["env/cumulated_reward"][length, arange]
+                rewards=rewards+creward.to("cpu").tolist()
+
+            mean_reward=np.mean(rewards)
+            logger.add_scalar("validation/reward", mean_reward, epoch)
+            print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
+           
+            if best_performance is None or mean_reward>best_performance:
+                best_performance=mean_reward
+                best_model=copy.deepcopy(action_agent),copy.deepcopy(q_agent_1),copy.deepcopy(q_agent_2)
+            logger.add_scalar("validation/best_reward", best_performance, epoch)
+
 
         for a in acq_agent.get_by_name("action"):
             a.load_state_dict(_state_dict(action_agent, cfg_td3.acquisition_device))
@@ -161,7 +171,7 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
         for inner_epoch in range(cfg_td3.inner_epochs):
             action_agent.train()
             target_action_agent.train()
-            
+
             __e=time.time()
             batch_size = cfg_td3.batch_size
             _workspace=replay_buffer.get(batch_size)
@@ -274,8 +284,9 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
                 is_training=time.time()-_training_start_time<cfg_td3.time_limit*time_unit
 
     r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+    if cfg_td3.n_processes>1: acq_agent.close()
+    action_agent,q_agent_1,q_agent_2=best_model
     action_agent.to("cpu")
     q_agent_1.to("cpu")
     q_agent_2.to("cpu")
-    if cfg_td3.n_processes>1: acq_agent.close()
     return r,action_agent,q_agent_1,q_agent_2,replay_buffer.to("cpu")
