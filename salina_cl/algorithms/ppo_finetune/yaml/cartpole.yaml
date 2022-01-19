@@ -39,6 +39,7 @@ model:
       clip_grad: 10.0
 
       control_every_n_epochs: 10
+      n_control_rollouts: 1
       n_timesteps: 32
       n_processes: 1
       n_mini_batches: 4

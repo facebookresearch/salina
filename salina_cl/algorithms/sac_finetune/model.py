@@ -32,7 +32,7 @@ class FineTune(RLModel):
         self.q2_agent.apply(weight_init)
         env_agent=task.make()
         control_env_agent=task.make()
-        r,self.sac_agent,self.q1_agent,self.q2_agent,replay_buffer=sac_train(self.q1_agent, self.q2_agent, self.sac_agent, env_agent,logger, self.cfg.sac,n_max_interactions=task.n_interactions(),control_env_agent=control_env_agent)
+        r,self.sac_agent,self.q1_agent,self.q2_agent,replay_buffer=sac_train(self.q1_agent, self.q2_agent, self.sac_agent, env_agent,logger, self.cfg.sac,n_max_interactions=task.n_interactions())
         return r
 
     def get_evaluation_agent(self,task_id):

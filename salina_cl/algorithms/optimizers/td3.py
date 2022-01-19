@@ -40,9 +40,9 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
         time_unit=compute_time_unit(cfg_ppo.device)
         logger.message("Time unit is "+str(time_unit)+" seconds.")
 
-    action_agent.set_name("action")  
+    action_agent.set_name("action")
     acq_action_agent=copy.deepcopy(action_agent)
-    
+
     acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(cfg_td3.acquisition_device)
     acquisition_workspace=Workspace()
     if cfg_td3.n_processes>1:
@@ -51,16 +51,16 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
 
     control_env_agent=copy.deepcopy(env_agent)
     control_action_agent=copy.deepcopy(action_agent)
-    control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_td3.acquisition_device)  
+    control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_td3.acquisition_device)
     control_env_agent.to(cfg_td3.acquisition_device)
     control_agent.seed(cfg_td3.seed)
     control_agent.eval()
 
     # == Setting up the training agents
-    target_action_agent=copy.deepcopy(action_agent)    
+    target_action_agent=copy.deepcopy(action_agent)
     action_agent.to(cfg_td3.learning_device)
     target_action_agent.to(cfg_td3.learning_device)
-    
+
     q_target_agent_1 = copy.deepcopy(q_agent_1)
     q_target_agent_2 = copy.deepcopy(q_agent_2)
     q_agent_1.to(cfg_td3.learning_device)
@@ -104,7 +104,7 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
         action_agent.parameters(), **optimizer_args
     )
 
-   
+
     iteration = 0
     n_interactions = 0
 
@@ -137,7 +137,7 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
             mean_reward=np.mean(rewards)
             logger.add_scalar("validation/reward", mean_reward, epoch)
             print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
-           
+
             if best_performance is None or mean_reward>best_performance:
                 best_performance=mean_reward
                 best_model=copy.deepcopy(action_agent),copy.deepcopy(q_agent_1),copy.deepcopy(q_agent_2)

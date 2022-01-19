@@ -29,7 +29,7 @@ class FineTune(RLModel):
             self._create_agent(task,logger)
         self.critic_agent.apply(weight_init)
         env_agent=task.make()
-        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,n_max_interactions=task.n_interactions(),control_env_agent=task.make())
+        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,n_max_interactions=task.n_interactions())
 
         return r
 

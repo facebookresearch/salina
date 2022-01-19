@@ -45,6 +45,7 @@ model:
       n_processes: 1
 
       control_every_n_epochs: 10
+      n_control_rollouts: 2
       buffer_time_size: 2
       initial_buffer_size: 1
       buffer_size: 1000000

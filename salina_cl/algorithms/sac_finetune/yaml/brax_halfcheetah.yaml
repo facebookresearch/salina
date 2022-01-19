@@ -7,9 +7,9 @@ logger:
 
 scenario:
   classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_test
-  n_train_envs: 256
-  n_evaluation_envs: 256
-  n_steps: 1000000
+  n_train_envs: 32
+  n_evaluation_envs: 32
+  n_steps: 10000
 
 model:
   classname: salina_cl.algorithms.sac_finetune.model.FineTune

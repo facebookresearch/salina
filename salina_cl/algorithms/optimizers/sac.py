@@ -23,8 +23,7 @@ from salina.logger import TFLogger
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_examples import weight_init
 from salina import Agent
-from brax.envs import create_gym_env
-from brax.envs.to_torch import JaxToTorchWrapper
+import numpy as np
 
 def soft_update_params(net, target_net, tau):
     for param, target_param in zip(net.parameters(), target_net.parameters()):
@@ -36,7 +35,7 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_max_interactions,control_env_agent=None):
+def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_max_interactions):
     time_unit=None
     if cfg_sac.time_limit>0:
         time_unit=compute_time_unit(cfg_ppo.device)
@@ -52,10 +51,12 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
         acq_agent,acquisition_workspace=NRemoteAgent.create(acq_agent, num_processes=cfg_sac.n_processes, time_size=cfg_sac.n_timesteps, n_steps=1)
     acq_agent.seed(cfg_sac.seed)
 
-    if not control_env_agent is None:
-        control_action_agent=copy.deepcopy(action_agent)
-        control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_sac.acquisition_device)
-        control_agent.seed(cfg_sac.seed)
+    control_env_agent=copy.deepcopy(env_agent)
+    control_action_agent=copy.deepcopy(action_agent)
+    control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_sac.acquisition_device)
+    control_env_agent.to(cfg_sac.acquisition_device)
+    control_agent.seed(cfg_sac.seed)
+    control_agent.eval()
 
     # == Setting up the training agents
     q_target_agent_1 = copy.deepcopy(q_agent_1)
@@ -114,28 +115,38 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
     epoch=0
     is_training=True
     _training_start_time=time.time()
+    best_model=None
+    best_performance=None
     while is_training:
-
-        if not control_env_agent is None and epoch%cfg_sac.control_every_n_epochs==0:
+# Compute average performance of multiple rollouts
+        if epoch%cfg_sac.control_every_n_epochs==0:
             for a in control_agent.get_by_name("action"):
                 a.load_state_dict(_state_dict(action_agent, cfg_sac.acquisition_device))
 
             control_agent.eval()
-            w=Workspace()
-            control_agent(
-                w,
-                t=0,
-                stop_variable="env/done"
-            )
-            length=w["env/done"].max(0)[1]
-            arange = torch.arange(length.size()[0], device=length.device)
-            creward = (
-                w["env/cumulated_reward"][length, arange]
-                .mean()
-                .item()
-            )
-            logger.add_scalar("validation/reward", creward, epoch)
-            print("reward at ",epoch," = ",creward)
+            rewards=[]
+            for _ in range(cfg_sac.n_control_rollouts):
+                w=Workspace()
+                control_agent(
+                    w,
+                    t=0,
+                    stop_variable="env/done"
+                )
+                length=w["env/done"].max(0)[1]
+                n_interactions+=length.sum().item()
+                arange = torch.arange(length.size()[0], device=length.device)
+                creward = w["env/cumulated_reward"][length, arange]
+                rewards=rewards+creward.to("cpu").tolist()
+
+            mean_reward=np.mean(rewards)
+            logger.add_scalar("validation/reward", mean_reward, epoch)
+            print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
+
+            if best_performance is None or mean_reward>best_performance:
+                best_performance=mean_reward
+                best_model=copy.deepcopy(action_agent),copy.deepcopy(q_agent_1),copy.deepcopy(q_agent_2)
+            logger.add_scalar("validation/best_reward", best_performance, epoch)
+
 
         for a in acq_agent.get_by_name("action"):
             a.load_state_dict(_state_dict(action_agent, cfg_sac.acquisition_device))
@@ -301,6 +312,7 @@ def sac_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_sac, n_m
                 is_training=time.time()-_epoch_start_time<cfg_sac.time_limit*time_unit
 
     r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+    action_agent,q_agent_1,q_agent_2=best_model
     action_agent.to("cpu")
     q_agent_1.to("cpu")
     q_agent_2.to("cpu")
