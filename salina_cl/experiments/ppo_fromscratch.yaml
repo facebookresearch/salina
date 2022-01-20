@@ -9,17 +9,15 @@ logger:
 
 model:
   classname: salina_cl.algorithms.ppo_fromscratch.model.PPOFromScratch
+  seed: 1
 
   params:
     evaluation:
-      device: cpu
-      seed: 10
+      device: cpu    
       n_rollouts: 10
       evaluate_success: False
 
     ppo:
-      seed: 11
-
       learning_device: cpu
       acquisition_device: cpu
 

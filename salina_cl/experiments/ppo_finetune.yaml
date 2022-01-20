@@ -1,5 +1,3 @@
-run: 1
-
 logger:
   classname: salina.logger.TFLogger
   log_dir: ./ppo_finetune
@@ -9,17 +7,14 @@ logger:
 
 model:
   classname: salina_cl.algorithms.ppo_finetune.model.PPOFineTune
-
+  seed: 10
   params:
     evaluation:
       device: cpu
-      seed: 10
       n_rollouts: 10
       evaluate_success: False
 
     ppo:
-      seed: 11
-
       learning_device: cpu
       acquisition_device: cpu
 

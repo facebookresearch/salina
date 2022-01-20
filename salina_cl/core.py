@@ -99,7 +99,8 @@ class RLTask(Task):
         return self._n_interactions
 
 class RLModel(Model):
-    def __init__(self,params):
+    def __init__(self,seed,params):
+        self.seed=seed
         self.cfg=params
         self._stage=0
 
@@ -125,7 +126,7 @@ class RLModel(Model):
                     policy_agent.eval()
                     no_autoreset=EpisodesDone()
                     acquisition_agent=TemporalAgent(Agents(env_agent,no_autoreset,policy_agent))
-                    acquisition_agent.seed(self.cfg.evaluation.seed+self._stage*100)
+                    acquisition_agent.seed(self.seed*13+self._stage*100)
                     acquisition_agent.to(self.cfg.evaluation.device)
 
                     avg_reward=0.0

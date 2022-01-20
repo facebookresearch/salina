@@ -34,7 +34,7 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_max_interactions):
+def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, seed, n_max_interactions):
     time_unit=None
     if cfg_td3.time_limit>0:
         time_unit=compute_time_unit(cfg_ppo.device)
@@ -47,13 +47,13 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, n_m
     acquisition_workspace=Workspace()
     if cfg_td3.n_processes>1:
         acq_agent,acquisition_workspace=NRemoteAgent.create(acq_agent, num_processes=cfg_td3.n_processes, time_size=cfg_td3.n_timesteps, n_steps=1)
-    acq_agent.seed(cfg_td3.seed)
+    acq_agent.seed(seed)
 
     control_env_agent=copy.deepcopy(env_agent)
     control_action_agent=copy.deepcopy(action_agent)
     control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_td3.acquisition_device)
     control_env_agent.to(cfg_td3.acquisition_device)
-    control_agent.seed(cfg_td3.seed)
+    control_agent.seed(seed)
     control_agent.eval()
 
     # == Setting up the training agents

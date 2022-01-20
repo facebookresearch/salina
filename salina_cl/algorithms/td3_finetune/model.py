@@ -5,7 +5,7 @@ from salina_cl.algorithms.tools import weight_init
 import time
 
 class TD3FineTune(RLModel):
-    def __init__(self,params):
+    def __init__(self,seed,params):
         super().__init__(params)
         self.td3_agent=None
         self.q_agent=None
@@ -32,7 +32,7 @@ class TD3FineTune(RLModel):
         self.q2_agent.apply(weight_init)
         env_agent=task.make()
         control_env_agent=task.make()
-        r,self.td3_agent,self.q1_agent,self.q2_agent,replay_buffer=td3_train(self.q1_agent, self.q2_agent, self.td3_agent, env_agent,logger, self.cfg.td3,n_max_interactions=task.n_interactions())
+        r,self.td3_agent,self.q1_agent,self.q2_agent,replay_buffer=td3_train(self.q1_agent, self.q2_agent, self.td3_agent, env_agent,logger, self.cfg.td3,seed,n_max_interactions=task.n_interactions())
         return r
 
     def get_evaluation_agent(self,task_id):

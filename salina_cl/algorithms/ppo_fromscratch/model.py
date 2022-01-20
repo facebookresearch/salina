@@ -6,8 +6,8 @@ import time
 import numpy as np
 
 class PPOFromScratch(RLModel):
-    def __init__(self,params):
-        super().__init__(params)
+    def __init__(self,seed,params):
+        super().__init__(seed,params)
         self.ppo_agent=None
         self.critic_agent=None
         self.ppo_agents={}
@@ -29,7 +29,7 @@ class PPOFromScratch(RLModel):
         self.critic_agent.apply(weight_init)
         self.ppo_agent.apply(weight_init)
         env_agent=task.make()
-        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,n_max_interactions=task.n_interactions())
+        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,self.seed,n_max_interactions=task.n_interactions())
         self.ppo_agents[task.task_id()]=self.ppo_agent
         return r
 

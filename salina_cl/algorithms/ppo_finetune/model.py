@@ -5,8 +5,8 @@ from salina_cl.algorithms.tools import weight_init
 import time
 
 class PPOFineTune(RLModel):
-    def __init__(self,params):
-        super().__init__(params)
+    def __init__(self,seed,params):
+        super().__init__(seed,params)
         self.ppo_agent=None
         self.critic_agent=None
 
@@ -29,7 +29,7 @@ class PPOFineTune(RLModel):
             self._create_agent(task,logger)
         self.critic_agent.apply(weight_init)
         env_agent=task.make()
-        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,n_max_interactions=task.n_interactions())
+        r,self.ppo_agent,self.critic_agent=ppo_train(self.ppo_agent, self.critic_agent, env_agent,logger, self.cfg.ppo,self.seed,n_max_interactions=task.n_interactions())
 
         return r
 

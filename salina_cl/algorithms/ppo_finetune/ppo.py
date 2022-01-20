@@ -36,7 +36,7 @@ def _state_dict(agent, device):
         sd[k] = v.to(device)
     return sd
 
-def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_interactions):
+def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_interactions):
     action_agent.train()
     critic_agent.train()
     time_unit=None
@@ -53,13 +53,13 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,n_max_intera
     acquisition_workspace=Workspace()
     if cfg_ppo.n_processes>1:
         acquisition_agent,acquisition_workspace=NRemoteAgent.create(acquisition_agent, num_processes=cfg_ppo.n_processes, time_size=cfg_ppo.n_timesteps, n_steps=1)
-    acquisition_agent.seed(cfg_ppo.seed)
+    acquisition_agent.seed(seed)
 
     control_env_agent=copy.deepcopy(env_agent)
     control_action_agent=copy.deepcopy(action_agent)
     control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(cfg_ppo.acquisition_device)  
     control_env_agent.to(cfg_ppo.acquisition_device)
-    control_agent.seed(cfg_ppo.seed)
+    control_agent.seed(seed)
     control_agent.eval()
 
     train_agent = Agents(action_agent, critic_agent).to(cfg_ppo.learning_device)
