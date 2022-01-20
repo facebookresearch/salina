@@ -51,6 +51,14 @@ class Model:
         """
         raise NotImplementedError
 
+    def memory_size(self) -> dict:
+        """ Returns a dict containing different infos about the memory size of the model
+
+        Returns:
+            dict: a dict containing different infos about the memory size of the model
+        """        
+        raise NotImplementedError
+
 class RLTask(Task):
     """ A Reinforcement Learning task defined as a SaLinA agent
     """

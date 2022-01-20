@@ -1,10 +1,10 @@
 from salina_cl.core import RLModel
 from salina import instantiate_class
-from salina_cl.algorithms.optimizers.td3 import td3_train
-from salina_cl.algorithms.optimizers.tools import weight_init
+from salina_cl.algorithms.td3_finetune.td3 import td3_train
+from salina_cl.algorithms.tools import weight_init
 import time
 
-class FineTune(RLModel):
+class TD3FineTune(RLModel):
     def __init__(self,params):
         super().__init__(params)
         self.td3_agent=None
@@ -37,3 +37,7 @@ class FineTune(RLModel):
 
     def get_evaluation_agent(self,task_id):
         return self.td3_agent
+
+    def memory_size(self):
+        pytorch_total_params = sum(p.numel() for p in self.td3_agent.parameters())
+        return {"n_parameters":pytorch_total_params}

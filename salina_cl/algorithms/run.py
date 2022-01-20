@@ -13,12 +13,15 @@ def main(cfg):
     stage=0
     for train_task in scenario.train_tasks():
         model.train(train_task,logger)
-        evaluation=model.evaluate(scenario.test_tasks(),logger_evaluation)
-        print(evaluation)
+        evaluation=model.evaluate(scenario.test_tasks(),logger_evaluation)        
         for tid in evaluation:
             for k,v in evaluation[tid].items():
                 logger_evaluation.add_scalar(str(tid)+"/"+k,v,stage)
+        m_size=model.memory_size()
+        for k,v in m_size.items():
+            logger_evaluation.add_scalar("memory/"+k,v,stage)
         stage+=1
+    logger.close()
     print("....done !")
 
 if __name__ == "__main__":

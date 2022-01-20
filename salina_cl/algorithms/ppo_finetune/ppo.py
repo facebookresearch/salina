@@ -21,7 +21,7 @@ from salina.logger import TFLogger
 from salina_examples.rl.ppo_brax.agents import make_brax_env,make_gym_env,make_env
 import numpy as np
 import random
-from salina_cl.algorithms.optimizers.tools import compute_time_unit
+from salina_cl.algorithms.tools import compute_time_unit
 from salina.agents.remote import NRemoteAgent
 
 def clip_grad(parameters, grad):

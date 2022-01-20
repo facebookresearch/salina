@@ -6,18 +6,17 @@ logger:
   verbose: False
 
 scenario:
-  classname: salina_cl.scenarios.classic_control.cartpole.cartpole_test
+  classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_test
   n_train_envs: 32
   n_evaluation_envs: 32
-  n_steps: 100000
-  n_tasks: 6
+  n_steps: 10000
 
 model:
-  classname: salina_cl.algorithms.td3_finetune.model.TD3FineTune
+  classname: salina_cl.algorithms.td3_finetune.model.FineTune
 
   params:
     evaluation:
-      device: cpu
+      device: cuda:0
       seed: 10
       n_rollouts: 10
       evaluate_success: False
@@ -25,9 +24,9 @@ model:
     td3:
       seed: 11
 
-      learning_device: cpu
-      acquisition_device: cpu
-      buffer_device: cpu
+      learning_device: cuda:0
+      acquisition_device: cuda:0
+      buffer_device: cuda:0
 
       optimizer_policy:
         classname: torch.optim.Adam
@@ -45,8 +44,6 @@ model:
       n_processes: 1
 
       control_every_n_epochs: 10
-      n_control_rollouts: 1
-      
       buffer_time_size: 2
       initial_buffer_size: 1
       buffer_size: 1000000

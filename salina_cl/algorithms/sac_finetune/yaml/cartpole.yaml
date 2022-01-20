@@ -13,7 +13,7 @@ scenario:
   n_tasks: 6
 
 model:
-  classname: salina_cl.algorithms.sac_finetune.model.FineTune
+  classname: salina_cl.algorithms.sac_finetune.model.SACFineTune
 
   params:
     evaluation:

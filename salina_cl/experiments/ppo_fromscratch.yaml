@@ -1,19 +1,14 @@
+run: 1
+
 logger:
   classname: salina.logger.TFLogger
-  log_dir: ./finetune_cartpole
+  log_dir: ./ppo_fromscratch
   every_n_seconds: 10
   modulo: 1
   verbose: False
 
-scenario:
-  classname: salina_cl.scenarios.classic_control.cartpole.cartpole_test
-  n_train_envs: 32
-  n_evaluation_envs: 32
-  n_tasks: 3
-  n_steps: 100000
-
 model:
-  classname: salina_cl.algorithms.ppo_finetune.model.PPOFineTune
+  classname: salina_cl.algorithms.ppo_fromscratch.model.PPOFromScratch
 
   params:
     evaluation:

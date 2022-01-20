@@ -80,6 +80,9 @@ def weight_init(m):
                 init.normal_(param.data)
 
 def compute_time_unit(device):
+    """ Compute a time unit as the time in seconds used to do a given number of forward bacward over random data
+    This time unit aims at normalizing the learning time over different computers
+    """    
     x=torch.randn(512,28*28).to(device)
     y=torch.randint(low=0,high=10,size=(512,)).to(device)
     m=nn.Sequential(nn.Linear(28*28,10))
