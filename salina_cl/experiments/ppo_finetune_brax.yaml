@@ -26,15 +26,15 @@ model:
         classname: torch.optim.Adam
         lr: 0.0003
 
-      clip_grad: 100.0
+      clip_grad: 10.0
 
       control_every_n_epochs: 100
       n_control_rollouts: 1
-      n_timesteps: 16
+      n_timesteps: 32
       n_processes: 1
-      n_mini_batches: 128
-      n_envs_per_minibatch: 256
-      n_timesteps_per_minibatch: 2
+      n_mini_batches: 256
+      n_envs_per_minibatch: 128
+      n_timesteps_per_minibatch: 10
       n_times_per_minibatch: 1
 
       discount_factor: 0.99
@@ -46,7 +46,7 @@ model:
       time_limit: 0
 
     ppo_agent:
-      classname: salina_cl.algorithms.ppo_finetune.agents.NormalizedActionAgent
+      classname: salina_cl.algorithms.ppo_finetune.agents.BatchNormActionAgent
       hidden_size: 256
       n_layers: 4
       input_dimension: nil

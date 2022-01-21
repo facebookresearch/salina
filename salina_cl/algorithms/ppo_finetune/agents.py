@@ -29,41 +29,13 @@ class BatchNorm(Agent):
             input=self.bn(input)
             self.set(("env/normalized_env_obs", t), input)
         else:
-            for t in range(self.workspace.time_size()):
-                self.forward(t=t) 
-            
-class Normalizer(Agent):
-    def __init__(self, input_dimension):
-        super().__init__()        
-        self.n_features = input_dimension[0]
-        self.n = torch.nn.Parameter(torch.zeros(self.n_features),requires_grad=False)
-        self.mean = torch.nn.Parameter(torch.zeros(self.n_features),requires_grad=False)
-        self.mean_diff = torch.nn.Parameter(torch.zeros(self.n_features),requires_grad=False)
-
-    def forward(self, t=None, **kwargs):
-        if not t is None:
-            input = self.get(("env/env_obs", t))
-            self.update(input)
-            input = self.normalize(input)
-            self.set(("env/normalized_env_obs", t), input.detach())
-        else:
             input = self.get("env/env_obs")
-            for t in range(self.workspace.time_size()):
-                self.update(self.get(("env/env_obs", t)))            
-            input = self.normalize(input)
-            self.set("env/normalized_env_obs", input.detach())
-
-    def update(self, x):
-        self.n += 1.0
-        last_mean = self.mean.clone()
-        self.mean += (x - self.mean).mean(dim=0) / self.n
-        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
-
-    def normalize(self, inputs):
-        var = torch.clamp(self.mean_diff / self.n, min=1e-2)
-        obs_std = torch.sqrt(var.detach())
-        return (inputs - self.mean.detach()) / obs_std
-
+            T,B,s=input.size()
+            input=input.reshape(T*B,s)
+            input=self.bn(input)
+            input=input.reshape(T,B,s)
+            self.set("env/normalized_env_obs",input)
+   
 def clip_grad(parameters, grad):
     return (
         torch.nn.utils.clip_grad_norm_(parameters, grad)
@@ -71,7 +43,7 @@ def clip_grad(parameters, grad):
         else torch.Tensor([0.0])
     )
 
-def NormalizedActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
+def BatchNormActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
     return Agents(BatchNorm(input_dimension),ActionAgent(input_dimension,output_dimension, n_layers, hidden_size,True))
 
 class ActionAgent(Agent):
@@ -124,6 +96,10 @@ class ActionAgent(Agent):
             self.set(("action_logprobs", t), logp_pi)
             action = torch.tanh(action)
             self.set(("action", t), action)
+
+def BatchNormCriticAgent(input_dimension, n_layers, hidden_size):
+    return Agents(BatchNorm(input_dimension),CriticAgent(input_dimension, n_layers, hidden_size,True))
+
 
 class CriticAgent(Agent):
     def __init__(self, input_dimension, n_layers, hidden_size,use_normalized_obs=False):
