@@ -2,7 +2,7 @@
 
 **Documentation**:[Read the docs](https://salina.readthedocs.io/en/latest/)
 
-## TL;DR
+## TL;DR.
 
 `salina` is a lightweight library extending PyTorch modules for developping **sequential decision models**.  It can be used for **Reinforcement Learning** (including model-based with differentiable environments, multi-agent RL, etc...), but also in a supervised/unsupervised learning settings (for instance for NLP, Computer Vision, etc...).
 * It allows to write very complex sequential models (or policies) in few lines

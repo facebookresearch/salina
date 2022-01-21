@@ -156,3 +156,21 @@ class PrintAgent(Agent):
     def forward(self, t, **kwargs):
         for n in self.names:
             print(n, " = ", self.get((n, t)))
+
+class EpisodesDone(TAgent):
+    """
+    If done is encountered at time t, then done=True for all timeteps t'>=t
+    It allows to simulate a single episode agent based on an autoreset agent
+    """
+
+    def __init__(self, in_var="env/done", out_var="env/done"):
+        super().__init__()
+        self.in_var = in_var
+        self.out_var = out_var
+
+    def forward(self, t, **kwargs):
+        d = self.get((self.in_var, t))
+        if t == 0:
+            self.state = torch.zeros_like(d).bool()
+        self.state = torch.logical_or(self.state, d)
+        self.set((self.out_var, t), self.state)
