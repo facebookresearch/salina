@@ -1,8 +1,19 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
+
 """
 Classic cart-pole system implemented by Rich Sutton et al.
 Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 """
+
+""" Code is greatly inspired by https://github.com/sunblaze-ucb/rl-generalization """
+
 
 import math
 from typing import Optional
@@ -22,13 +33,15 @@ def make_env(env,max_episode_steps):
 
 def cartpole_test(n_train_envs,n_evaluation_envs,n_tasks,n_steps):
     classes=[
+       ("ContinuousCartPoleEnv",n_steps),
        ("StrongPushCartPole",n_steps),
-       ("WeakPushCartPole",n_steps),
        ("ShortPoleCartPole",n_steps),
+       ("HeavyPoleCartPole",n_steps),
+       ("WeakPushCartPole",n_steps),
        ("LongPoleCartPole",n_steps),
        ("LightPoleCartPole",n_steps),
-       ("HeavyPoleCartPole",n_steps),
     ]
+       
     assert n_tasks<=len(classes)
     classes=classes[:n_tasks]
 

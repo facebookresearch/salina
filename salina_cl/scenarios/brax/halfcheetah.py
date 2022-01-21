@@ -1,3 +1,10 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
 from salina_cl.core import RLTask
 from salina_cl.core import Scenario
 from brax.envs import wrappers
@@ -58,8 +65,11 @@ def make_halfcheetah(seed = 0,
         return wrappers.GymWrapper(env, seed=seed, backend=backend)
     return wrappers.VectorGymWrapper(env, seed=seed, backend=backend)
 
-def halfcheetah_test(n_train_envs,n_evaluation_envs,n_steps):
+def halfcheetah_3tasks(n_train_envs,n_evaluation_envs,n_steps):
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
+
+def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal"])
 
 class MultiHalfcheetah(Scenario):
     def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):

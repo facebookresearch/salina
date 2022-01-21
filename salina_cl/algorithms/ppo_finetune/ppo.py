@@ -130,6 +130,7 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_i
             action_std=cfg_ppo.action_std,
         )
         workspace=Workspace(acquisition_workspace).to(cfg_ppo.learning_device)
+        workspace.set_full("acquisition_action_logprobs",workspace["action_logprobs"].detach())
         n_interactions+=(workspace.time_size()-1)*workspace.batch_size()
         logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
@@ -157,7 +158,7 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_i
 
         #Learning on batches
         for miniworkspace in miniworkspaces:
-            action,old_action_lp=miniworkspace["action","action_logprobs"]
+            action,old_action_lp=miniworkspace["action","acquisition_action_logprobs"]
             # === Update policy
             train_agent.train()
             train_agent(
