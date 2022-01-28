@@ -1,0 +1,92 @@
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./subspace_finetune_brax
+  every_n_seconds: 10
+  modulo: 10
+  verbose: False
+
+scenario:
+
+model:
+  classname: salina_cl.models.subspace_ppo_finetune.model.SubspacePPOFineTune
+  seed: 9
+
+  params:
+    evaluation:
+      device: cuda:0
+      seed: 10
+      n_rollouts: 1
+      evaluate_success: False
+
+    ppo:
+      seed: 11
+
+      learning_device: cuda:0
+      acquisition_device: cuda:0
+
+      optimizer_policy:
+        classname: torch.optim.Adam
+        lr: 0.0003
+
+      optimizer_critic:
+        classname: torch.optim.Adam
+        lr: 0.0003
+
+      clip_grad: 10.0
+
+      control_every_n_epochs: 100
+      n_control_rollouts: 1
+      n_timesteps: 600
+      n_processes: 0
+      n_mini_batches: 256
+      n_envs_per_minibatch: 512
+      n_timesteps_per_minibatch: 20
+      n_times_per_minibatch: 1
+
+      discount_factor: 0.99
+      clip_ratio: 0.3
+      action_std: 0.5
+      gae: 0.96
+      reward_scaling: 1.0
+
+      time_limit: 0
+
+      
+
+    policy_agent:
+      classname: salina_cl.algorithms.subspace_ppo_finetune.agents.BatchNormSubspaceActionAgent
+      hidden_size: 64
+      n_layers: 4
+      input_dimension: nil
+      output_dimension: nil
+
+      n_initial_anchors: 1
+      dist_type: flat
+
+    critic_agent:
+      classname: salina_cl.algorithms.subspace_ppo_finetune.agents.BatchNormCriticAgent
+      hidden_size: 256
+      n_layers: 4
+      input_dimension: nil
+
+      n_anchors:
+
+hydra:
+  run:
+    dir: ./
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 120
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+    comment: CoLLa2022
+  job_logging:
+    root:
+      handlers: []
+
+defaults:
+  - override hydra/launcher: submitit_slurm

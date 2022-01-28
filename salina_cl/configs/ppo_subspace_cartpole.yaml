@@ -1,0 +1,97 @@
+name: ppo_subspace
+seed: 0
+
+defaults: 
+  - scenario: cartpole_7tasks
+  - override hydra/launcher: submitit_slurm
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: .
+  every_n_seconds: 10
+  modulo: 1
+  verbose: False
+
+model:
+  classname: salina_cl.models.subspace.Incremental
+  seed: ${seed}
+  params:
+    evaluation:
+      device: cpu
+      seed: ${seed}
+      n_rollouts: 5
+      evaluate_success: False
+
+    algorithm: 
+      classname: salina_cl.algorithms.ppo.ppo
+      params:
+        learning_device: cpu
+        acquisition_device: cpu
+
+        optimizer_policy:
+          classname: torch.optim.Adam
+          lr: 0.0003
+
+        optimizer_critic:
+          classname: torch.optim.Adam
+          lr: 0.0003
+
+        clip_grad: 10.0
+
+        control_every_n_epochs: 10
+        n_control_rollouts: 1
+        n_timesteps: 32
+        n_processes: 1
+        n_mini_batches: 4
+        n_envs_per_minibatch: 16
+        n_timesteps_per_minibatch: 16
+        n_times_per_minibatch: 1
+
+        discount_factor: 0.99
+        clip_ratio: 0.2
+        action_std: 0.4
+        gae: 0.95
+        reward_scaling: 1.0
+
+        time_limit: 0
+        
+    policy_agent:
+      classname: salina_cl.agents.subspace_agents.SubspaceActionAgent
+      hidden_size: 8
+      n_layers: 2
+      input_dimension: nil
+      output_dimension: nil
+      n_initial_anchors: 1
+      dist_type: flat
+
+    critic_agent:
+      classname: salina_cl.agents.subspace_agents.CriticAgent
+      hidden_size: 32
+      n_layers: 2
+      input_dimension: nil
+      n_anchors:
+
+hydra:
+  run:
+    dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+  sweep:
+    dir: resuls/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    config:
+      override_dirname:
+        item_sep: /
+        exclude_keys:
+          - seed
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 10
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+  job_logging:
+    root:
+      handlers: []
