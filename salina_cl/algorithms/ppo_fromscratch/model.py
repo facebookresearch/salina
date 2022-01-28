@@ -16,9 +16,9 @@ import numpy as np
 class PPOFromScratch(RLModel):
     def __init__(self,seed,params):
         super().__init__(seed,params)
-        self.ppo_agent=None
-        self.critic_agent=None
-        self.ppo_agents={}
+        self.ppo_agent = None
+        self.critic_agent = None
+        self.ppo_agents = {}
 
     def _create_agent(self,task,logger):
         input_dimension=task.input_dimension()

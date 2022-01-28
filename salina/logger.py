@@ -114,9 +114,10 @@ class TFLogger(SummaryWriter):
         else:
             return h
 
-    def save_hps(self, hps):
+    def save_hps(self, hps, verbose = True):
         hps = self._to_dict(hps)
-        print(hps)
+        if verbose:
+            print(hps)
         f = open(self.log_dir + "/params.json", "wt")
         f.write(str(hps) + "\n")
         f.close()

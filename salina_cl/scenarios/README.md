@@ -8,11 +8,6 @@ A CRL Scenario is a sequence of training and testing tasks. Each task is associa
 
 ## Provided Scenarios
 
-### Classical Control
-
-
-
-### Brax Environments
-
-
-### Meta-world based environments
+You can add your own scenario in this repo. To use them in an experiment, simply add a yaml file `my_scenario` in the config/scenario folder and use the option `scenario=my_scenario` in the command line. Here is a list of the current scenarios:
+* `cartpole_debug`
+* `cartpole_7tasks`

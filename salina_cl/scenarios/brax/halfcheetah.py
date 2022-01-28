@@ -5,13 +5,22 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-from salina_cl.core import RLTask
+from salina_cl.core import Task
 from salina_cl.core import Scenario
 from brax.envs import wrappers
 import brax
 from brax.envs.halfcheetah import Halfcheetah
 from google.protobuf import text_format
 from brax.envs.halfcheetah import _SYSTEM_CONFIG as halfcheetah_config
+
+def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal"])
+
+def halfcheetah_hard(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
+
+def halfcheetah_gravity(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["gravity_"+str(2*x/10) for x in range(1,11)])
 
 env_cfgs = {
     "normal":{},
@@ -24,9 +33,10 @@ env_cfgs = {
     "modified_physics":{
       "gravity": 1.5,
       "friction": 1.25,
-      }
+      },
 }
-
+env_gravity_cfgs = {"gravity_"+str(2*x/10):{"gravity":2*x/10} for x in range(1,11)}
+env_cfgs = dict(**env_cfgs,**env_gravity_cfgs)
 
 class CustomHalfcheetah(Halfcheetah):
     def __init__(self, env_cfg, **kwargs):
@@ -65,12 +75,6 @@ def make_halfcheetah(seed = 0,
         return wrappers.GymWrapper(env, seed=seed, backend=backend)
     return wrappers.VectorGymWrapper(env, seed=seed, backend=backend)
 
-def halfcheetah_3tasks(n_train_envs,n_evaluation_envs,n_steps):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
-
-def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal"])
-
 class MultiHalfcheetah(Scenario):
     def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):
         print("Scenario is ",cfgs)
@@ -88,7 +92,7 @@ class MultiHalfcheetah(Scenario):
                                  "env_cfg":cfg},
                 "n_envs":n_train_envs
             }
-            self._train_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k,n_steps))
+            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
 
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):
@@ -99,7 +103,7 @@ class MultiHalfcheetah(Scenario):
                                  "env_cfg":cfg},
                 "n_envs":n_evaluation_envs
             }
-            self._test_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k))
+            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k))
 
     def train_tasks(self):
         return self._train_tasks

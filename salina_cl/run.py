@@ -4,17 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
-
 import hydra
-from omegaconf import DictConfig, OmegaConf
 from salina import instantiate_class
 import torch
 
-@hydra.main(config_path=".", config_name="cartpole.yaml")
+@hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
     logger = instantiate_class(cfg.logger)
-    logger.save_hps(cfg)
+    logger.save_hps(cfg, verbose =False)
     model = instantiate_class(cfg.model)
     scenario = instantiate_class(cfg.scenario)
     logger_evaluation=logger.get_logger("evaluation/")
