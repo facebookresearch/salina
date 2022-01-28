@@ -16,13 +16,11 @@ permalink: https://perma.cc/C9ZM-652R
 
 
 import math
-from typing import Optional
-
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
-from salina_cl.core import Scenario,RLTask
+from salina_cl.core import Scenario,Task
 from salina import instantiate_class
 from gym.wrappers import TimeLimit
 
@@ -31,7 +29,7 @@ def make_env(env,max_episode_steps):
     e=TimeLimit(e,max_episode_steps=max_episode_steps)
     return e
 
-def cartpole_test(n_train_envs,n_evaluation_envs,n_tasks,n_steps):
+def cartpole_7tasks(n_train_envs,n_evaluation_envs,n_tasks,n_steps,**kwargs):
     classes=[
        ("ContinuousCartPoleEnv",n_steps),
        ("StrongPushCartPole",n_steps),
@@ -45,7 +43,7 @@ def cartpole_test(n_train_envs,n_evaluation_envs,n_tasks,n_steps):
     assert n_tasks<=len(classes)
     classes=classes[:n_tasks]
 
-    return CartPoleScenario(n_train_envs,n_evaluation_envs,100,classes)
+    return CartPoleScenario(n_train_envs,n_evaluation_envs,200,classes)
 
 class CartPoleScenario(Scenario):
     def __init__(self,n_train_envs,n_evaluation_envs,max_episode_steps,classes=None):
@@ -60,7 +58,7 @@ class CartPoleScenario(Scenario):
                         "make_env_args":{"env":{"classname":"salina_cl.scenarios.classic_control.cartpole."+c[0]},"max_episode_steps":max_episode_steps},
                         "n_envs":n_train_envs,
                 }
-                self._train_tasks.append(RLTask(env_agent_cfg=agent_cfg,input_dimension=input_dimension,output_dimension=output_dimension,task_id=k,n_interactions=c[1]))
+                self._train_tasks.append(Task(env_agent_cfg=agent_cfg,input_dimension=input_dimension,output_dimension=output_dimension,task_id=k,n_interactions=c[1]))
 
         self._test_tasks=[]
         for k,c in enumerate(classes):
@@ -70,7 +68,7 @@ class CartPoleScenario(Scenario):
                     "make_env_args":{"env":{"classname":"salina_cl.scenarios.classic_control.cartpole."+c[0]},"max_episode_steps":max_episode_steps},
                 "n_envs":n_evaluation_envs
             }
-            self._test_tasks.append(RLTask(agent_cfg,input_dimension,output_dimension,k))
+            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k))
 
     def train_tasks(self):
         return self._train_tasks
@@ -314,18 +312,18 @@ class ModifiableCartPoleEnv(ContinuousCartPoleEnv):
 
     RANDOM_LOWER_FORCE_MAG = 5.0
     RANDOM_UPPER_FORCE_MAG = 15.0
-    EXTREME_LOWER_FORCE_MAG = 1.0
-    EXTREME_UPPER_FORCE_MAG = 20.0
+    EXTREME_LOWER_FORCE_MAG = 3.5
+    EXTREME_UPPER_FORCE_MAG = 40.0
 
     RANDOM_LOWER_LENGTH = 0.25
     RANDOM_UPPER_LENGTH = 0.75
     EXTREME_LOWER_LENGTH = 0.05
-    EXTREME_UPPER_LENGTH = 1.0
+    EXTREME_UPPER_LENGTH = 2.0
 
     RANDOM_LOWER_MASSPOLE = 0.05
     RANDOM_UPPER_MASSPOLE = 0.5
     EXTREME_LOWER_MASSPOLE = 0.01
-    EXTREME_UPPER_MASSPOLE = 1.0
+    EXTREME_UPPER_MASSPOLE = 2.0
 
     def _followup(self):
         """Cascade values of new (variable) parameters"""

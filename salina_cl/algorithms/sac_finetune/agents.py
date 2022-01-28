@@ -4,18 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
-import gym
 import torch
 import torch.nn as nn
-import math
-from salina_cl.algorithms.optimizers.distributions import SquashedNormal
-from salina_cl.algorithms.optimizers.tools import weight_init
-
-from salina import Agent, instantiate_class
-from salina.agents import Agents
-import numpy as np
-import torch.nn.functional as F
+from salina_cl.algorithms.distributions import SquashedNormal
+from salina_cl.algorithms.tools import weight_init
+from salina import Agent
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -5
@@ -62,8 +55,7 @@ class ActionAgent(Agent):
             log_std = self.fc2(input)
 
             log_std = torch.tanh(log_std)
-            log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +
-                                                                        1)
+            log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +1)
             self.set(("sac/mean",t),mean)
             self.set(("sac/log_std",t),log_std)
             self.set(("action_std",t),log_std.exp())
@@ -89,8 +81,7 @@ class ActionAgent(Agent):
             log_std = self.fc2(input)
 
             log_std = torch.tanh(log_std)
-            log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +
-                                                                        1)
+            log_std = LOG_SIG_MIN + 0.5 * (LOG_SIG_MAX - LOG_SIG_MIN) * (log_std +1)
             self.set("sac/mean",mean)
             self.set("sac/log_std",log_std)
             self.set("action_std",log_std.exp())

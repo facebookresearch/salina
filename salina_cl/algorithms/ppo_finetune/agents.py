@@ -4,19 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
-
-import gym
 import numpy as np
 import torch
 import torch.nn.functional as F
-from brax.envs import _envs, create_gym_env, wrappers
-from brax.envs.to_torch import JaxToTorchWrapper
-from gym.wrappers import TimeLimit
 from torch import nn
 from torch.distributions.normal import Normal
 from salina import Agent
 from salina.agents import Agents
+
 
 class BatchNorm(Agent):
     def __init__(self,input_dimension):

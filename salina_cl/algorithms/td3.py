@@ -4,40 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
 import copy
-import math
 import time
-
-import hydra
 import torch
-import torch.nn as nn
-from omegaconf import DictConfig, OmegaConf
 import numpy as np
-import salina
-import salina.rl.functional as RLF
-from salina import Workspace, get_arguments, get_class, instantiate_class
+from salina import Workspace, get_arguments, get_class
 from salina.agents import Agents, TemporalAgent, EpisodesDone
-from salina.agents.brax import AutoResetBraxAgent,NoAutoResetBraxAgent
-from salina.logger import TFLogger
+from salina.agents.remote import NRemoteAgent
 from salina.rl.replay_buffer import ReplayBuffer
-from salina_examples import weight_init
-from salina import Agent
-
-def soft_update_params(net, target_net, tau):
-    for param, target_param in zip(net.parameters(), target_net.parameters()):
-        target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
-
-def _state_dict(agent, device):
-    sd = agent.state_dict()
-    for k, v in sd.items():
-        sd[k] = v.to(device)
-    return sd
+from salina_cl.algorithms.tools import compute_time_unit, _state_dict, soft_update_params
 
 def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, seed, n_max_interactions):
     time_unit=None
     if cfg_td3.time_limit>0:
-        time_unit=compute_time_unit(cfg_ppo.device)
+        time_unit=compute_time_unit(cfg_td3.device)
         logger.message("Time unit is "+str(time_unit)+" seconds.")
 
     action_agent.set_name("action")
@@ -46,7 +26,7 @@ def td3_train(q_agent_1, q_agent_2, action_agent, env_agent,logger, cfg_td3, see
     acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(cfg_td3.acquisition_device)
     acquisition_workspace=Workspace()
     if cfg_td3.n_processes>1:
-        acq_agent,acquisition_workspace=NRemoteAgent.create(acq_agent, num_processes=cfg_td3.n_processes, time_size=cfg_td3.n_timesteps, n_steps=1)
+        acq_agent,acquisition_workspace = NRemoteAgent.create(acq_agent, num_processes=cfg_td3.n_processes, time_size=cfg_td3.n_timesteps, n_steps=1)
     acq_agent.seed(seed)
 
     control_env_agent=copy.deepcopy(env_agent)

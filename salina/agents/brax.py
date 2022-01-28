@@ -85,7 +85,7 @@ class BraxAgent(TAgent):
             o = self.gym_env.reset()
             if self.brax_device is None:
                 self.brax_device = o.device
-                print(" -- BRAX Device is ", self.brax_device)
+                #print(" -- BRAX Device is ", self.brax_device)
                 self.to(self.brax_device)
 
             my_device = self.ghost_params.device

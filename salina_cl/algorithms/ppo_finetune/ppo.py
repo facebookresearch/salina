@@ -4,23 +4,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
 import copy
 import time
-
-import hydra
 import torch
-import torch.nn as nn
-
 import salina.rl.functional as RLF
-from salina import Agent, Workspace, instantiate_class, get_arguments, get_class
+from salina import Workspace, get_arguments, get_class
 from salina.agents import Agents, TemporalAgent, EpisodesDone
-from salina.agents.brax import AutoResetBraxAgent,NoAutoResetBraxAgent
-from salina.agents.gyma import AutoResetGymAgent,NoAutoResetGymAgent
-from salina.logger import TFLogger
-from salina_examples.rl.ppo_brax.agents import make_brax_env,make_gym_env,make_env
 import numpy as np
-import random
 from salina_cl.algorithms.tools import compute_time_unit
 from salina.agents.remote import NRemoteAgent
 
@@ -43,9 +33,6 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_i
     if cfg_ppo.time_limit>0:
         time_unit=compute_time_unit(cfg_ppo.device)
         logger.message("Time unit is "+str(time_unit)+" seconds.")
-
-    _original_action_agent=copy.deepcopy(action_agent)
-    _original_critic_agent=copy.deepcopy(critic_agent)
 
     action_agent.set_name("action")
     acq_action_agent=copy.deepcopy(action_agent)
@@ -88,16 +75,11 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_i
         if epoch%cfg_ppo.control_every_n_epochs==0:
             for a in control_agent.get_by_name("action"):
                 a.load_state_dict(_state_dict(action_agent, cfg_ppo.acquisition_device))
-
             control_agent.eval()
             rewards=[]
             for _ in range(cfg_ppo.n_control_rollouts):
                 w=Workspace()
-                control_agent(
-                    w,
-                    t=0,
-                    stop_variable="env/done"
-                )
+                control_agent(w,t=0,stop_variable="env/done")
                 length=w["env/done"].max(0)[1]
                 n_interactions+=length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
@@ -140,11 +122,9 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_i
         if d.any():
             r=workspace["env/cumulated_reward"][d].mean().item()
             logger.add_scalar("monitor/avg_training_reward",r,epoch)
-
             if "env/success" in list(workspace.keys()):
                 r=workspace["env/success"][d].mean().item()
                 logger.add_scalar("monitor/success",r,epoch)
-
         workspace.zero_grad()
 
         #Building mini workspaces
@@ -162,38 +142,17 @@ def ppo_train(action_agent, critic_agent, env_agent,logger, cfg_ppo,seed,n_max_i
             action,old_action_lp=miniworkspace["acquisition_action","acquisition_action_logprobs"]
             # === Update policy
             train_agent.train()
-            train_agent(
-                miniworkspace,
-                t=None,
-                action_std=cfg_ppo.action_std,
-            )
+            train_agent(miniworkspace,t=None,action_std=cfg_ppo.action_std)
             critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
-
             reward = reward * cfg_ppo.reward_scaling
-            gae = RLF.gae(
-                critic,
-                reward,
-                done,
-                cfg_ppo.discount_factor,
-                cfg_ppo.gae,
-            ).detach()
+            gae = RLF.gae(critic,reward,done,cfg_ppo.discount_factor,cfg_ppo.gae).detach()
             action_lp = miniworkspace["action_logprobs"]
             ratio = action_lp - old_action_lp
             ratio = ratio.exp()
             ratio = ratio[:-1]
-            clip_adv = (
-                torch.clamp(
-                    ratio,
-                    1 - cfg_ppo.clip_ratio,
-                    1 + cfg_ppo.clip_ratio,
-                )
-                * gae
-            )
+            clip_adv = torch.clamp(ratio,1 - cfg_ppo.clip_ratio,1 + cfg_ppo.clip_ratio) * gae
             loss_policy = -(torch.min(ratio * gae, clip_adv)).mean()
-
-            td0 = RLF.temporal_difference(
-                critic, reward, done, cfg_ppo.discount_factor
-            )
+            td0 = RLF.temporal_difference(critic, reward, done, cfg_ppo.discount_factor)
             loss_critic = (td0 ** 2).mean()
             optimizer_critic.zero_grad()
             optimizer_policy.zero_grad()
