@@ -38,7 +38,7 @@ model:
       n_control_rollouts: 1
       n_timesteps: 600
       n_processes: 0
-      n_mini_batches: 256
+      n_minibatches: 256
       n_envs_per_minibatch: 512
       n_timesteps_per_minibatch: 20
       n_times_per_minibatch: 1

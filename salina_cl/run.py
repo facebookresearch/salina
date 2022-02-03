@@ -7,6 +7,7 @@
 import hydra
 from salina import instantiate_class
 import torch
+import time
 
 @hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
@@ -36,5 +37,6 @@ if __name__ == "__main__":
     CUDA_AVAILABLE = torch.cuda.is_available()
     if CUDA_AVAILABLE:
         v = torch.ones(1, device="cuda:0")
-
+    _start = time.time()
     main()
+    print("time elapsed:",round((time.time()-_start),0),"sec")

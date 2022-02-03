@@ -1,66 +1,69 @@
-name: ppo_finetune_brax
+name: ppo_finetune
 seed: 0
 
 defaults: 
-  - scenario: halcheetah_simple
+  - scenario: halfcheetah_debug
   - override hydra/launcher: submitit_slurm
 
 logger:
   classname: salina.logger.TFLogger
-  log_dir: ./ppo_finetune
+  log_dir: .
   every_n_seconds: 10
-  modulo: 10
+  modulo: 1
   verbose: False
 
 model:
-  classname: salina_cl.algorithms.ppo_finetune.model.PPOFineTune
+  classname: salina_cl.models.single.FineTune
   seed: ${seed}
   params:
     evaluation:
       device: cuda:0
+      seed: ${seed}
       n_rollouts: 1
       evaluate_success: False
 
-    ppo:
-      learning_device: cuda:0
-      acquisition_device: cuda:0
+    algorithm: 
+      classname: salina_cl.algorithms.ppo.ppo
+      params:
+        learning_device: cuda:0
+        acquisition_device: cuda:0
 
-      optimizer_policy:
-        classname: torch.optim.Adam
-        lr: 0.0003
+        optimizer_policy:
+          classname: torch.optim.Adam
+          lr: 0.0003
 
-      optimizer_critic:
-        classname: torch.optim.Adam
-        lr: 0.0003
+        optimizer_critic:
+          classname: torch.optim.Adam
+          lr: 0.0003
 
-      clip_grad: 10.0
+        clip_grad: 10.0
 
-      control_every_n_epochs: 10
-      n_control_rollouts: 1
-      n_timesteps: 600
-      n_processes: 0
-      n_mini_batches: 256
-      n_envs_per_minibatch: 512
-      n_timesteps_per_minibatch: 20
-      n_times_per_minibatch: 1
+        control_every_n_epochs: 10
+        n_control_rollouts: 0
+        n_timesteps: 600
+        n_processes: 0
+        n_minibatches: 256
+        n_envs_per_minibatch: 512
+        n_timesteps_per_minibatch: 20
+        n_times_per_minibatch: 1
 
-      discount_factor: 0.99
-      clip_ratio: 0.2
-      action_std: 0.4
-      gae: 0.96
-      reward_scaling: 1.0
+        discount_factor: 0.99
+        clip_ratio: 0.3
+        action_std: 0.5
+        gae: 0.96
+        reward_scaling: 1.0
 
-      time_limit: 0
+        time_limit: 0
 
-    ppo_agent:
-      classname: salina_cl.algorithms.ppo_finetune.agents.ActionAgent
-      hidden_size: 256
+    policy_agent:
+      classname: salina_cl.agents.single_agents.ActionAgent
+      hidden_size: 64
       n_layers: 4
       input_dimension: nil
       output_dimension: nil
 
     critic_agent:
-      classname: salina_cl.algorithms.ppo_finetune.agents.CriticAgent
+      classname: salina_cl.agents.single_agents.CriticAgent
       hidden_size: 256
       n_layers: 4
       input_dimension: nil
@@ -85,7 +88,7 @@ hydra:
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 10
+    timeout_min: 180
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab

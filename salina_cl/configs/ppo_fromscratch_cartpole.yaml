@@ -42,7 +42,7 @@ model:
         n_control_rollouts: 1
         n_timesteps: 32
         n_processes: 1
-        n_mini_batches: 4
+        n_minibatches: 4
         n_envs_per_minibatch: 16
         n_timesteps_per_minibatch: 16
         n_times_per_minibatch: 1
@@ -70,7 +70,7 @@ model:
 
 hydra:
   run:
-    dir: resuls/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+    dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
   sweep:
     dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
     subdir: ${hydra.job.num}
@@ -80,12 +80,15 @@ hydra:
         item_sep: /
         exclude_keys:
           - seed
+    env_set:
+      OMP_NUM_THREADS: '1'
+      XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
   launcher:
     mem_gb: 16
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 10
+    timeout_min: 20
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab

@@ -30,16 +30,17 @@ class ppo:
         acq_action_agent=copy.deepcopy(action_agent)
         acquisition_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(self.cfg_ppo.acquisition_device)
         acquisition_workspace=Workspace()
-        if self.cfg_ppo.n_processes>1:
+        if self.cfg_ppo.n_processes > 1:
             acquisition_agent,acquisition_workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg_ppo.n_processes, time_size=self.cfg_ppo.n_timesteps, n_steps=1)
         acquisition_agent.seed(seed)
 
-        control_env_agent = copy.deepcopy(env_agent)
-        control_action_agent = copy.deepcopy(action_agent).to(self.cfg_ppo.acquisition_device) 
-        control_agent=TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(self.cfg_ppo.acquisition_device)  
-        control_env_agent.to(self.cfg_ppo.acquisition_device)
-        control_agent.seed(seed)
-        control_agent.eval()
+        if self.cfg_ppo.n_control_rollouts > 0:
+            control_env_agent = copy.deepcopy(env_agent)
+            control_action_agent = copy.deepcopy(action_agent).to(self.cfg_ppo.acquisition_device) 
+            control_agent = TemporalAgent(Agents(control_env_agent, EpisodesDone(), control_action_agent)).to(self.cfg_ppo.acquisition_device)  
+            control_env_agent.to(self.cfg_ppo.acquisition_device)
+            control_agent.seed(seed)
+            control_agent.eval()
 
         train_agent = Agents(action_agent, critic_agent).to(self.cfg_ppo.learning_device)
 
@@ -60,7 +61,7 @@ class ppo:
         best_performance = None
         while is_training:
         # Compute average performance of multiple rollouts
-            if epoch%self.cfg_ppo.control_every_n_epochs==0:
+            if (self.cfg_ppo.n_control_rollouts > 0) and (epoch%self.cfg_ppo.control_every_n_epochs==0):
                 for a in control_agent.get_by_name("action"):
                     a.load_state_dict(_state_dict(action_agent, self.cfg_ppo.acquisition_device))
                 control_agent.eval()
@@ -78,9 +79,9 @@ class ppo:
                 logger.add_scalar("validation/reward", mean_reward, epoch)
                 print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
             
-                if best_performance is None or mean_reward>=best_performance:
-                    best_performance=mean_reward
-                    best_model=copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
+                if best_performance is None or mean_reward >= best_performance:
+                    best_performance = mean_reward
+                    best_model = copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
                 logger.add_scalar("validation/best_reward", best_performance, epoch)
 
 
@@ -119,7 +120,7 @@ class ppo:
             #Learning for cfg.algorithm.update_epochs epochs
             miniworkspaces=[]
             _stb = time.time()
-            for _ in range(self.cfg_ppo.n_mini_batches):
+            for _ in range(self.cfg_ppo.n_minibatches):
                 miniworkspace=workspace.sample_subworkspace(self.cfg_ppo.n_times_per_minibatch,self.cfg_ppo.n_envs_per_minibatch,self.cfg_ppo.n_timesteps_per_minibatch)
                 miniworkspaces.append(miniworkspace)
             _etb = time.time()
@@ -163,7 +164,11 @@ class ppo:
                         is_training=time.time()-_training_start_time<self.cfg_ppo.time_limit*time_unit
 
         r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
-        action_agent,critic_agent=best_model
+        if self.cfg_ppo.n_control_rollouts == 0:
+            action_agent, critic_agent = copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
+        else:
+            action_agent, critic_agent = best_model
+        
         action_agent.to("cpu")
         critic_agent.to("cpu")
         if self.cfg_ppo.n_processes>1: acquisition_agent.close()

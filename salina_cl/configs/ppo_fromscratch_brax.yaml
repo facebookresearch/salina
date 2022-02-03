@@ -2,7 +2,7 @@ name: ppo_fromscratch
 seed: 0
 
 defaults: 
-  - scenario: cartpole_7tasks
+  - scenario: halfcheetah_debug
   - override hydra/launcher: submitit_slurm
 
 logger:
@@ -17,16 +17,16 @@ model:
   seed: ${seed}
   params:
     evaluation:
-      device: cpu
+      device: cuda:0
       seed: ${seed}
-      n_rollouts: 10
+      n_rollouts: 1
       evaluate_success: False
 
     algorithm: 
       classname: salina_cl.algorithms.ppo.ppo
       params:
-        learning_device: cpu
-        acquisition_device: cpu
+        learning_device: cuda:0
+        acquisition_device: cuda:0
 
         optimizer_policy:
           classname: torch.optim.Adam
@@ -40,32 +40,32 @@ model:
 
         control_every_n_epochs: 10
         n_control_rollouts: 1
-        n_timesteps: 32
-        n_processes: 1
-        n_mini_batches: 4
-        n_envs_per_minibatch: 16
-        n_timesteps_per_minibatch: 16
+        n_timesteps: 600
+        n_processes: 0
+        n_minibatches: 256
+        n_envs_per_minibatch: 512
+        n_timesteps_per_minibatch: 20
         n_times_per_minibatch: 1
 
         discount_factor: 0.99
-        clip_ratio: 0.2
-        action_std: 0.4
-        gae: 0.95
+        clip_ratio: 0.3
+        action_std: 0.5
+        gae: 0.96
         reward_scaling: 1.0
 
         time_limit: 0
 
     policy_agent:
       classname: salina_cl.agents.single_agents.ActionAgent
-      hidden_size: 8
-      n_layers: 2
+      hidden_size: 64
+      n_layers: 4
       input_dimension: nil
       output_dimension: nil
 
     critic_agent:
       classname: salina_cl.agents.single_agents.CriticAgent
-      hidden_size: 32
-      n_layers: 2
+      hidden_size: 256
+      n_layers: 4
       input_dimension: nil
 
 hydra:
@@ -80,15 +80,19 @@ hydra:
         item_sep: /
         exclude_keys:
           - seed
+    env_set:
+      OMP_NUM_THREADS: '1'
+      XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
   launcher:
     mem_gb: 16
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 10
+    timeout_min: 180
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab
+    comment: CoLLa2022
   job_logging:
     root:
       handlers: []

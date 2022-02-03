@@ -405,7 +405,7 @@ def flattify(d):
 
 
 def read_log(directory, use_bz2=True, debug=False):
-    print("== Read ", directory)
+    #print("== Read ", directory)
     # if os.path.exists(directory+"/fast.pickle"):
     #     f=open(directory+"/fast.pickle","rb")
     #     log=pickle.load(f)
