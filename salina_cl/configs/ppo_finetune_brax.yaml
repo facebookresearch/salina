@@ -2,7 +2,7 @@ name: ppo_finetune
 seed: 0
 
 defaults: 
-  - scenario: halfcheetah_debug
+  - scenario: halfcheetah_hard2
   - override hydra/launcher: submitit_slurm
 
 logger:
@@ -40,11 +40,11 @@ model:
 
         control_every_n_epochs: 10
         n_control_rollouts: 0
-        n_timesteps: 600
+        n_timesteps: 300
         n_processes: 0
-        n_minibatches: 256
+        n_minibatches: 512
         n_envs_per_minibatch: 512
-        n_timesteps_per_minibatch: 20
+        n_timesteps_per_minibatch: 5
         n_times_per_minibatch: 1
 
         discount_factor: 0.99
