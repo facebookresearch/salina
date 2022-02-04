@@ -1,8 +1,15 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
 import pandas as pd
 import numpy as np
 from IPython.display import display, HTML
 import salina
 import re
+pd.options.mode.chained_assignment = None
 
 def extract_scenario(log):
     values={}
@@ -55,11 +62,10 @@ def generate_reward_table_html(reward_mean,reward_std):
     for task in range(n):
         results.append("<tr><td><b>"+str(task)+"</b></td>")
         for stage in range(n): 
-            r = reward_mean[task][stage]
-            rs = reward_std[task][stage]
-            r = "<b>"+str(r)+"</b>" if task == stage else str(r)
+            r = str(round(reward_mean[task][stage],0))
+            rs = str(round(reward_std[task][stage],0))
             if rs != 0:
-                results.append("<td>"+r+"<i>("+str(rs)+")</i></td>")
+                results.append("<td>"+r+" <small><i>±"+rs+"</i></small></td>")
             else:
                 results.append("<td>"+r)
         results.append("</tr>")
@@ -83,18 +89,18 @@ def generate_key_metrics_html(reward_mean,reward_std):
 def extract_hps(log):
     values={}
     for k,v in log.hps.items():
-        if not k=="model/seed" and not k.endswith("device"):
+        if not "seed" in k and not k.endswith("device"):
             values[k]=v
     return values
 
 def analyze_runs(logs):
     print("Analyzing ",len(logs)," logs")
-    hps=extract_hps(logs[0])
-    dfs=[]
+    hps = extract_hps(logs[0])
+    dfs = []
     for log in logs:
-        df=log.to_dataframe()
-        _cols=[c for c in df.columns if c.startswith("evaluation")]+["iteration"]        
-        df=df[_cols]
+        df = log.to_dataframe()
+        _cols = [c for c in df.columns if c.startswith("evaluation")]+["iteration"]  
+        df = df[_cols]
         dfs.append(df)
     
     df=pd.concat(dfs)
@@ -128,8 +134,7 @@ def analyze_runs(logs):
             
             r_std[task][stage]=reward_std
     return r_mean,r_std,memory_mean,memory_std,hps
-        
-    
+
 def analyze_scenario(logs,scenario):
     h=generate_scenario_html(scenario)
     display(HTML(h))
@@ -160,42 +165,50 @@ def analyze_scenario(logs,scenario):
 def agregate_experiments(path):
     logs = salina.logger.read_directory(path,use_bz2=True)
     dfs = []
+    d_id = {}
+    d_hp= {}
+    d_logs = {}
     i = 0
     scenarios = unique_scenarios(logs)
     for scenario in scenarios:
         for log in logs.logs:
             if has_scenario(log,scenario):
                 df = log.to_dataframe()
-                df["id"] = i
+                _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/"))]+["iteration"]
+                df = df[_cols]
+                n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
+                df = df[df["iteration"] < n_tasks]
+                hp = extract_hps(log)
+                hp_key = str({k:v for k,v in hp.items() if not "seed" in k})
+                if not (hp_key in d_id):
+                    d_id[hp_key] = i
+                    d_hp[i] = hp
+                    i += 1
+                d_logs[d_id[hp_key]] = d_logs.get(d_id[hp_key],[]) + [log]
+                df["id"] = d_id[hp_key]
                 df["scenario"] = scenario["scenario/name"]
-                i += 1
                 dfs.append(df)
     dfs = pd.concat(dfs)
-    return logs,dfs
+    return dfs,d_logs,d_hp
 
-def sort_best_experiments(df, sort_by = "average_perf",top_k = 1):
-    n_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
-    df = df[["id","evaluation/"+str(n_tasks)+"/avg_reward"]].dropna().groupby("id").mean().sort_values(by="evaluation/"+str(n_tasks)+"/avg_reward",ascending=False)
+def sort_best_experiments(df, top_k = 1):
+    nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
+    df = df[df["iteration"] == nb_tasks]
+    df["evaluation/global_avg_reward"] = df[[c for c in df.columns if c.startswith("evaluation/")]].mean(axis=1)
+    df = df[["id","evaluation/global_avg_reward"]].groupby("id").mean().sort_values(by="evaluation/global_avg_reward",ascending=False)
     best_ids = df.index[:top_k]
     return best_ids
 
 def display_best_experiments(PATH,top_k=1):
-    logs, dfs = agregate_experiments(PATH)
-    best_logs = [logs.logs[i] for i in sort_best_experiments(dfs,top_k = top_k)]
+    dfs,d_logs,d_hp = agregate_experiments(PATH)
+    best_ids = sort_best_experiments(dfs,top_k = top_k)
     #analyze_scenario(best_logs,)
 
     #h = generate_scenario_html(scenario)
     #display(HTML(h))
-    per_hps={}
-    for log in best_logs:
-        h=extract_hps(log)
-        str_h=str(h)
-        if not str_h in per_hps:
-            per_hps[str_h]=[]
-        per_hps[str_h].append(log)
     display(HTML("<h2>"+("_"*100)+"</h2>"))
-    for i,h in enumerate(per_hps):
-        reward_mean, reward_std, memory_mean, memory_std, hps = analyze_runs(per_hps[h])
+    for i,best_id in enumerate(best_ids):
+        reward_mean, reward_std, memory_mean, memory_std, hps = analyze_runs(d_logs[best_id])
         #Generate HTML
         display(HTML("<h2>#"+str(i+1)+"</h2>"))
         h = generate_key_metrics_html(reward_mean,reward_std)

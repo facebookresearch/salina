@@ -14,7 +14,6 @@ from google.protobuf import text_format
 from brax.envs.halfcheetah import _SYSTEM_CONFIG as halfcheetah_config
 from brax import jumpy as jp
 import numpy as np
-from brax.envs import env
 
 def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
@@ -22,8 +21,14 @@ def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
 def halfcheetah_simple(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","hugetorso","tinygravity","hugethigh","tinyfriction","hugefoot","tinyshin","hugegravity","tinytorso","hugefriction","tinythigh","hugeshin"])
 
-def halfcheetah_hard(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","rainfall","defective_module","overweight","moon"])
+def halfcheetah_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["moon","underweight","defective_module","rainfall","overweight"])
+
+def halfcheetah_hard2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","underweight","defective_module","overweight"])
+
+def halfcheetah_hard3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","underweight","rainfall","defective_module","overweight"])
 
 def halfcheetah_gravity(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["gravity_"+str(2*x/10) for x in range(1,11)])
@@ -53,13 +58,18 @@ env_cfgs = {
      "tinyfriction":{"friction":0.5},
      "hugefriction":{"friction":1.5},
      "rainfall":{"friction":0.4},
-     "moon":{"friction":0.15,
-             "gravity":0.15},
+     "moon":{"gravity":0.15},
      "overweight":{
       "torso": 1.5,
       "thigh": 1.5,
       "shin": 1.5,
       "foot": 1.5
+      },
+     "underweight":{
+      "torso": 0.75,
+      "thigh": 0.75,
+      "shin": 0.75,
+      "foot": 0.75
       },
       "defective_module":{"mask":0.5}
 }

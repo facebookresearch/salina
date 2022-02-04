@@ -88,7 +88,7 @@ hydra:
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 180
+    timeout_min: 120
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab

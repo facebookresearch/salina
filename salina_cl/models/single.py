@@ -38,8 +38,8 @@ class FromScratch(Model):
         self.critic_agent.apply(weight_init)
         self.policy_agent.apply(weight_init)
         env_agent = task.make()
-        r,self.policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed,n_max_interactions=task.n_interactions())
-        self.policy_agents[task.task_id()] = self.policy_agent
+        r,policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed,n_max_interactions=task.n_interactions())
+        self.policy_agents[task.task_id()] = policy_agent
         return r
 
     def get_evaluation_agent(self,task_id):
