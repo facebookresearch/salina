@@ -151,17 +151,23 @@ class LinearSubspace(nn.Module):
         self.anchors = nn.ModuleList(anchors)
 
     def forward(self, x, alpha):
+        check = (not torch.is_grad_enabled()) and (alpha[0].max() == 1.)
         xs = [anchor(x) for anchor in self.anchors]
+        #if check:
+        #    copy_xs = xs
+        #    argmax = alpha[0].argmax()
         xs = torch.stack(xs,dim=-1)
+
         alpha = torch.stack([alpha] * self.out_channels, dim=-2)
         xs = (xs * alpha).sum(-1)
+        #if check:
+        #    print("sanity check:",(copy_xs[argmax] - xs).sum().item())
         return xs
 
     def add_anchor(self,weight = None,bias = None):
         if self.freeze_anchors:
             for param in self.parameters():
                 param.requires_grad = False
-                pass
 
         # Midpoint by default
         new_anchor = nn.Linear(self.in_channels,self.out_channels,bias=self.is_bias)

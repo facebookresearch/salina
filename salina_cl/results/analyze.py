@@ -166,30 +166,31 @@ def agregate_experiments(path):
     logs = salina.logger.read_directory(path,use_bz2=True)
     dfs = []
     d_id = {}
-    d_hp= {}
     d_logs = {}
     i = 0
     scenarios = unique_scenarios(logs)
     for scenario in scenarios:
         for log in logs.logs:
             if has_scenario(log,scenario):
-                df = log.to_dataframe()
-                _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/"))]+["iteration"]
-                df = df[_cols]
-                n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
-                df = df[df["iteration"] < n_tasks]
-                hp = extract_hps(log)
-                hp_key = str({k:v for k,v in hp.items() if not "seed" in k})
-                if not (hp_key in d_id):
-                    d_id[hp_key] = i
-                    d_hp[i] = hp
-                    i += 1
-                d_logs[d_id[hp_key]] = d_logs.get(d_id[hp_key],[]) + [log]
-                df["id"] = d_id[hp_key]
-                df["scenario"] = scenario["scenario/name"]
-                dfs.append(df)
+                try:
+                    df = log.to_dataframe()
+                    _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/"))]+["iteration"]
+                    df = df[_cols]
+                    n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
+                    df = df[df["iteration"] < n_tasks]
+                    hp = extract_hps(log)
+                    hp_key = str({k:v for k,v in hp.items() if not "seed" in k})
+                    if not (hp_key in d_id):
+                        d_id[hp_key] = i
+                        i += 1
+                    d_logs[d_id[hp_key]] = d_logs.get(d_id[hp_key],[]) + [log]
+                    df["id"] = d_id[hp_key]
+                    df["scenario"] = scenario["scenario/name"]
+                    dfs.append(df)
+                except:
+                    print("problem")
     dfs = pd.concat(dfs)
-    return dfs,d_logs,d_hp
+    return dfs,d_logs
 
 def sort_best_experiments(df, top_k = 1):
     nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
@@ -200,7 +201,7 @@ def sort_best_experiments(df, top_k = 1):
     return best_ids
 
 def display_best_experiments(PATH,top_k=1):
-    dfs,d_logs,d_hp = agregate_experiments(PATH)
+    dfs,d_logs = agregate_experiments(PATH)
     best_ids = sort_best_experiments(dfs,top_k = top_k)
     #analyze_scenario(best_logs,)
 
@@ -218,3 +219,4 @@ def display_best_experiments(PATH,top_k=1):
         h = generate_hps_html(hps)
         display(HTML(h))
         display(HTML("<h2>"+("_"*100)+"</h2>"))
+    return dfs,d_logs

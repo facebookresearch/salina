@@ -2,7 +2,7 @@ name: ppo_fromscratch
 seed: 0
 
 defaults: 
-  - scenario: halfcheetah_debug
+  - scenario: halfcheetah_hard2
   - override hydra/launcher: submitit_slurm
 
 logger:
@@ -40,39 +40,39 @@ model:
 
         control_every_n_epochs: 10
         n_control_rollouts: 0
-        n_timesteps: 600
+        n_timesteps: 50
         n_processes: 0
-        n_minibatches: 256
+        n_minibatches: 64
         n_envs_per_minibatch: 512
-        n_timesteps_per_minibatch: 20
+        n_timesteps_per_minibatch: 10
         n_times_per_minibatch: 1
 
         discount_factor: 0.99
-        clip_ratio: 0.3
-        action_std: 0.5
+        clip_ratio: 0.2
+        action_std: 0.4
         gae: 0.96
         reward_scaling: 1.0
 
         time_limit: 0
 
     policy_agent:
-      classname: salina_cl.agents.single_agents.ActionAgent
+      classname: salina_cl.agents.single_agents.BatchNormActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil
       output_dimension: nil
 
     critic_agent:
-      classname: salina_cl.agents.single_agents.CriticAgent
+      classname: salina_cl.agents.single_agents.BatchNormCriticAgent
       hidden_size: 256
       n_layers: 4
       input_dimension: nil
 
 hydra:
   run:
-    dir: ./run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+    dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
   sweep:
-    dir: ./multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
     subdir: ${hydra.job.num}
   job:
     config:
@@ -88,7 +88,7 @@ hydra:
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 120
+    timeout_min: 200
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab

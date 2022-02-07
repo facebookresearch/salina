@@ -16,22 +16,16 @@ from brax import jumpy as jp
 import numpy as np
 
 def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    For debugging
+    """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
 
-def halfcheetah_simple(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","hugetorso","tinygravity","hugethigh","tinyfriction","hugefoot","tinyshin","hugegravity","tinytorso","hugefriction","tinythigh","hugeshin"])
-
-def halfcheetah_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["moon","underweight","defective_module","rainfall","overweight"])
-
-def halfcheetah_hard2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","underweight","defective_module","overweight"])
-
-def halfcheetah_hard3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","underweight","rainfall","defective_module","overweight"])
-
-def halfcheetah_gravity(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["gravity_"+str(2*x/10) for x in range(1,11)])
+def halfcheetah_hard(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    A sequence of 6 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","rainfall","underweight","defective_module","overweight","moon"])
 
 env_cfgs = {
     "normal":{},

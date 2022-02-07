@@ -2,7 +2,7 @@ name: ppo_finetune
 seed: 0
 
 defaults: 
-  - scenario: halfcheetah_hard2
+  - scenario: halfcheetah_hard
   - override hydra/launcher: submitit_slurm
 
 logger:
@@ -56,7 +56,7 @@ model:
         time_limit: 0
 
     policy_agent:
-      classname: salina_cl.agents.single_agents.ActionAgent
+      classname: salina_cl.agents.single_agents.IncrementalBatchNormActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil
@@ -70,9 +70,9 @@ model:
 
 hydra:
   run:
-    dir: ./run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+    dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
   sweep:
-    dir: ./multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
     subdir: ${hydra.job.num}
   job:
     env_set:
@@ -88,7 +88,7 @@ hydra:
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 120
+    timeout_min: 200
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab

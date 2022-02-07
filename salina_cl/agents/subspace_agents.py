@@ -14,6 +14,7 @@ from salina.agents import Agents
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.categorical import Categorical
 from salina_cl.agents.tools import LinearSubspace, Sequential
+import copy
 
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
@@ -33,7 +34,7 @@ def BatchNormCriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
 class BatchNorm(Agent):
     def __init__(self,input_dimension):
         super().__init__()
-        self.bn=nn.BatchNorm1d(num_features=input_dimension[0])
+        self.bn = nn.BatchNorm1d(num_features=input_dimension[0])
     
     def forward(self, t=None, **kwargs):
         if not t is None:
@@ -77,6 +78,8 @@ class AlphaAgent(Agent):
         else:
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
+            if t == 0:
+                print("--- alphas:",alphas[0])
             self.set(("alphas", t), alphas)
 
     def add_anchor(self,*args):
@@ -96,6 +99,7 @@ class AlphaAgent(Agent):
 class SubspacePolicy(Agent):
     def __init__(self, n_initial_anchors, input_dimension,output_dimension, n_layers, hidden_size,use_normalized_obs=False):
         super().__init__()
+        self.d_check = {}
         self.n_anchors = n_initial_anchors
         self.hidden_size = hidden_size
         self.n_layers = n_layers
@@ -114,6 +118,21 @@ class SubspacePolicy(Agent):
         )
 
     def add_anchor(self,theta = None):
+        # Sanity check
+        #k = 0
+        #j = 0
+        #for param in self.model.parameters():
+        #    if len(param.shape)>1:
+        #        data = param.cpu().data
+        #        key = "anchor"+str(k%self.n_anchors+1)+"_W"+str(j+1)
+        #        if key in self.d_check:
+        #            print("sanity check for",key,":",(self.d_check[key] - data).abs().sum().item())
+        #        else:
+        #            self.d_check[key] = copy.deepcopy(data)
+        #        k+=1
+        #        if k%self.n_anchors == 0:
+        #            j+=1
+        #            print("\n")
         i=0
         if theta is None:
             theta = [None] * (self.hidden_size + 2)
@@ -122,16 +141,7 @@ class SubspacePolicy(Agent):
                 module.add_anchor(theta[i])
                 i+=1
         self.n_anchors += 1
-        k = 0
-        j = 0
-        # Sanity check
-        for param in self.model.parameters():
-            if len(param.shape)>1:
-                print("anchor",k%self.n_anchors+1,"W",j+1,":",param.data[0],"\t",param.requires_grad)
-                k+=1
-                if k%self.n_anchors == 0:
-                    j+=1
-                    print("\n")
+
 
     def forward(self, t = None, action_std = 0.0, **kwargs):
         if not self.training: 
@@ -212,4 +222,8 @@ class SubspaceAgents(Agents):
         print("n_anchors = ",self.n_anchors())
     
     def set_task_id(self,task_id):
-        self[0].set_alpha(task_id)
+        for agent in self:
+            try:
+                agent.set_alpha(task_id)
+            except:
+                pass

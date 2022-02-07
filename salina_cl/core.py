@@ -10,7 +10,7 @@ import torch
 import torch.utils.data
 from salina.agents import Agents,TemporalAgent
 from salina.agents.brax import EpisodesDone
-from salina import Workspace
+from salina import Workspace,Agent
 
 # CRL Generic Classes
 class Task:
@@ -153,3 +153,17 @@ class Model:
         return metrics
 
 
+class CRLAgent(Agent):
+    """
+    A salina Agent that is able to apply set_task() method
+    """
+    def set_task(self,task_id = None):
+            pass
+
+class CRLAgents(Agents):
+    """
+    A collection of CRL Agent
+    """
+    def set_task(self,task_id = None):
+        for agent in self:
+            agent.set_task(task_id)
