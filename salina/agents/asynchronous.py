@@ -28,7 +28,7 @@ def f(agent,in_queue,out_queue):
             out_queue.put((k,workspace.get_full(k)))
         out_queue.put("ok")
 
-class AsynchronousAgent:
+class AsynchronousAgent(Agent):
     """ Implements an agent that is executed aynchronously in another process, and that returns its own workspace
 
     Usage is:
@@ -39,6 +39,7 @@ class AsynchronousAgent:
     """
 
     def __init__(self,agent):
+        super().__init__()
         """ Create the AsynchronousAgent
 
         Args:
