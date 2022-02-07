@@ -2,7 +2,7 @@ name: ppo_fromscratch
 seed: 0
 
 defaults: 
-  - scenario: halfcheetah_hard2
+  - scenario: halfcheetah_hard
   - override hydra/launcher: submitit_slurm
 
 logger:

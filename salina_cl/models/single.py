@@ -55,7 +55,7 @@ class FromScratch(Model):
 
 class FineTune(Model):
     """
-    Simply Finetune the existing policy each time a new task appears. No policy storage
+    Simply Finetune the existing policy each time a new task appears.
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
@@ -82,7 +82,7 @@ class FineTune(Model):
         if self.policy_agent is None:
             self._create_agent(task,logger)
         else:
-            self.policy_agent.set_task(task.task_id())
+            self.policy_agent.set_task()
         self.critic_agent.apply(weight_init)
         env_agent = task.make()
         r,self.policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions=task.n_interactions())

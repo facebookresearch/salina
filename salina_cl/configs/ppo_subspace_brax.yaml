@@ -38,18 +38,18 @@ model:
 
         clip_grad: 10.0
 
-        control_every_n_epochs: 100
+        control_every_n_epochs: 10
         n_control_rollouts: 0
-        n_timesteps: 300
+        n_timesteps: 50
         n_processes: 0
-        n_minibatches: 512
+        n_minibatches: 64
         n_envs_per_minibatch: 512
-        n_timesteps_per_minibatch: 5
+        n_timesteps_per_minibatch: 10
         n_times_per_minibatch: 1
 
         discount_factor: 0.99
-        clip_ratio: 0.3
-        action_std: 0.5
+        clip_ratio: 0.2
+        action_std: 0.4
         gae: 0.96
         reward_scaling: 1.0
 
@@ -58,7 +58,7 @@ model:
       
 
     policy_agent:
-      classname: salina_cl.agents.subspace_agents.SubspaceActionAgent
+      classname: salina_cl.agents.subspace_agents.BatchNormSubspaceActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil
@@ -68,7 +68,7 @@ model:
       dist_type: flat
 
     critic_agent:
-      classname: salina_cl.agents.subspace_agents.CriticAgent
+      classname: salina_cl.agents.subspace_agents.BatchNormCriticAgent
       hidden_size: 256
       n_layers: 4
       input_dimension: nil

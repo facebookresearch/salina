@@ -9,47 +9,26 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.distributions.normal import Normal
-from salina import Agent
-from salina.agents import Agents
+from salina_cl.core import CRLAgent, CRLAgents
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.categorical import Categorical
 from salina_cl.agents.tools import LinearSubspace, Sequential
-import copy
+from salina_cl.agents.single_agents import BatchNorm, IncrementalBatchNorm
 
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,False))
+    return CRLAgents(AlphaAgent(n_initial_anchors, dist_type),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,False))
 
 def BatchNormSubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),BatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
+    return CRLAgents(AlphaAgent(n_initial_anchors,dist_type),IncrementalBatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return SubspaceAgents(CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,False))
+    return CRLAgents(CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,False))
 
 def BatchNormCriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return SubspaceAgents(BatchNorm(input_dimension),CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,True))
+    return CRLAgents(BatchNorm(input_dimension),CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,True))
 
-
-
-class BatchNorm(Agent):
-    def __init__(self,input_dimension):
-        super().__init__()
-        self.bn = nn.BatchNorm1d(num_features=input_dimension[0])
-    
-    def forward(self, t=None, **kwargs):
-        if not t is None:
-            input = self.get(("env/env_obs", t))
-            input=self.bn(input)
-            self.set(("env/normalized_env_obs", t), input)
-        else:
-            input = self.get("env/env_obs")
-            T,B,s=input.size()
-            input=input.reshape(T*B,s)
-            input=self.bn(input)
-            input=input.reshape(T,B,s)
-            self.set("env/normalized_env_obs",input)
-
-class AlphaAgent(Agent):
+class AlphaAgent(CRLAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat"):
         super().__init__()
         self.n_anchors = n_initial_anchors
@@ -58,13 +37,12 @@ class AlphaAgent(Agent):
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         elif self.dist_type == "categorical":
             self.dist = Categorical(torch.ones(self.n_anchors))
-        self.best_alphas = torch.eye(self.n_anchors)
-        self.set_alpha(0)
+        self.best_alpha = None
         self.id = nn.Parameter(torch.randn(1,1))
 
     def forward(self, t = None, replay = False, **args):
         device = self.id.device
-        if self.training:
+        if self.best_alpha is None:
             if not t is None:
                 B = self.workspace.batch_size()
                 alphas =  self.dist.sample(torch.Size([B])).to(device)
@@ -78,25 +56,26 @@ class AlphaAgent(Agent):
         else:
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
-            if t == 0:
-                print("--- alphas:",alphas[0])
             self.set(("alphas", t), alphas)
 
-    def add_anchor(self,*args):
+    def add_anchor(self):
         self.n_anchors += 1
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         else:
             self.dist = Categorical(torch.ones(self.n_anchors))
-        self.best_alphas = torch.eye(self.n_anchors)
 
-    def set_alpha(self,task_id):
-        if task_id >= self.n_anchors:
-            self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
-        else: 
-            self.best_alpha = self.best_alphas[task_id]
+    def set_task(self,task_id):
+        if task_id is None:
+            self.best_alpha = None
+            self.add_anchor()
+        else:
+            if task_id >= self.n_anchors:
+                self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
+            else: 
+                self.best_alpha = torch.eye(self.n_anchors)[task_id]
 
-class SubspacePolicy(Agent):
+class SubspacePolicy(CRLAgent):
     def __init__(self, n_initial_anchors, input_dimension,output_dimension, n_layers, hidden_size,use_normalized_obs=False):
         super().__init__()
         self.d_check = {}
@@ -116,32 +95,6 @@ class SubspacePolicy(Agent):
             *hidden_layers,
             LinearSubspace(n_initial_anchors, hs, num_outputs),
         )
-
-    def add_anchor(self,theta = None):
-        # Sanity check
-        #k = 0
-        #j = 0
-        #for param in self.model.parameters():
-        #    if len(param.shape)>1:
-        #        data = param.cpu().data
-        #        key = "anchor"+str(k%self.n_anchors+1)+"_W"+str(j+1)
-        #        if key in self.d_check:
-        #            print("sanity check for",key,":",(self.d_check[key] - data).abs().sum().item())
-        #        else:
-        #            self.d_check[key] = copy.deepcopy(data)
-        #        k+=1
-        #        if k%self.n_anchors == 0:
-        #            j+=1
-        #            print("\n")
-        i=0
-        if theta is None:
-            theta = [None] * (self.hidden_size + 2)
-        for module in self.model:
-            if isinstance(module,LinearSubspace):
-                module.add_anchor(theta[i])
-                i+=1
-        self.n_anchors += 1
-
 
     def forward(self, t = None, action_std = 0.0, **kwargs):
         if not self.training: 
@@ -171,7 +124,32 @@ class SubspacePolicy(Agent):
             action = torch.tanh(action)
             self.set(("action", t), action)
 
-class CriticAgent(Agent):
+    def set_task(self,task_id):
+        # Sanity check
+        #k = 0
+        #j = 0
+        #for param in self.model.parameters():
+        #    if len(param.shape)>1:
+        #        data = param.cpu().data
+        #        key = "anchor"+str(k%self.n_anchors+1)+"_W"+str(j+1)
+        #        if key in self.d_check:
+        #            print("sanity check for",key,":",(self.d_check[key] - data).abs().sum().item())
+        #        else:
+        #            self.d_check[key] = copy.deepcopy(data)
+        #        k+=1
+        #        if k%self.n_anchors == 0:
+        #            j+=1
+        #            print("\n")
+        i=0
+        if task_id is None:
+            theta = [None] * (self.hidden_size + 2)
+            for module in self.model:
+                if isinstance(module,LinearSubspace):
+                    module.add_anchor(theta[i])
+                    i+=1
+            self.n_anchors += 1
+
+class CriticAgent(CRLAgent):
     def __init__(self, n_anchors, input_dimension, n_layers, hidden_size,use_normalized_obs=False):
         super().__init__()
         self.iname="env/env_obs"
@@ -204,26 +182,3 @@ class CriticAgent(Agent):
         critic = self.model_critic(x).squeeze(-1)
         self.set("critic", critic)
 
-class SubspaceAgents(Agents):
-    def n_anchors(self):
-        for agent in self:
-            try:
-                n_anchors = agent.n_anchors
-                break
-            except:
-                continue
-        return n_anchors
-    
-    def add_anchor(self,*args):
-        for agent in self:
-            if hasattr(agent.__class__,"add_anchor"):
-                agent.add_anchor(*args)
-                print("[",agent.__class__.__name__,"]: anchor added")
-        print("n_anchors = ",self.n_anchors())
-    
-    def set_task_id(self,task_id):
-        for agent in self:
-            try:
-                agent.set_alpha(task_id)
-            except:
-                pass
