@@ -4,17 +4,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
-
 import hydra
-from omegaconf import DictConfig, OmegaConf
 from salina import instantiate_class
 import torch
+import time
 
-@hydra.main(config_path=".", config_name="cartpole.yaml")
+@hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
     logger = instantiate_class(cfg.logger)
-    logger.save_hps(cfg)
+    logger.save_hps(cfg, verbose =False)
     model = instantiate_class(cfg.model)
     scenario = instantiate_class(cfg.scenario)
     logger_evaluation=logger.get_logger("evaluation/")
@@ -39,5 +37,6 @@ if __name__ == "__main__":
     CUDA_AVAILABLE = torch.cuda.is_available()
     if CUDA_AVAILABLE:
         v = torch.ones(1, device="cuda:0")
-
+    _start = time.time()
     main()
+    print("time elapsed:",round((time.time()-_start),0),"sec")

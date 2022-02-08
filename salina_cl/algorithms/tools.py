@@ -4,88 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
-
 import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import time
-
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.init as init
-
-
-def weight_init(m):
-    """
-    Usage:
-        model = Model()
-        model.apply(weight_init)
-    """
-    if isinstance(m, nn.Conv1d):
-        init.normal_(m.weight.data)
-        if m.bias is not None:
-            init.normal_(m.bias.data)
-    elif isinstance(m, nn.Conv2d):
-        init.xavier_normal_(m.weight.data)
-        if m.bias is not None:
-            init.normal_(m.bias.data)
-    elif isinstance(m, nn.Conv3d):
-        init.xavier_normal_(m.weight.data)
-        if m.bias is not None:
-            init.normal_(m.bias.data)
-    elif isinstance(m, nn.ConvTranspose1d):
-        init.normal_(m.weight.data)
-        if m.bias is not None:
-            init.normal_(m.bias.data)
-    elif isinstance(m, nn.ConvTranspose2d):
-        init.xavier_normal_(m.weight.data)
-        if m.bias is not None:
-            init.normal_(m.bias.data)
-    elif isinstance(m, nn.ConvTranspose3d):
-        init.xavier_normal_(m.weight.data)
-        if m.bias is not None:
-            init.normal_(m.bias.data)
-    elif isinstance(m, nn.BatchNorm1d):
-        init.normal_(m.weight.data, mean=1, std=0.02)
-        init.constant_(m.bias.data, 0)
-    elif isinstance(m, nn.BatchNorm2d):
-        init.normal_(m.weight.data, mean=1, std=0.02)
-        init.constant_(m.bias.data, 0)
-    elif isinstance(m, nn.BatchNorm3d):
-        init.normal_(m.weight.data, mean=1, std=0.02)
-        init.constant_(m.bias.data, 0)
-    elif isinstance(m, nn.Linear):
-        init.xavier_normal_(m.weight.data)
-        init.normal_(m.bias.data)
-    elif isinstance(m, nn.Embedding):
-        init.xavier_normal_(m.weight.data)
-    elif isinstance(m, nn.LSTM):
-        for param in m.parameters():
-            if len(param.shape) >= 2:
-                init.orthogonal_(param.data)
-            else:
-                init.normal_(param.data)
-    elif isinstance(m, nn.LSTMCell):
-        for param in m.parameters():
-            if len(param.shape) >= 2:
-                init.orthogonal_(param.data)
-            else:
-                init.normal_(param.data)
-    elif isinstance(m, nn.GRU):
-        for param in m.parameters():
-            if len(param.shape) >= 2:
-                init.orthogonal_(param.data)
-            else:
-                init.normal_(param.data)
-    elif isinstance(m, nn.GRUCell):
-        for param in m.parameters():
-            if len(param.shape) >= 2:
-                init.orthogonal_(param.data)
-            else:
-                init.normal_(param.data)
 
 def compute_time_unit(device):
     """ Compute a time unit as the time in seconds used to do a given number of forward bacward over random data
@@ -106,3 +29,16 @@ def compute_time_unit(device):
     _et=time.time()
     ref_time=(_et-_st)
     return ref_time
+
+def soft_update_params(net, target_net, tau):
+    for param, target_param in zip(net.parameters(), target_net.parameters()):
+        target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+
+def _state_dict(agent, device):
+    sd = agent.state_dict()
+    for k, v in sd.items():
+        sd[k] = v.to(device)
+    return sd
+
+def clip_grad(parameters, grad):
+    return (torch.nn.utils.clip_grad_norm_(parameters, grad) if grad > 0 else torch.Tensor([0.0]))

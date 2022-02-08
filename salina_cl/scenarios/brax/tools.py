@@ -12,7 +12,7 @@ from salina.agents.brax import BraxAgent
 from brax.envs.to_torch import JaxToTorchWrapper
 
 class AutoResetBraxAgent(BraxAgent):
-   def __init__(self, n_envs, env_name = "", input="action", output="env/", **kwargs):
+   def __init__(self, n_envs, env_name = "", input = "action", output = "env/", **kwargs):
         super().__init__(n_envs,env_name)
         self.make_env_fn = kwargs["make_env_fn"]
         self.make_env_args = kwargs["make_env_args"]

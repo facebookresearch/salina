@@ -1,0 +1,105 @@
+name: ppo_subspace
+seed: 0
+
+defaults: 
+  - scenario: halfcheetah_hard
+  - override hydra/launcher: submitit_slurm
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./subspace_finetune_brax
+  every_n_seconds: 10
+  modulo: 1
+  verbose: False
+
+model:
+  classname: salina_cl.models.subspace.Incremental
+  seed: ${seed}
+  params:
+    evaluation:
+      device: cuda:0
+      seed: 10
+      n_rollouts: 1
+      evaluate_success: False
+
+    algorithm:
+      classname: salina_cl.algorithms.ppo.ppo
+      params:
+        learning_device: cuda:0
+        acquisition_device: cuda:0
+
+        optimizer_policy:
+          classname: torch.optim.Adam
+          lr: 0.0003
+
+        optimizer_critic:
+          classname: torch.optim.Adam
+          lr: 0.0003
+
+        clip_grad: 10.0
+
+        control_every_n_epochs: 10
+        n_control_rollouts: 0
+        n_timesteps: 50
+        n_processes: 0
+        n_minibatches: 64
+        n_envs_per_minibatch: 512
+        n_timesteps_per_minibatch: 10
+        n_times_per_minibatch: 1
+
+        discount_factor: 0.99
+        clip_ratio: 0.2
+        action_std: 0.4
+        gae: 0.96
+        reward_scaling: 1.0
+
+        time_limit: 0
+
+      
+
+    policy_agent:
+      classname: salina_cl.agents.subspace_agents.BatchNormSubspaceActionAgent
+      hidden_size: 64
+      n_layers: 4
+      input_dimension: nil
+      output_dimension: nil
+
+      n_initial_anchors: 1
+      dist_type: flat
+
+    critic_agent:
+      classname: salina_cl.agents.subspace_agents.BatchNormCriticAgent
+      hidden_size: 256
+      n_layers: 4
+      input_dimension: nil
+
+      n_anchors:
+
+hydra:
+  run:
+    dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+  sweep:
+    dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    env_set:
+      OMP_NUM_THREADS: '1'
+      XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
+    config:
+      override_dirname:
+        item_sep: /
+        exclude_keys:
+          - seed
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 200
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+    comment: CoLLa2022
+  job_logging:
+    root:
+      handlers: []
