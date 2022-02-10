@@ -92,14 +92,7 @@ class ppo:
             acquisition_workspace.zero_grad()
             if epoch > 0: acquisition_workspace.copy_n_last_steps(1)
             acquisition_agent.train()
-            acquisition_agent(
-                acquisition_workspace,
-                t=1 if epoch > 0 else 0,
-                n_steps=self.cfg_ppo.n_timesteps - 1
-                if epoch > 0
-                else self.cfg_ppo.n_timesteps,
-                action_std=self.cfg_ppo.action_std,
-            )
+            acquisition_agent( acquisition_workspace, t=1 if epoch > 0 else 0, n_steps=self.cfg_ppo.n_timesteps - 1 if epoch > 0 else self.cfg_ppo.n_timesteps, action_std=self.cfg_ppo.action_std)
             workspace=Workspace(acquisition_workspace).to(self.cfg_ppo.learning_device)
             workspace.set_full("acquisition_action_logprobs",workspace["action_logprobs"].detach())
             workspace.set_full("acquisition_action",workspace["action"].detach())
@@ -163,7 +156,7 @@ class ppo:
                 if self.cfg_ppo.time_limit>0:
                         is_training=time.time()-_training_start_time<self.cfg_ppo.time_limit*time_unit
 
-        r={"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+        r = {"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
         if self.cfg_ppo.n_control_rollouts == 0:
             action_agent, critic_agent = copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
         else:

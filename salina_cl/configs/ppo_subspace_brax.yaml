@@ -13,7 +13,7 @@ logger:
   verbose: False
 
 model:
-  classname: salina_cl.models.subspace.Incremental
+  classname: salina_cl.models.models.OneStep
   seed: ${seed}
   params:
     evaluation:
@@ -22,40 +22,13 @@ model:
       n_rollouts: 1
       evaluate_success: False
 
-    algorithm:
-      classname: salina_cl.algorithms.ppo.ppo
+    warm_algorithm:
+      classname:
       params:
-        learning_device: cuda:0
         acquisition_device: cuda:0
-
-        optimizer_policy:
-          classname: torch.optim.Adam
-          lr: 0.0003
-
-        optimizer_critic:
-          classname: torch.optim.Adam
-          lr: 0.0003
-
-        clip_grad: 10.0
-
-        control_every_n_epochs: 10
-        n_control_rollouts: 0
-        n_timesteps: 50
-        n_processes: 0
-        n_minibatches: 64
-        n_envs_per_minibatch: 512
-        n_timesteps_per_minibatch: 10
-        n_times_per_minibatch: 1
-
-        discount_factor: 0.99
-        clip_ratio: 0.2
-        action_std: 0.4
-        gae: 0.96
-        reward_scaling: 1.0
-
-        time_limit: 0
-
-      
+        warm_budget: 0.05
+        
+    algorithm: ${algorithm}
 
     policy_agent:
       classname: salina_cl.agents.subspace_agents.BatchNormSubspaceActionAgent

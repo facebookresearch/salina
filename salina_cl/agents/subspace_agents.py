@@ -13,20 +13,16 @@ from salina_cl.core import CRLAgent, CRLAgents
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.categorical import Categorical
 from salina_cl.agents.tools import LinearSubspace, Sequential
-from salina_cl.agents.single_agents import BatchNorm, IncrementalBatchNorm
-
+from salina_cl.agents.single_agents import BatchNorm
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
     return CRLAgents(AlphaAgent(n_initial_anchors, dist_type),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,False))
 
 def BatchNormSubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(AlphaAgent(n_initial_anchors,dist_type),IncrementalBatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
+    return CRLAgents(AlphaAgent(n_initial_anchors,dist_type),BatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return CRLAgents(CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,False))
-
-def BatchNormCriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,True))
+    return CRLAgents(BatchNorm(input_dimension),Critic(n_anchors, input_dimension, n_layers, hidden_size,True))
 
 class AlphaAgent(CRLAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat"):
@@ -149,7 +145,7 @@ class SubspacePolicy(CRLAgent):
                     i+=1
             self.n_anchors += 1
 
-class CriticAgent(CRLAgent):
+class Critic(CRLAgent):
     def __init__(self, n_anchors, input_dimension, n_layers, hidden_size,use_normalized_obs=False):
         super().__init__()
         self.iname="env/env_obs"

@@ -144,14 +144,13 @@ class LinearSubspace(nn.Module):
 
         if same_init:
             anchor = nn.Linear(in_channels,out_channels,bias=self.is_bias)
-            anchor.apply(weight_init)
             anchors = [copy.deepcopy(anchor) for _ in range(n_anchors)]
         else:
-            anchors = [nn.Linear(in_channels,out_channels,bias=self.is_bias).apply(weight_init) for _ in range(n_anchors)]
+            anchors = [nn.Linear(in_channels,out_channels,bias=self.is_bias) for _ in range(n_anchors)]
         self.anchors = nn.ModuleList(anchors)
 
     def forward(self, x, alpha):
-        check = (not torch.is_grad_enabled()) and (alpha[0].max() == 1.)
+        #check = (not torch.is_grad_enabled()) and (alpha[0].max() == 1.)
         xs = [anchor(x) for anchor in self.anchors]
         #if check:
         #    copy_xs = xs
