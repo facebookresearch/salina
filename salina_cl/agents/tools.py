@@ -7,6 +7,7 @@
 
 # Credits to Denis Yarats for the Squashed normal and TanhTransform 
 # https://github.com/denisyarats/pytorch_sac
+from urllib.parse import non_hierarchical
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -163,22 +164,20 @@ class LinearSubspace(nn.Module):
         #    print("sanity check:",(copy_xs[argmax] - xs).sum().item())
         return xs
 
-    def add_anchor(self,weight = None,bias = None):
+    def add_anchor(self,alpha = None):
         if self.freeze_anchors:
             for param in self.parameters():
                 param.requires_grad = False
+        if alpha is None:
+            alpha = torch.ones((self.n_anchors,)) / self.n_anchors
 
         # Midpoint by default
         new_anchor = nn.Linear(self.in_channels,self.out_channels,bias=self.is_bias)
-        if weight is None:
-            weight = torch.stack([anchor.weight.data for anchor in self.anchors], dim = 0).mean(0)
-        if (bias is None) and self.is_bias:
-            bias = torch.stack([anchor.bias.data for anchor in self.anchors], dim = 0).mean(0)
-
-        new_anchor.weight.data.copy_(weight)
+        new_weight = torch.stack([a * anchor.weight.data for a,anchor in zip(alpha,self.anchors)], dim = 0).mean(0)
+        new_anchor.weight.data.copy_(new_weight)
         if self.is_bias:
-            new_anchor.bias.data.copy_(bias)
-        self.anchors.append(new_anchor)
+            new_bias = torch.stack([a * anchor.weight.data for a,anchor in zip(alpha,self.anchors)], dim = 0).mean(0)
+            new_anchor.bias.data.copy_(new_bias)
         self.n_anchors +=1
 
 class Sequential(nn.Sequential):

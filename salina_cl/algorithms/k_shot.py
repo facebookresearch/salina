@@ -18,7 +18,7 @@ class k_shot:
     def __init__(self,params):
         self.cfg = params
     
-    def run(self,action_agent, critic_agent, env_agent, logger, seed, max_interactions):
+    def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions):
         action_agent.eval()
         acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.acquisition_device)
         acquisition_agent.seed(seed)
@@ -27,17 +27,27 @@ class k_shot:
         n_interactions = 0
         rewards = []
         _training_start_time = time.time()
-        n_episodes = max_interactions
-        for i in range(n_episodes):
-            w = Workspace()
-            acquisition_agent(w, t = 0, stop_variable = "env/done")
-            length=w["env/done"].max(0)[1]
-            n_interactions += length.sum().item()
-            arange = torch.arange(length.size()[0], device=length.device)
-            rewards.append(w["env/cumulated_reward"][length, arange])
-        rewards = torch.stack(rewards, dim = 0).mean(0)
-        logger.add_scalar("k_shot/mean_reward", rewards.mean().item())
-        logger.add_scalar("k_shot/max_reward", rewards.max().item())
-        # === Running algorithm
-        r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
-        return r, action_agent, critic_agent
+
+        n_epochs = int(n_max_interactions // (env_agent.n_envs * env_agent.make_env_args['max_episode_steps']))
+        logger.message("Starting k-shot procedure on "+str(int(n_epochs * env_agent.n_envs))+" episodes")
+        if n_epochs > 0:
+            for i in range(n_epochs):
+                w = Workspace()
+                with torch.no_grad():
+                    acquisition_agent(w, t = 0, stop_variable = "env/done")
+                length=w["env/done"].max(0)[1]
+                n_interactions += length.sum().item()
+                arange = torch.arange(length.size()[0], device=length.device)
+                rewards.append(w["env/cumulated_reward"][length, arange])
+            rewards = torch.stack(rewards, dim = 0).mean(0)
+            best_alpha = w["alphas"][0,rewards.argmax()].reshape(-1)
+            logger.add_scalar("k_shot/mean_reward", rewards.mean().item())
+            logger.add_scalar("k_shot/max_reward", rewards.max().item())
+            logger.message("mean reward:",rewards.mean().item())
+            logger.message("max reward:",rewards.max().item())
+            logger.message("best alpha:",best_alpha)
+            r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+            return r, action_agent, critic_agent, best_alpha
+        else:
+            r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+            return r, action_agent, critic_agent, None
