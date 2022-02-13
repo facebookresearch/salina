@@ -3,6 +3,7 @@ seed: 0
 
 defaults: 
   - scenario: cartpole_7tasks
+  - algorithm: ppo_cpu
   - override hydra/launcher: submitit_slurm
 
 logger:
@@ -13,47 +14,16 @@ logger:
   verbose: False
 
 model:
-  classname: salina_cl.models.single.FineTune
+  classname: salina_cl.models.models.OneStep
   seed: ${seed}
   params:
     evaluation:
       device: cpu
       seed: ${seed}
-      n_rollouts: 5
+      n_rollouts: 1
       evaluate_success: False
 
-    algorithm: 
-      classname: salina_cl.algorithms.ppo.ppo
-      params:
-        learning_device: cpu
-        acquisition_device: cpu
-
-        optimizer_policy:
-          classname: torch.optim.Adam
-          lr: 0.0003
-
-        optimizer_critic:
-          classname: torch.optim.Adam
-          lr: 0.0003
-
-        clip_grad: 10.0
-
-        control_every_n_epochs: 10
-        n_control_rollouts: 1
-        n_timesteps: 32
-        n_processes: 1
-        n_minibatches: 4
-        n_envs_per_minibatch: 16
-        n_timesteps_per_minibatch: 16
-        n_times_per_minibatch: 1
-
-        discount_factor: 0.99
-        clip_ratio: 0.2
-        action_std: 0.4
-        gae: 0.95
-        reward_scaling: 1.0
-
-        time_limit: 0
+    algorithm: ${algorithm}
 
     policy_agent:
       classname: salina_cl.agents.single_agents.ActionAgent
