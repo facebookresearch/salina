@@ -43,9 +43,9 @@ class k_shot:
             best_alpha = w["alphas"][0,rewards.argmax()].reshape(-1)
             logger.add_scalar("k_shot/mean_reward", rewards.mean().item(), 0)
             logger.add_scalar("k_shot/max_reward", rewards.max().item(), 0)
-            logger.message("mean reward:",rewards.mean().item())
-            logger.message("max reward:",rewards.max().item())
-            logger.message("best alpha:",best_alpha)
+            logger.message("mean reward:"+str(round(rewards.mean().item(),2)))
+            logger.message("max reward:"+str(round(rewards.max().item(),2)))
+            logger.message("best alpha:"+str(best_alpha))
             r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
             return r, action_agent, critic_agent, best_alpha
         else:
