@@ -19,16 +19,17 @@ class k_shot:
         self.cfg = params
     
     def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions):
+
         action_agent.eval()
         acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.acquisition_device)
         acquisition_agent.seed(seed)
-        if self.cfg.n_processes > 1:
-            acquisition_agent, workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)
+        #if self.cfg.n_processes > 1:
+        #    acquisition_agent, workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)
         n_interactions = 0
         rewards = []
         _training_start_time = time.time()
 
-        n_epochs = int(n_max_interactions // (env_agent.n_envs * env_agent.make_env_args['max_episode_steps']))
+        n_epochs = 1#int(n_max_interactions // (env_agent.n_envs * env_agent.make_env_args['max_episode_steps']))
         logger.message("Starting k-shot procedure on "+str(int(n_epochs * env_agent.n_envs))+" episodes")
         if n_epochs > 0:
             for i in range(n_epochs):

@@ -26,7 +26,8 @@ model:
     algorithm1:
       classname: salina_cl.algorithms.k_shot.k_shot
       params:
-        n_processes: 0
+        start_at_task_id: 2
+        n_processes: 1
         acquisition_device: cpu
         budget: 0.6
         

@@ -174,4 +174,5 @@ class CRLAgents(Agents):
     def set_new_task(self,info = None):
         for agent in self:
             print(info)
+            print(agent)
             agent.set_new_task(info)

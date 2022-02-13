@@ -64,7 +64,7 @@ class AlphaAgent(CRLAgent):
         else: 
             self.best_alpha = torch.eye(self.n_anchors)[task_id]
 
-    def set_new_task(self,**kwargs):
+    def set_new_task(self,*args):
         self.best_alpha = None
         self.add_anchor()
         
