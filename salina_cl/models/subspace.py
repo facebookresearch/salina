@@ -42,17 +42,10 @@ class TwoSteps(Model):
         if self.policy_agent is None:
             self._create_policy_agent(task,logger)
             self._create_critic_agent(task,logger)
-
-        
         env_agent = task.make()
 
-        if self.cfg.algorithm1.params.start_at_task_id >= task._task_id:
-            budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
-            r1, self.policy_agent, self.critic_agent, info = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1)
-        else:
-            r1 = {"n_epochs":0,"training_time":0,"n_interactions":0}
-
-        self.policy_agent.set_new_task(info)
+        budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
+        r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1)
 
         budget2 = task.n_interactions() - r1["n_interaction"]
         r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)

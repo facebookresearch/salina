@@ -19,19 +19,17 @@ class k_shot:
         self.cfg = params
     
     def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions):
-
-        action_agent.eval()
-        acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.acquisition_device)
-        acquisition_agent.seed(seed)
-        #if self.cfg.n_processes > 1:
-        #    acquisition_agent, workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)
-        n_interactions = 0
-        rewards = []
-        _training_start_time = time.time()
-
-        n_epochs = 1#int(n_max_interactions // (env_agent.n_envs * env_agent.make_env_args['max_episode_steps']))
-        logger.message("Starting k-shot procedure on "+str(int(n_epochs * env_agent.n_envs))+" episodes")
-        if n_epochs > 0:
+        n_epochs = int(n_max_interactions // (env_agent.n_envs * env_agent.make_env_args['max_episode_steps']))
+        if (action_agent[0].n_anchors > 1) and (n_epochs > 0):
+            action_agent.eval()
+            acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.acquisition_device)
+            acquisition_agent.seed(seed)
+            if self.cfg.n_processes > 1:
+                acquisition_agent, workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)
+            n_interactions = 0
+            rewards = []
+            _training_start_time = time.time()
+            logger.message("Starting k-shot procedure on "+str(int(n_epochs * env_agent.n_envs))+" episodes")
             for i in range(n_epochs):
                 w = Workspace()
                 with torch.no_grad():
@@ -44,11 +42,12 @@ class k_shot:
             best_alpha = w["alphas"][0,rewards.argmax()].reshape(-1)
             logger.add_scalar("k_shot/mean_reward", rewards.mean().item(), 0)
             logger.add_scalar("k_shot/max_reward", rewards.max().item(), 0)
-            logger.message("mean reward:"+str(round(rewards.mean().item(),2)))
-            logger.message("max reward:"+str(round(rewards.max().item(),2)))
+            logger.message("mean reward:"+str(round(rewards.mean().item(),0)))
+            logger.message("max reward:"+str(round(rewards.max().item(),0)))
             logger.message("best alpha:"+str(best_alpha))
             r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
-            return r, action_agent, critic_agent, best_alpha
+
         else:
-            r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
-            return r, action_agent, critic_agent, None
+            r = {"n_epochs":0,"training_time":0,"n_interactions":0}
+        
+        return r, action_agent, critic_agent

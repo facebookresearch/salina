@@ -21,6 +21,7 @@ def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dim
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
     return CRLAgents(BatchNorm(input_dimension),Critic(n_anchors, input_dimension, n_layers, hidden_size,True))
 
+
 class AlphaAgent(CRLAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat"):
         super().__init__()

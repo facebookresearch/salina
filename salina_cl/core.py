@@ -160,9 +160,6 @@ class CRLAgent(Agent):
     def set_task(self,task_id = None):
         pass
 
-    def set_new_task(self,info = None):
-        pass
-
 class CRLAgents(Agents):
     """
     A collection of CRL Agent
@@ -170,9 +167,3 @@ class CRLAgents(Agents):
     def set_task(self,task_id = None):
         for agent in self:
             agent.set_task(task_id)
-
-    def set_new_task(self,info = None):
-        for agent in self:
-            print(info)
-            print(agent)
-            agent.set_new_task(info)
