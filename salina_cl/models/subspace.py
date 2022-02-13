@@ -47,7 +47,7 @@ class TwoSteps(Model):
         budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
         r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1)
 
-        budget2 = task.n_interactions() - r1["n_interaction"]
+        budget2 = task.n_interactions() - r1["n_interactions"]
         r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)
     
         return {k1:v1+v2  for k1,v1,k2,v2 in zip(r1.items(),r2.items)}
