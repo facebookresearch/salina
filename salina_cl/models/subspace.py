@@ -8,15 +8,16 @@ from salina_cl.core import Model
 from salina import instantiate_class
 from salina_cl.agents.tools import weight_init
 
-class Incremental(Model):
+class TwoSteps(Model):
     """
-    Add one anchor per task. 
+    A model that is using 2 algorithms. 
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
-        self.algorithm = instantiate_class(self.cfg.algorithm)
-        self.policy_agent=None
-        self.critic_agent=None
+        self.algorithm1 = instantiate_class(self.cfg.algorithm1)
+        self.algorithm2 = instantiate_class(self.cfg.algorithm2)
+        self.policy_agent = None
+        self.critic_agent = None
 
     def _create_policy_agent(self,task,logger):
         logger.message("Creating policy Agent")
@@ -40,13 +41,21 @@ class Incremental(Model):
     def _train(self,task,logger):
         if self.policy_agent is None:
             self._create_policy_agent(task,logger)
-        else:
-            logger.message("Adding an anchor to the policy subspace")
-            self.policy_agent.set_task()
-        self._create_critic_agent(task,logger)
-        env_agent = task.make()
-        r,self.policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed,n_max_interactions=task.n_interactions())
-        return r
+            self._create_critic_agent(task,logger)
+            env_agent = task.make()
+            r2,self.policy_agent,self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
+            return r2
+        else:            
+            env_agent = task.make()
+            budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
+            r1,self.policy_agent,self.critic_agent,info = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1)
+
+            self.policy_agent.set_new_task(info)
+
+            budget2 = task.n_interactions() - r1["n_interaction"]
+            r2,self.policy_agent,self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)
+        
+            return {k1:v1+v2  for k1,v1,k2,v2 in zip(r1.items(),r2.items)}
 
     def memory_size(self):
         pytorch_total_params = sum(p.numel() for p in self.policy_agent.parameters())

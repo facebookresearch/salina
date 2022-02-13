@@ -13,20 +13,13 @@ from salina_cl.core import CRLAgent, CRLAgents
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.categorical import Categorical
 from salina_cl.agents.tools import LinearSubspace, Sequential
-from salina_cl.agents.single_agents import BatchNorm, IncrementalBatchNorm
-
+from salina_cl.agents.single_agents import BatchNorm
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(AlphaAgent(n_initial_anchors, dist_type),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,False))
-
-def BatchNormSubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(AlphaAgent(n_initial_anchors,dist_type),IncrementalBatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
+    return CRLAgents(AlphaAgent(n_initial_anchors,dist_type),BatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return CRLAgents(CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,False))
-
-def BatchNormCriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),CriticAgent(n_anchors, input_dimension, n_layers, hidden_size,True))
+    return CRLAgents(BatchNorm(input_dimension),Critic(n_anchors, input_dimension, n_layers, hidden_size,True))
 
 class AlphaAgent(CRLAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat"):
@@ -66,15 +59,15 @@ class AlphaAgent(CRLAgent):
             self.dist = Categorical(torch.ones(self.n_anchors))
 
     def set_task(self,task_id):
-        if task_id is None:
-            self.best_alpha = None
-            self.add_anchor()
-        else:
-            if task_id >= self.n_anchors:
-                self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
-            else: 
-                self.best_alpha = torch.eye(self.n_anchors)[task_id]
+        if task_id >= self.n_anchors:
+            self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
+        else: 
+            self.best_alpha = torch.eye(self.n_anchors)[task_id]
 
+    def set_new_task(self,**kwargs):
+        self.best_alpha = None
+        self.add_anchor()
+        
 class SubspacePolicy(CRLAgent):
     def __init__(self, n_initial_anchors, input_dimension,output_dimension, n_layers, hidden_size,use_normalized_obs=False):
         super().__init__()
@@ -124,32 +117,16 @@ class SubspacePolicy(CRLAgent):
             action = torch.tanh(action)
             self.set(("action", t), action)
 
-    def set_task(self,task_id):
-        # Sanity check
-        #k = 0
-        #j = 0
-        #for param in self.model.parameters():
-        #    if len(param.shape)>1:
-        #        data = param.cpu().data
-        #        key = "anchor"+str(k%self.n_anchors+1)+"_W"+str(j+1)
-        #        if key in self.d_check:
-        #            print("sanity check for",key,":",(self.d_check[key] - data).abs().sum().item())
-        #        else:
-        #            self.d_check[key] = copy.deepcopy(data)
-        #        k+=1
-        #        if k%self.n_anchors == 0:
-        #            j+=1
-        #            print("\n")
-        i=0
-        if task_id is None:
-            theta = [None] * (self.hidden_size + 2)
-            for module in self.model:
-                if isinstance(module,LinearSubspace):
-                    module.add_anchor(theta[i])
-                    i+=1
+    def set_new_task(self,info = None):
+        i = 0
+        theta = [info] * (self.hidden_size + 2)
+        for module in self.model:
+            if isinstance(module,LinearSubspace):
+                module.add_anchor(theta[i])
+                i+=1
             self.n_anchors += 1
 
-class CriticAgent(CRLAgent):
+class Critic(CRLAgent):
     def __init__(self, n_anchors, input_dimension, n_layers, hidden_size,use_normalized_obs=False):
         super().__init__()
         self.iname="env/env_obs"
@@ -160,20 +137,8 @@ class CriticAgent(CRLAgent):
         input_size = input_dimension[0] + self.n_anchors
         hs = hidden_size
         n_layers = n_layers
-        hidden_layers = (
-            [
-                nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU()
-                for i in range(2 * (n_layers - 1))
-            ]
-            if n_layers > 1
-            else [nn.Identity()]
-        )
-        self.model_critic = nn.Sequential(
-            nn.Linear(input_size, hs),
-            nn.ReLU(),
-            *hidden_layers,
-            nn.Linear(hs, 1),
-        )
+        hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
+        self.model_critic = nn.Sequential(nn.Linear(input_size, hs),nn.ReLU(),*hidden_layers,nn.Linear(hs, 1))
 
     def forward(self, **kwargs):
         input = self.get(self.iname)
@@ -181,4 +146,3 @@ class CriticAgent(CRLAgent):
         x = torch.cat([input,alphas], dim=-1)
         critic = self.model_critic(x).squeeze(-1)
         self.set("critic", critic)
-

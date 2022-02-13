@@ -9,6 +9,7 @@ import numpy as np
 from IPython.display import display, HTML
 import salina
 import re
+import pickle
 pd.options.mode.chained_assignment = None
 
 def extract_scenario(log):
@@ -50,37 +51,87 @@ def generate_hps_html(hps):
     results.append("</ul>")
     return "".join(results)
 
-def generate_reward_table_html(reward_mean,reward_std):
-    results=["<h3>Reward</h3>"]
+def generate_reward_table_html(rewards,normalizing = False):
+    reward_mean = rewards.mean(0)
+    reward_std = rewards.std(0)
+    results = ["<h3>Normalized rewards</h3>"] if normalizing else ["<h3>Rewards</h3>"]
     results.append("<table>")
     n,_=reward_mean.shape
     
     results.append("<tr><td>Task \\ Stage </td>")
     for stage in range(n): results.append("<td><b>"+str(stage)+"</b></td>")
     results.append("</tr>")
-    
+        
     for task in range(n):
         results.append("<tr><td><b>"+str(task)+"</b></td>")
         for stage in range(n): 
-            r = str(round(reward_mean[task][stage],0))
-            rs = str(round(reward_std[task][stage],0))
+            r = stylify(reward_mean[task][stage],normalizing)
+            rs = str(round(reward_std[task][stage],normalizing))
             if rs != 0:
-                results.append("<td>"+r+" <small><i>±"+rs+"</i></small></td>")
+                results.append("<td>"+r+" <small><i>± "+rs+"</i></small></td>")
             else:
                 results.append("<td>"+r)
         results.append("</tr>")
     results.append("</table>")
     return "".join(results)
 
-def generate_key_metrics_html(reward_mean,reward_std):
+def stylify(r,normalizing = False):
+    if normalizing:
+        r = "<span style=\"color:#FF0000\">"+str(round(r,2))+"</span>" if r <1. else "<b style=\"color:#006400\">"+str(round(r,2))+"</b>"
+    else:
+        r = str(round(r,0))
+    return r
+
+def generate_memory_table_html(memory,normalizing = False):
+
+    memory_mean = memory.mean(0)
+    memory_std = memory.std(0)
+    n = memory.shape[0]
+
+    results=["<h3>Memory</h3>"]
+    results.append("<table>")
+    results.append("<tr><td> Stage </td>")
+    for stage in range(n): 
+        results.append("<td><b>"+str(stage)+"</b></td>")
+    results.append("</tr>")
+    
+    results.append("<tr><td> Nb_params </td>")
+    for stage in range(n):
+        if normalizing:
+            r = str(round(memory_mean[stage],2))
+            rs = str(round(memory_std[stage],2))
+        else:
+            r = str(int(memory_mean[stage]))
+            rs = str(int(memory_std[stage]))
+        if rs != 0:
+            results.append("<td>"+r+" <small><i>± "+rs+"</i></small></td>")
+        else:
+            results.append("<td>"+r)
+    results.append("</tr>")
+    results.append("</table>")
+    return "".join(results)
+
+def generate_key_metrics_html(rewards,normalizing = False):
+    
     results=["<h3>Key metrics</h3>"]
     results.append("<ul>")
-    final_avg_perf = round(reward_mean[:,-1].mean(),0)
-    results.append("<li><b>Final average perf</b> ="+str(final_avg_perf)+"</li>")
-    forward_transfer = round(reward_mean.T[np.triu_indices(reward_mean.shape[0], k = 1)].mean(),0)
-    results.append("<li><b>Forward transfer</b> ="+str(forward_transfer)+"</li>")
-    backward_transfer = round((reward_mean[:,-1] - reward_mean.diagonal()).mean(),2)
-    results.append("<li><b>Forgetting</b> ="+str(backward_transfer)+"</li>")
+
+    final_avg_perf_mean = round(rewards[:,:,-1].mean(),0)
+    final_avg_perf_std = round(rewards[:,:,-1].mean(-1).std(),0)
+    results.append("<li><b>Final average perf</b> ="+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></li>")
+
+    forward = np.zeros((rewards.shape[0],))
+    for i,r in enumerate(rewards):
+        forward[i] = round(r.T[np.triu_indices(r.shape[0], k = 1)].mean(),0)
+    forward_mean = round(forward.mean(),2)
+    forward_std = round(forward.std(),2)
+    results.append("<li><b>Forward Transfer</b> ="+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></li>")
+    backward = np.zeros((rewards.shape[0],))
+    for i,r in enumerate(rewards):
+        backward[i] = round((r[:,-1] - r.diagonal()).mean(),2)
+    backward_mean = round(backward.mean(),2)
+    backward_std = round(backward.std(),2)
+    results.append("<li><b>Forgetting</b> ="+str(backward_mean)+" <small><i>± "+str(backward_std)+"</i></small></li>")
     results.append("</ul>")
     return "".join(results)
 
@@ -92,6 +143,40 @@ def extract_hps(log):
         if not "seed" in k and not k.endswith("device"):
             values[k]=v
     return values
+
+def extract_metrics(logs):
+    print("Analyzing ",len(logs)," logs")
+    hps = extract_hps(logs[0])
+    dfs = []
+    for i,log in enumerate(logs):
+        df = log.to_dataframe()
+        _cols = [c for c in df.columns if c.startswith("evaluation")]+["iteration"]  
+        df = df[_cols]
+        df["seed"] = i
+        dfs.append(df)
+
+    df = pd.concat(dfs)
+    df = df.dropna(subset=[c for c in df.columns if not ((c=="iteration") or (c=="seed"))],how="all")
+    n_tasks = df ["iteration"].max() + 1
+    n_seeds = df["seed"].max() + 1
+    rewards = np.zeros((n_seeds,n_tasks,n_tasks))
+    memory = np.zeros((n_seeds,n_tasks))
+    for seed in range(n_seeds):
+        for task in range(n_tasks):
+            for stage in range(n_tasks):
+                r_name ="evaluation/"+str(task)+"/avg_reward"
+                
+                d = df[(df["iteration"] == stage) & (df["seed"] == seed)]
+                try:
+                    memory[seed,stage] = d["evaluation/memory/n_parameters"]
+                except:
+                    memory[seed,stage] = 0
+                try:
+                    rewards[seed,task,stage] = round(d[r_name],0)
+                except:
+                    pass
+    return rewards,memory,hps
+
 
 def analyze_runs(logs):
     print("Analyzing ",len(logs)," logs")
@@ -200,23 +285,41 @@ def sort_best_experiments(df, top_k = 1):
     best_ids = df.index[:top_k]
     return best_ids
 
-def display_best_experiments(PATH,top_k=1):
+def display_best_experiments(PATH,top_k=1, normalize_data = None):
     dfs,d_logs = agregate_experiments(PATH)
     best_ids = sort_best_experiments(dfs,top_k = top_k)
-    #analyze_scenario(best_logs,)
+    normalizing = not (normalize_data is None)
 
+    #analyze_scenario(best_logs,)
     #h = generate_scenario_html(scenario)
     #display(HTML(h))
     display(HTML("<h2>"+("_"*100)+"</h2>"))
     for i,best_id in enumerate(best_ids):
-        reward_mean, reward_std, memory_mean, memory_std, hps = analyze_runs(d_logs[best_id])
+        rewards, memory,hps = extract_metrics(d_logs[best_id])
+
+        #Normalizing data if possible
+        if normalizing:
+            with open(normalize_data, "rb") as f:
+                d = pickle.load(f)
+            n_seeds = rewards.shape[0]
+            random_rewards = np.stack([d["random_rewards"] for _ in range(n_seeds)])
+            baseline_rewards = np.stack([d["baseline_rewards"] for _ in range(n_seeds)])
+            baseline_memory = np.stack([d["baseline_memory"] for _ in range(n_seeds)])
+            normalized_rewards = (rewards - random_rewards) / (baseline_rewards - random_rewards)
+            memory = memory / baseline_memory
         #Generate HTML
         display(HTML("<h2>#"+str(i+1)+"</h2>"))
-        h = generate_key_metrics_html(reward_mean,reward_std)
+        h = generate_key_metrics_html(rewards)
         display(HTML(h))
-        h = generate_reward_table_html(reward_mean,reward_std)
+        h = generate_reward_table_html(rewards)
+        display(HTML(h))
+        h = generate_reward_table_html(normalized_rewards,normalizing)
+        display(HTML(h))
+        h = generate_memory_table_html(memory,normalizing)
         display(HTML(h))
         h = generate_hps_html(hps)
         display(HTML(h))
         display(HTML("<h2>"+("_"*100)+"</h2>"))
-    return dfs,d_logs
+
+def save_as_normalizer(PATH):
+    dfs,d_logs = agregate_experiments(PATH)
