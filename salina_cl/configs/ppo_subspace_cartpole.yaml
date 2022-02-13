@@ -3,6 +3,7 @@ seed: 0
 
 defaults: 
   - scenario: cartpole_7tasks
+  - algorithm: ppo_cpu
   - override hydra/launcher: submitit_slurm
 
 logger:
@@ -13,7 +14,7 @@ logger:
   verbose: False
 
 model:
-  classname: salina_cl.models.subspace.Incremental
+  classname: salina_cl.models.subspace.TwoSteps
   seed: ${seed}
   params:
     evaluation:
@@ -22,38 +23,14 @@ model:
       n_rollouts: 5
       evaluate_success: False
 
-    algorithm: 
-      classname: salina_cl.algorithms.ppo.ppo
+    algorithm1:
+      classname: salina_cl.algorithms.k_shot.k_shot
       params:
-        learning_device: cpu
+        n_processes: 0
         acquisition_device: cpu
-
-        optimizer_policy:
-          classname: torch.optim.Adam
-          lr: 0.0003
-
-        optimizer_critic:
-          classname: torch.optim.Adam
-          lr: 0.0003
-
-        clip_grad: 10.0
-
-        control_every_n_epochs: 10
-        n_control_rollouts: 1
-        n_timesteps: 32
-        n_processes: 1
-        n_minibatches: 4
-        n_envs_per_minibatch: 16
-        n_timesteps_per_minibatch: 16
-        n_times_per_minibatch: 1
-
-        discount_factor: 0.99
-        clip_ratio: 0.2
-        action_std: 0.4
-        gae: 0.95
-        reward_scaling: 1.0
-
-        time_limit: 0
+        budget: 0.6
+        
+    algorithm2: ${algorithm}
         
     policy_agent:
       classname: salina_cl.agents.subspace_agents.SubspaceActionAgent
