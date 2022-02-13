@@ -50,7 +50,7 @@ class TwoSteps(Model):
         budget2 = task.n_interactions() - r1["n_interactions"]
         r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)
     
-        return {k1:v1+v2  for k1,v1,k2,v2 in zip(r1.items(),r2.items())}
+        return {kv1[0]:kv1[1]+kv2[1]  for kv1,kv2 in zip(r1.items(),r2.items())}
 
     def memory_size(self):
         pytorch_total_params = sum(p.numel() for p in self.policy_agent.parameters())
