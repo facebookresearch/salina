@@ -63,7 +63,8 @@ class BatchNorm(CRLAgent):
 
     def set_task(self,task_id = None):
         if task_id is None:
-            self.bn.append(nn.BatchNorm1d(num_features=self.num_features))
+            self.bn.append(copy.deepcopy(self.bn[-1]))
+            self.bn[-1].state_dict()["num_batches_tracked"] = 0
             self.task_id = len(self.bn) - 1
         else:
             self.task_id = task_id

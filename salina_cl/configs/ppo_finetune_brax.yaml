@@ -40,9 +40,9 @@ model:
 
 hydra:
   run:
-    dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+    dir: results/run/${scenario.name}/${name}/${model.params.policy_agent.classname}/${hydra.job.override_dirname}/seed=${seed}
   sweep:
-    dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: results/multirun/${scenario.name}/${name}/${model.params.policy_agent.classname}/${now:%Y-%m-%d_%H-%M-%S}
     subdir: ${hydra.job.num}
   job:
     env_set:
@@ -58,7 +58,7 @@ hydra:
     max_num_timeout: 0
     cpus_per_task: 1
     signal_delay_s: 30
-    timeout_min: 200
+    timeout_min: 300
     gpus_per_node: 1
     tasks_per_node: 1
     partition: learnlab

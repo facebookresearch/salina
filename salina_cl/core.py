@@ -40,11 +40,12 @@ class Task:
     def task_id(self):
         return self._task_id
 
-    def make(self)-> salina.Agent:
+    def make(self, n_envs = None)-> salina.Agent:
         """ Return the environment agent corresponding to this task
         Returns:
             salina.Agent: The env agent
         """
+        
         return instantiate_class(self._env_agent_cfg)
 
     def n_interactions(self):

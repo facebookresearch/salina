@@ -60,7 +60,7 @@ class BatchNorm(SubspaceAgent):
 
     def add_anchor(self, logger = None, **kwargs):
         if not (logger is None):
-            logger = logger.get_logger(type(self).__name__)
+            logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Copying model and setting 'num_batches_tracked' to zero")
         self.bn.append(copy.deepcopy(self.bn[-1]))
         self.bn[-1].state_dict()["num_batches_tracked"] = 0
@@ -78,20 +78,23 @@ class AlphaAgent(SubspaceAgent):
         self.best_alpha = None
         self.id = nn.Parameter(torch.randn(1,1))
 
-    def forward(self, t = None, replay = False, force_random_alpha = False,**args):
+    def forward(self, t = None, k_shot = False,**args):
         device = self.id.device
-        if (self.best_alpha is None) or self.training or force_random_alpha:
-            if not t is None:
-                B = self.workspace.batch_size()
-                alphas =  self.dist.sample(torch.Size([B])).to(device)
-                if isinstance(self.dist,Categorical):
-                    alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
-                if (t > 0) and (not replay):
-                    done = self.get(("env/done", t)).float().unsqueeze(-1)
-                    alphas_old = self.get(("alphas", t-1))
-                    alphas =  alphas * done + alphas_old * (1 - done)
+        if k_shot:
+            if t > 0:
+                alphas = self.get(("alphas", t-1))
                 self.set(("alphas", t), alphas)
-        else:
+        elif (not t is None) and self.training:
+            B = self.workspace.batch_size()
+            alphas =  self.dist.sample(torch.Size([B])).to(device)
+            if isinstance(self.dist,Categorical):
+                alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
+            if t > 0:
+                done = self.get(("env/done", t)).float().unsqueeze(-1)
+                alphas_old = self.get(("alphas", t-1))
+                alphas =  alphas * done + alphas_old * (1 - done)
+            self.set(("alphas", t), alphas)
+        elif not self.training:
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
             self.set(("alphas", t), alphas)
@@ -104,7 +107,7 @@ class AlphaAgent(SubspaceAgent):
         else:
             self.dist = Categorical(torch.ones(self.n_anchors))
         if not (logger is None):
-            logger = logger.get_logger(type(self).__name__)
+            logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Increasing alpha size to "+str(self.n_anchors))
 
     def set_task(self,task_id):
@@ -164,7 +167,7 @@ class SubspacePolicy(SubspaceAgent):
         i = 0
         alphas = [alpha] * (self.hidden_size + 2)
         if not (logger is None):
-            logger = logger.get_logger(type(self).__name__)
+            logger = logger.get_logger(type(self).__name__+str("/"))
             if alpha is None:
                 logger.message("Adding one anchor with alpha = None")
             else:
@@ -202,5 +205,5 @@ class Critic(SubspaceAgent):
     def add_anchor(self, logger = None,**kwargs):
         self.__init__(self.n_anchors + 1, [self.input_size], self.n_layers, self.hs)
         if not (logger is None):
-            logger = logger.get_logger(type(self).__name__)
+            logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Setting input size to "+str(self.input_size + self.n_anchors)+" and reinitializing network")

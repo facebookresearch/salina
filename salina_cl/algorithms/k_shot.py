@@ -15,8 +15,8 @@ class k_shot:
         self.cfg = params
     
     def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions, add_anchor = True):
-        n_epochs = int(n_max_interactions // (env_agent.n_envs * env_agent.make_env_args['max_episode_steps']))
-        if (action_agent[0].n_anchors > 1) and (n_epochs > 0):
+        logger = logger.get_logger(type(self).__name__+str("/"))
+        if (action_agent[0].n_anchors > 1) and (n_max_interactions > 0):
             action_agent.eval()
             acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.acquisition_device)
             acquisition_agent.seed(seed)
@@ -25,18 +25,24 @@ class k_shot:
             n_interactions = 0
             rewards = []
             _training_start_time = time.time()
-            logger.message("Starting k-shot procedure on "+str(int(n_epochs * env_agent.n_envs))+" episodes")
-            for i in range(n_epochs):
+            logger.message("Starting k-shot procedure")
+            alphas = action_agent[0].dist.sample(torch.Size([self.cfg.n_envs])).to(action_agent[0].id.device)
+            while True:
                 w = Workspace()
+                w.set("alphas",0,alphas)
                 with torch.no_grad():
-                    acquisition_agent(w, t = 0, stop_variable = "env/done", force_random_alpha = True)
+                    acquisition_agent(w, t = 0, stop_variable = "env/done", k_shot = True)
+                w = w.select_batch(torch.LongTensor(list(range(self.cfg.k))))
                 length=w["env/done"].max(0)[1]
+                alphas_print = w["alphas"][0]
                 n_interactions += length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
                 rewards.append(w["env/cumulated_reward"][length, arange])
+                if (n_interactions + length.sum().item()) > n_max_interactions:
+                    logger.message("k-shot ends with "+str(n_interactions)+" interactions used.")
+                    break
             rewards = torch.stack(rewards, dim = 0).mean(0)
             best_alpha = w["alphas"][0,rewards.argmax()].reshape(-1)
-            logger = logger.get_logger(type(self).__name__)
             logger.add_scalar("mean_reward", rewards.mean().item(), 0)
             logger.add_scalar("max_reward", rewards.max().item(), 0)
             logger.message("mean reward:"+str(round(rewards.mean().item(),0)))

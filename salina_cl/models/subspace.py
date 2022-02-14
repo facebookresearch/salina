@@ -36,14 +36,14 @@ class TwoSteps(Model):
         critic_agent_cfg.input_dimension = input_dimension
         critic_agent_cfg.n_anchors = self.policy_agent[0].n_anchors
         self.critic_agent = instantiate_class(critic_agent_cfg)
-        self.critic_agent.apply(weight_init)
 
     def _train(self,task,logger):
         if self.policy_agent is None:
             self._create_policy_agent(task,logger)
             self._create_critic_agent(task,logger)
-        env_agent = task.make()
 
+        env_agent = task.make()
+        
         budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
         r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1, add_anchor = (task._task_id>0))
 

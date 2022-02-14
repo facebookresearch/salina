@@ -19,7 +19,7 @@ class ppo:
         self.cfg_ppo = params
     
     def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions):
-        logger = logger.get_logger(type(self).__name__)
+        logger = logger.get_logger(type(self).__name__+str("/"))
         action_agent.train()
         critic_agent.train()
         time_unit=None

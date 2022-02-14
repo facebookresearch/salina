@@ -28,7 +28,7 @@ class SlicedTemporalTensor:
         """ Initialize an empty tensor
         """
         self.tensors: list[torch.Tensor] = []
-        self.size: toch.Size = None
+        self.size: torch.Size = None
         self.device: torch.device = None
         self.dtype: torch.dtype = None
 
