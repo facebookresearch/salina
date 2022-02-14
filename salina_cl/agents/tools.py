@@ -168,10 +168,11 @@ class LinearSubspace(nn.Module):
         if self.freeze_anchors:
             for param in self.parameters():
                 param.requires_grad = False
+
+        # Midpoint by default
         if alpha is None:
             alpha = torch.ones((self.n_anchors,)) / self.n_anchors
 
-        # Midpoint by default
         new_anchor = nn.Linear(self.in_channels,self.out_channels,bias=self.is_bias)
         new_weight = torch.stack([a * anchor.weight.data for a,anchor in zip(alpha,self.anchors)], dim = 0).mean(0)
         new_anchor.weight.data.copy_(new_weight)

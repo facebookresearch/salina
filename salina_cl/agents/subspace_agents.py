@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 #
 import numpy as np
+import copy
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -13,16 +14,59 @@ from salina_cl.core import CRLAgent, CRLAgents
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.categorical import Categorical
 from salina_cl.agents.tools import LinearSubspace, Sequential
-from salina_cl.agents.single_agents import BatchNorm
+from salina_cl.agents.tools import weight_init
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(AlphaAgent(n_initial_anchors,dist_type),BatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size,True))
+    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),BatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),Critic(n_anchors, input_dimension, n_layers, hidden_size,True))
+    return SubspaceAgents(BatchNorm(input_dimension),Critic(n_anchors, input_dimension, n_layers, hidden_size))
 
+class SubspaceAgents(CRLAgents):
+    def add_anchor(self, **kwargs):
+        for agent in self:
+            agent.add_anchor(**kwargs)
 
-class AlphaAgent(CRLAgent):
+class SubspaceAgent(CRLAgent):
+    def add_anchor(self,**kwargs):
+        pass
+
+class BatchNorm(SubspaceAgent):
+    """
+    Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs"
+    """
+    def __init__(self,input_dimension):
+        super().__init__()
+        self.num_features = input_dimension[0]
+        self.bn = nn.ModuleList([nn.BatchNorm1d(num_features=self.num_features)])
+        self.task_id = 0
+    
+    def forward(self, t=None, **kwargs):
+        model_id = min(self.task_id, len(self.bn)-1)
+        if not t is None:
+            input = self.get(("env/env_obs", t))
+            input = self.bn[model_id](input)
+            self.set(("env/normalized_env_obs", t), input)
+        else:
+            input = self.get("env/env_obs")
+            T,B,s = input.size()
+            input = input.reshape(T*B,s)
+            input = self.bn[model_id](input)
+            input = input.reshape(T,B,s)
+            self.set("env/normalized_env_obs",input)
+
+    def set_task(self,task_id):
+        self.task_id = task_id
+
+    def add_anchor(self, logger = None, **kwargs):
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__)
+            logger.message("Copying model and setting 'num_batches_tracked' to zero")
+        self.bn.append(copy.deepcopy(self.bn[-1]))
+        self.bn[-1].state_dict()["num_batches_tracked"] = 0
+        self.task_id = len(self.bn) - 1
+
+class AlphaAgent(SubspaceAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat"):
         super().__init__()
         self.n_anchors = n_initial_anchors
@@ -34,9 +78,9 @@ class AlphaAgent(CRLAgent):
         self.best_alpha = None
         self.id = nn.Parameter(torch.randn(1,1))
 
-    def forward(self, t = None, replay = False, **args):
+    def forward(self, t = None, replay = False, force_random_alpha = False,**args):
         device = self.id.device
-        if self.best_alpha is None:
+        if (self.best_alpha is None) or self.training or force_random_alpha:
             if not t is None:
                 B = self.workspace.batch_size()
                 alphas =  self.dist.sample(torch.Size([B])).to(device)
@@ -52,33 +96,31 @@ class AlphaAgent(CRLAgent):
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
             self.set(("alphas", t), alphas)
 
-    def add_anchor(self):
+    def add_anchor(self, logger = None,**kwargs):
+        self.best_alpha = None
         self.n_anchors += 1
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         else:
             self.dist = Categorical(torch.ones(self.n_anchors))
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__)
+            logger.message("Increasing alpha size to "+str(self.n_anchors))
 
     def set_task(self,task_id):
         if task_id >= self.n_anchors:
             self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
         else: 
             self.best_alpha = torch.eye(self.n_anchors)[task_id]
-
-    def set_new_task(self,*args):
-        self.best_alpha = None
-        self.add_anchor()
         
-class SubspacePolicy(CRLAgent):
-    def __init__(self, n_initial_anchors, input_dimension,output_dimension, n_layers, hidden_size,use_normalized_obs=False):
+class SubspacePolicy(SubspaceAgent):
+    def __init__(self, n_initial_anchors, input_dimension,output_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
         super().__init__()
         self.d_check = {}
         self.n_anchors = n_initial_anchors
         self.hidden_size = hidden_size
         self.n_layers = n_layers
-        self.iname="env/env_obs"
-        if use_normalized_obs:
-            self.iname="env/normalized_env_obs"
+        self.iname = input_name
         input_size = input_dimension[0]
         num_outputs = output_dimension[0]
         hs = hidden_size
@@ -118,28 +160,37 @@ class SubspacePolicy(CRLAgent):
             action = torch.tanh(action)
             self.set(("action", t), action)
 
-    def set_new_task(self,info = None):
+    def add_anchor(self,alpha = None, logger = None, **kwargs):
         i = 0
-        theta = [info] * (self.hidden_size + 2)
+        alphas = [alpha] * (self.hidden_size + 2)
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__)
+            if alpha is None:
+                logger.message("Adding one anchor with alpha = None")
+            else:
+                logger.message("Adding one anchor with alpha = "+str(list(map(lambda x:round(x,2),alpha.tolist()))))
         for module in self.model:
             if isinstance(module,LinearSubspace):
-                module.add_anchor(theta[i])
-                i+=1
-            self.n_anchors += 1
+                module.add_anchor(alphas[i])
+                # Sanity check
+                #if i == 0:
+                #    for j,anchor in enumerate(module.anchors):
+                #        print("--- anchor",j,":",anchor.weight[0].data[:4])
+                #i+=1
+        self.n_anchors += 1
 
-class Critic(CRLAgent):
-    def __init__(self, n_anchors, input_dimension, n_layers, hidden_size,use_normalized_obs=False):
+
+class Critic(SubspaceAgent):
+    def __init__(self, n_anchors, input_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
         super().__init__()
-        self.iname="env/env_obs"
+        self.iname = input_name 
         self.n_anchors = n_anchors
-        if use_normalized_obs:
-            self.iname="env/normalized_env_obs"
-            
-        input_size = input_dimension[0] + self.n_anchors
-        hs = hidden_size
-        n_layers = n_layers
-        hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
-        self.model_critic = nn.Sequential(nn.Linear(input_size, hs),nn.ReLU(),*hidden_layers,nn.Linear(hs, 1))
+        self.input_size = input_dimension[0]
+        self.hs = hidden_size
+        self.n_layers = n_layers
+        hidden_layers = ([nn.Linear(self.hs, self.hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
+        self.model_critic = nn.Sequential(nn.Linear(self.input_size + self.n_anchors, self.hs),nn.ReLU(),*hidden_layers,nn.Linear(self.hs, 1))
+        self.model_critic.apply(weight_init)
 
     def forward(self, **kwargs):
         input = self.get(self.iname)
@@ -147,3 +198,9 @@ class Critic(CRLAgent):
         x = torch.cat([input,alphas], dim=-1)
         critic = self.model_critic(x).squeeze(-1)
         self.set("critic", critic)
+
+    def add_anchor(self, logger = None,**kwargs):
+        self.__init__(self.n_anchors + 1, [self.input_size], self.n_layers, self.hs)
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__)
+            logger.message("Setting input size to "+str(self.input_size + self.n_anchors)+" and reinitializing network")

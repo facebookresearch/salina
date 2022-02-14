@@ -45,7 +45,7 @@ class TwoSteps(Model):
         env_agent = task.make()
 
         budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
-        r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1)
+        r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1, add_anchor = (task._task_id>0))
 
         budget2 = task.n_interactions() - r1["n_interactions"]
         r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)

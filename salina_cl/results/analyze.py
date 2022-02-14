@@ -83,10 +83,15 @@ def stylify(r,normalizing = False):
     return r
 
 def generate_memory_table_html(memory,normalizing = False):
-
-    memory_mean = memory.mean(0)
-    memory_std = memory.std(0)
-    n = memory.shape[0]
+    
+    n = memory.shape[-1]
+    if n > 1:
+        memory_mean = memory.mean(0)
+        memory_std = memory.std(0)
+    else:
+        memory_mean = memory[0]
+        memory_std = np.zeros(memory.shape[1])
+    
 
     results=["<h3>Memory</h3>"]
     results.append("<table>")
@@ -304,9 +309,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None):
             n_seeds = rewards.shape[0]
             random_rewards = np.stack([d["random_rewards"] for _ in range(n_seeds)])
             baseline_rewards = np.stack([d["baseline_rewards"] for _ in range(n_seeds)])
-            baseline_memory = np.stack([d["baseline_memory"] for _ in range(n_seeds)])
             normalized_rewards = (rewards - random_rewards) / (baseline_rewards - random_rewards)
-            memory = memory / baseline_memory
         #Generate HTML
         display(HTML("<h2>#"+str(i+1)+"</h2>"))
         h = generate_key_metrics_html(rewards)
@@ -315,7 +318,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None):
         display(HTML(h))
         h = generate_reward_table_html(normalized_rewards,normalizing)
         display(HTML(h))
-        h = generate_memory_table_html(memory,normalizing)
+        h = generate_memory_table_html(memory,False)
         display(HTML(h))
         h = generate_hps_html(hps)
         display(HTML(h))

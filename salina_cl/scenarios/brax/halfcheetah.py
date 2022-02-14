@@ -21,6 +21,12 @@ def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
 
+def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**kwargs):
+    """
+    halfcheetah with one task for benchmarking
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task])
+
 def halfcheetah_hard(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     A sequence of 6 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.

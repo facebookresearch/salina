@@ -37,7 +37,7 @@ class Baseline(Model):
         self._create_agent(task,logger)
         self.critic_agent.apply(weight_init)
         env_agent = task.make()
-        r,policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed,n_max_interactions=task.n_interactions())
+        r,policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent, logger, self.seed,n_max_interactions=task.n_interactions())
         self.policy_agents[task.task_id()] = policy_agent
         return r
 
@@ -123,7 +123,6 @@ class TwoSteps(Model):
         critic_agent_cfg.input_dimension = input_dimension
         critic_agent_cfg.n_anchors = self.policy_agent[0].n_anchors
         self.critic_agent = instantiate_class(critic_agent_cfg)
-        self.critic_agent.apply(weight_init)
 
     def _train(self,task,logger):
         if self.policy_agent is None:
