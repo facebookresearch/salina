@@ -1,7 +1,8 @@
 name: ppo_finetune
 seed: 0
 
-defaults: 
+defaults:
+  - logger: logger
   - scenario: halfcheetah_hard
   - algorithm: ppo
   - override hydra/launcher: submitit_slurm
@@ -10,7 +11,7 @@ logger:
   classname: salina.logger.TFLogger
   log_dir: .
   every_n_seconds: 10
-  modulo: 1
+  modulo: 100
   verbose: False
 
 model:

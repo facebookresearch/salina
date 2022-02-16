@@ -121,32 +121,43 @@ class ppo:
             logger.add_scalar("monitor/minibatches_building_time",_etb-_stb,epoch)
 
             #Learning on batches
-            for miniworkspace in miniworkspaces:
-                old_action_lp=miniworkspace["acquisition_action_logprobs"]
-                # === Update policy
+            for i,miniworkspace in enumerate(miniworkspaces):
+                old_action_lp = miniworkspace["acquisition_action_logprobs"]
+                
                 train_agent.train()
-                train_agent(miniworkspace,t=None,action_std=self.cfg_ppo.action_std)
+                train_agent(miniworkspace, t=None, action_std=self.cfg_ppo.action_std)
                 critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
                 reward = reward * self.cfg_ppo.reward_scaling
-                gae = RLF.gae(critic,reward,done,self.cfg_ppo.discount_factor,self.cfg_ppo.gae).detach()
-                action_lp = miniworkspace["action_logprobs"]
-                ratio = action_lp - old_action_lp
-                ratio = ratio.exp()
-                ratio = ratio[:-1]
-                clip_adv = torch.clamp(ratio,1 - self.cfg_ppo.clip_ratio,1 + self.cfg_ppo.clip_ratio) * gae
-                loss_policy = -(torch.min(ratio * gae, clip_adv)).mean()
+
+                # === Update policy
+                if (i % self.cfg_ppo.policy_update_delay) == 0:
+                    gae = RLF.gae(critic,reward,done,self.cfg_ppo.discount_factor,self.cfg_ppo.gae).detach()
+                    action_lp = miniworkspace["action_logprobs"]
+                    ratio = action_lp - old_action_lp
+                    ratio = ratio.exp()
+                    ratio = ratio[:-1]
+                    clip_adv = torch.clamp(ratio,1 - self.cfg_ppo.clip_ratio,1 + self.cfg_ppo.clip_ratio) * gae
+                    loss_regularizer = action_agent.add_regularizer()
+                    loss_policy = -(torch.min(ratio * gae, clip_adv)).mean()
+                    loss = loss_policy + loss_regularizer
+                    optimizer_policy.zero_grad()
+                    loss.backward()
+                    n = clip_grad(action_agent.parameters(), self.cfg_ppo.clip_grad)
+                    optimizer_policy.step()
+                    logger.add_scalar("monitor/grad_norm_policy", n.item(), iteration)
+                    logger.add_scalar("loss/policy", loss_policy.item(), iteration)
+                    logger.add_scalar("loss/regularizer", loss_regularizer.item(), iteration)
+                
+                # === Update critic
                 td0 = RLF.temporal_difference(critic, reward, done, self.cfg_ppo.discount_factor)
                 loss_critic = (td0 ** 2).mean()
                 optimizer_critic.zero_grad()
-                optimizer_policy.zero_grad()
-                (loss_policy + loss_critic).backward()
-                n = clip_grad(action_agent.parameters(), self.cfg_ppo.clip_grad)
-                optimizer_policy.step()
+                loss_critic.backward()
+                n = clip_grad(critic_agent.parameters(), self.cfg_ppo.clip_grad)
                 optimizer_critic.step()
-                logger.add_scalar("monitor/grad_norm_policy", n.item(), iteration)
-                logger.add_scalar("loss/policy", loss_policy.item(), iteration)
                 logger.add_scalar("loss/critic", loss_critic.item(), iteration)
                 logger.add_scalar("monitor/grad_norm_critic", n.item(), iteration)
+
                 iteration += 1
             epoch += 1
 

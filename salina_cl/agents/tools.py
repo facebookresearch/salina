@@ -179,6 +179,7 @@ class LinearSubspace(nn.Module):
         if self.is_bias:
             new_bias = torch.stack([a * anchor.bias.data for a,anchor in zip(alpha,self.anchors)], dim = 0).mean(0)
             new_anchor.bias.data.copy_(new_bias)
+        self.anchors.append(new_anchor)
         self.n_anchors +=1
 
 class Sequential(nn.Sequential):

@@ -5,23 +5,23 @@ params:
 
   optimizer_policy:
     classname: torch.optim.Adam
-    lr: 0.0003
+    lr: [0.0003,0.001]
 
   optimizer_critic:
     classname: torch.optim.Adam
-    lr: 0.0003
+    lr: [0.0003,0.001]
 
   clip_grad: 10.0
 
   control_every_n_epochs: 10
   n_control_rollouts: 0
-  n_timesteps: [20,50,100,200]
-  n_processes: 0
-  n_minibatches: [32,64,128]
-  n_envs_per_minibatch: [256,512]
-  n_timesteps_per_minibatch: [5,20,50]
+  n_timesteps: [50,100]                 # rollout length before each epoch
+  n_processes: 0 
+  n_minibatches: [64,128,256]           # nb of minibatches per epoch
+  n_envs_per_minibatch: 512             # sample size of each minibatch
+  n_timesteps_per_minibatch: [5,20,50]  # timestep size of each minibatch
   n_times_per_minibatch: 1
-
+  policy_update_delay: [4,8,16]         # control the frequency of the policy update
   discount_factor: 0.99
   clip_ratio: 0.2
   action_std: 0.4

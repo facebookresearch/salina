@@ -10,6 +10,7 @@ from IPython.display import display, HTML
 import salina
 import re
 import pickle
+import os
 pd.options.mode.chained_assignment = None
 
 def extract_scenario(log):
@@ -258,6 +259,7 @@ def agregate_experiments(path):
     d_id = {}
     d_logs = {}
     i = 0
+    problems = 0
     scenarios = unique_scenarios(logs)
     for scenario in scenarios:
         for log in logs.logs:
@@ -278,7 +280,8 @@ def agregate_experiments(path):
                     df["scenario"] = scenario["scenario/name"]
                     dfs.append(df)
                 except:
-                    print("problem")
+                    problems += 1
+    print("Data loaded. Unable to load",problems,"experiment files.")
     dfs = pd.concat(dfs)
     return dfs,d_logs
 
@@ -290,14 +293,25 @@ def sort_best_experiments(df, top_k = 1):
     best_ids = df.index[:top_k]
     return best_ids
 
-def display_best_experiments(PATH,top_k=1, normalize_data = None):
-    dfs,d_logs = agregate_experiments(PATH)
-    best_ids = sort_best_experiments(dfs,top_k = top_k)
-    normalizing = not (normalize_data is None)
+def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False):
+    if os.path.exists(PATH+"experiments.dat"):
+        print("Experiments already agregated. Loading data...")
+        with open(PATH+"experiments.dat", "rb") as f:
+            data = pickle.load(f)
+            dfs = data["dfs"]
+            d_logs = data["d_logs"]
+            best_ids = data["best_ids"]
+    else:
+        print("Agregating experiments...")
+        dfs,d_logs = agregate_experiments(PATH)
+        best_ids = sort_best_experiments(dfs,top_k = top_k)
+        data = {"dfs":dfs,
+                "d_logs":d_logs,
+                "best_ids":best_ids}
+        with open(PATH+"experiments.dat", "wb") as f:
+            pickle.dump(data, f)
 
-    #analyze_scenario(best_logs,)
-    #h = generate_scenario_html(scenario)
-    #display(HTML(h))
+    normalizing = not (normalize_data is None)
     display(HTML("<h2>"+("_"*100)+"</h2>"))
     for i,best_id in enumerate(best_ids):
         rewards, memory,hps = extract_metrics(d_logs[best_id])
@@ -324,5 +338,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None):
         display(HTML(h))
         display(HTML("<h2>"+("_"*100)+"</h2>"))
 
-def save_as_normalizer(PATH):
-    dfs,d_logs = agregate_experiments(PATH)
+        with open(PATH+"experiments.dat", "wb") as f:
+            pickle.dump(data, f)
+    if return_logs:
+        return dfs,d_logs, best_ids

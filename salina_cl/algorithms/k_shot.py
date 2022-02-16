@@ -9,12 +9,13 @@ import torch
 from salina import Workspace
 from salina.agents import Agents, TemporalAgent
 from salina.agents.remote import NRemoteAgent
+import pandas as pd
 
 class k_shot:
     def __init__(self,params):
         self.cfg = params
     
-    def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions, add_anchor = True):
+    def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions, add_anchor = True, analyze_kshot = False):
         logger = logger.get_logger(type(self).__name__+str("/"))
         if (action_agent[0].n_anchors > 1) and (n_max_interactions > 0):
             action_agent.eval()
@@ -34,7 +35,6 @@ class k_shot:
                     acquisition_agent(w, t = 0, stop_variable = "env/done", k_shot = True)
                 w = w.select_batch(torch.LongTensor(list(range(self.cfg.k))))
                 length=w["env/done"].max(0)[1]
-                alphas_print = w["alphas"][0]
                 n_interactions += length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
                 rewards.append(w["env/cumulated_reward"][length, arange])
@@ -55,4 +55,24 @@ class k_shot:
         if add_anchor:
             action_agent.add_anchor(alpha = best_alpha,logger=logger)
             critic_agent.add_anchor(logger = logger)
+
+        if analyze_kshot:
+            for _ in range(10):
+                alphas = action_agent[0].dist.sample(torch.Size([self.cfg.n_envs])).to(action_agent[0].id.device)
+                for _ in range(5):
+                    w = Workspace()
+                    w.set("alphas",0,alphas)
+                    with torch.no_grad():
+                        acquisition_agent(w, t = 0, stop_variable = "env/done", k_shot = True)
+                    w = w.select_batch(torch.LongTensor(list(range(self.cfg.k))))
+                    length=w["env/done"].max(0)[1]
+                    n_interactions += length.sum().item()
+                    arange = torch.arange(length.size()[0], device=length.device)
+                    rewards.append(w["env/cumulated_reward"][length, arange])
+                    if (n_interactions + length.sum().item()) > n_max_interactions:
+                        logger.message("k-shot ends with "+str(n_interactions)+" interactions used.")
+                        break
+                rewards = torch.stack(rewards, dim = 0).mean(0)
+            pd.concat
+
         return r, action_agent, critic_agent

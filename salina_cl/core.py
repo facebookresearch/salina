@@ -161,6 +161,9 @@ class CRLAgent(Agent):
     def set_task(self,task_id = None):
         pass
 
+    def add_regularizer(self):
+        return torch.Tensor([0.]).to(list(self.parameters())[0].device)
+
 class CRLAgents(Agents):
     """
     A collection of CRL Agent
@@ -168,3 +171,6 @@ class CRLAgents(Agents):
     def set_task(self,task_id = None):
         for agent in self:
             agent.set_task(task_id)
+
+    def add_regularizer(self):
+        return torch.cat([agent.add_regularizer() for agent in self]).sum()

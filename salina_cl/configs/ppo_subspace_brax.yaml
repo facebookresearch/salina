@@ -28,9 +28,9 @@ model:
       params:
         n_processes: 0
         acquisition_device: cuda:0
-        k: 16
+        k: 512
         n_envs: ${scenario.n_train_envs}
-        budget: 0.05
+        budget: 0.15
         
     algorithm2: ${algorithm}
 
@@ -55,7 +55,7 @@ hydra:
   run:
     dir: results/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
   sweep:
-    dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: results/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/${hydra.job.override_dirname}/seed=${seed}
     subdir: ${hydra.job.num}
   job:
     env_set:
