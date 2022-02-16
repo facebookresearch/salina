@@ -1,6 +1,5 @@
-logger:
-  classname: salina.logger.TFLogger
-  log_dir: .
-  every_n_seconds: 10
-  modulo: 100
-  verbose: False
+classname: salina.logger.TFLogger
+log_dir: .
+every_n_seconds: 10
+modulo: 100
+verbose: False
