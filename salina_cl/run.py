@@ -16,7 +16,7 @@ def main(cfg):
     model = instantiate_class(cfg.model)
     scenario = instantiate_class(cfg.scenario)
     logger_evaluation = logger.get_logger("evaluation/")
-    logger_evaluation.modulo = 1
+    logger_evaluation.logger.modulo = 1
     stage=0
     for train_task in scenario.train_tasks():
         model.train(train_task,logger)

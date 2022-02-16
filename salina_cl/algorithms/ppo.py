@@ -57,10 +57,9 @@ class ppo:
         n_interactions = 0
 
         _training_start_time = time.time()
-        is_training = True
         best_model = None
         best_performance = None
-        while is_training:
+        while True:
         # Compute average performance of multiple rollouts
             if (self.cfg_ppo.n_control_rollouts > 0) and (epoch%self.cfg_ppo.control_every_n_epochs==0):
                 for a in control_agent.get_by_name("action"):
@@ -97,6 +96,10 @@ class ppo:
             workspace=Workspace(acquisition_workspace).to(self.cfg_ppo.learning_device)
             workspace.set_full("acquisition_action_logprobs",workspace["action_logprobs"].detach())
             workspace.set_full("acquisition_action",workspace["action"].detach())
+
+            if n_interactions+(workspace.time_size()-1)*workspace.batch_size() > n_max_interactions:
+                logger.message("== Maximum interactions reached")
+                break
             n_interactions+=(workspace.time_size()-1)*workspace.batch_size()
             logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
@@ -161,13 +164,6 @@ class ppo:
                 logger.add_scalar("monitor/grad_norm_critic", n.item(), iteration)
                 iteration += 1
             epoch += 1
-
-            if n_interactions>n_max_interactions:
-                logger.message("== Maximum interactions reached")
-                is_training=False
-            else:
-                if self.cfg_ppo.time_limit>0:
-                        is_training=time.time()-_training_start_time<self.cfg_ppo.time_limit*time_unit
 
         r = {"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
         if self.cfg_ppo.n_control_rollouts == 0:
