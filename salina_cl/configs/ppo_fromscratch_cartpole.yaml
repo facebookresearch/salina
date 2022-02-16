@@ -1,16 +1,10 @@
 name: ppo_fromscratch
 seed: 0
 
-defaults: 
+defaults:
+  - logger: logger
   - scenario: cartpole_7tasks
   - override hydra/launcher: submitit_slurm
-
-logger:
-  classname: salina.logger.TFLogger
-  log_dir: .
-  every_n_seconds: 10
-  modulo: 1
-  verbose: False
 
 model:
   classname: salina_cl.models.single.FromScratch

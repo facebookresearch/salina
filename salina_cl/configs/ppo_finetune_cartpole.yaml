@@ -1,7 +1,8 @@
 name: ppo_finetune
 seed: 0
 
-defaults: 
+defaults:
+  - logger: logger
   - scenario: cartpole_7tasks
   - algorithm: ppo_cpu
   - override hydra/launcher: submitit_slurm
