@@ -285,16 +285,15 @@ def agregate_experiments(path):
     dfs = pd.concat(dfs)
     return dfs,d_logs
 
-def sort_best_experiments(df, top_k = 1):
+def sort_best_experiments(df):
     nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
     df = df[df["iteration"] == nb_tasks]
     df["evaluation/global_avg_reward"] = df[[c for c in df.columns if c.startswith("evaluation/")]].mean(axis=1)
     df = df[["id","evaluation/global_avg_reward"]].groupby("id").mean().sort_values(by="evaluation/global_avg_reward",ascending=False)
-    best_ids = df.index[:top_k]
-    return best_ids
+    return df.index
 
-def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False):
-    if os.path.exists(PATH+"experiments.dat"):
+def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False):
+    if os.path.exists(PATH+"experiments.dat") and (not force_loading):
         print("Experiments already agregated. Loading data...")
         with open(PATH+"experiments.dat", "rb") as f:
             data = pickle.load(f)
@@ -304,7 +303,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     else:
         print("Agregating experiments...")
         dfs,d_logs = agregate_experiments(PATH)
-        best_ids = sort_best_experiments(dfs,top_k = top_k)
+        best_ids = sort_best_experiments(dfs)
         data = {"dfs":dfs,
                 "d_logs":d_logs,
                 "best_ids":best_ids}
@@ -313,7 +312,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
 
     normalizing = not (normalize_data is None)
     display(HTML("<h2>"+("_"*100)+"</h2>"))
-    for i,best_id in enumerate(best_ids):
+    for i,best_id in enumerate(best_ids[:top_k]):
         rewards, memory,hps = extract_metrics(d_logs[best_id])
 
         #Normalizing data if possible

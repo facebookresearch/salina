@@ -117,20 +117,22 @@ class ppo:
             for _ in range(self.cfg_ppo.n_minibatches):
                 miniworkspace=workspace.sample_subworkspace(self.cfg_ppo.n_times_per_minibatch,self.cfg_ppo.n_envs_per_minibatch,self.cfg_ppo.n_timesteps_per_minibatch)
                 miniworkspaces.append(miniworkspace)
+            del workspace
             _etb = time.time()
             logger.add_scalar("monitor/minibatches_building_time",_etb-_stb,epoch)
 
             #Learning on batches
-            for i,miniworkspace in enumerate(miniworkspaces):
+            train_agent.train()
+            while len(miniworkspaces) > 0:
+                miniworkspace = miniworkspaces.pop()
                 old_action_lp = miniworkspace["acquisition_action_logprobs"]
                 
-                train_agent.train()
                 train_agent(miniworkspace, t=None, action_std=self.cfg_ppo.action_std)
                 critic, done, reward = miniworkspace["critic", "env/done", "env/reward"]
                 reward = reward * self.cfg_ppo.reward_scaling
 
                 # === Update policy
-                if (i % self.cfg_ppo.policy_update_delay) == 0:
+                if (iteration % self.cfg_ppo.policy_update_delay) == 0:
                     gae = RLF.gae(critic,reward,done,self.cfg_ppo.discount_factor,self.cfg_ppo.gae).detach()
                     action_lp = miniworkspace["action_logprobs"]
                     ratio = action_lp - old_action_lp
@@ -157,7 +159,6 @@ class ppo:
                 optimizer_critic.step()
                 logger.add_scalar("loss/critic", loss_critic.item(), iteration)
                 logger.add_scalar("monitor/grad_norm_critic", n.item(), iteration)
-
                 iteration += 1
             epoch += 1
 
