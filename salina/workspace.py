@@ -16,7 +16,7 @@ import salina
 from typing import List, Set, Dict, Tuple, Optional
 
 """ This module provides different ways to store tensors that are more flexible than the torch.Tensor class
-It also defined the `Workspace` as a dictionnay of tensors and a version of the workspace where tensors are in shared memory for multiprocessing
+It also defines the `Workspace` as a dictionary of tensors and a version of the workspace where tensors are in shared memory for multiprocessing
 """
 
 class SlicedTemporalTensor:
