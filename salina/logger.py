@@ -32,6 +32,9 @@ class TFPrefixLogger:
     def add_images(self, name, value, iteration):
         self.logger.add_images(self.prefix + name, value, iteration)
 
+    def add_figure(self, name, value, iteration):
+        self.logger.add_figure(self.prefix + name, value, iteration)
+
     def add_scalar(self, name, value, iteration):
         self.logger.add_scalar(self.prefix + name, value, iteration)
 
@@ -173,6 +176,17 @@ class TFLogger(SummaryWriter):
         self._to_pickle(name, value, iteration)
         if self.save_tensorboard:
             SummaryWriter.add_images(self, name, value, iteration)
+
+    def add_figure(self, name, value, iteration):
+        iteration = int(iteration / self.modulo) * self.modulo
+        if (name, iteration) in self.written_values:
+            return
+        else:
+            self.written_values[(name, iteration)] = True
+
+        self._to_pickle(name, value, iteration)
+        if self.save_tensorboard:
+            SummaryWriter.add_figure(self, name, value, iteration)
 
     def add_scalar(self, name, value, iteration):
         iteration = int(iteration / self.modulo) * self.modulo

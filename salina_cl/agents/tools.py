@@ -174,10 +174,10 @@ class LinearSubspace(nn.Module):
             alpha = torch.ones((self.n_anchors,)) / self.n_anchors
 
         new_anchor = nn.Linear(self.in_channels,self.out_channels,bias=self.is_bias)
-        new_weight = torch.stack([a * anchor.weight.data for a,anchor in zip(alpha,self.anchors)], dim = 0).mean(0)
+        new_weight = torch.stack([a * anchor.weight.data for a,anchor in zip(alpha,self.anchors)], dim = 0).sum(0)
         new_anchor.weight.data.copy_(new_weight)
         if self.is_bias:
-            new_bias = torch.stack([a * anchor.bias.data for a,anchor in zip(alpha,self.anchors)], dim = 0).mean(0)
+            new_bias = torch.stack([a * anchor.bias.data for a,anchor in zip(alpha,self.anchors)], dim = 0).sum(0)
             new_anchor.bias.data.copy_(new_bias)
         self.anchors.append(new_anchor)
         self.n_anchors +=1

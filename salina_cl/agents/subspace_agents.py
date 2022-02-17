@@ -17,10 +17,10 @@ from salina_cl.agents.tools import LinearSubspace, Sequential
 from salina_cl.agents.tools import weight_init
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),BatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
+    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),Normalizer(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
-    return SubspaceAgents(BatchNorm(input_dimension),Critic(n_anchors, input_dimension, n_layers, hidden_size))
+    return SubspaceAgents(Critic(n_anchors, input_dimension, n_layers, hidden_size))
 
 class SubspaceAgents(CRLAgents):
     def add_anchor(self, **kwargs):
@@ -43,6 +43,88 @@ class BatchNorm(SubspaceAgent):
     
     def forward(self, t=None, **kwargs):
         model_id = min(self.task_id, len(self.bn)-1)
+        if self.task_id>0:
+            self.eval
+        if not t is None:
+            input = self.get(("env/env_obs", t))
+            input = self.bn[model_id](input)
+            self.set(("env/normalized_env_obs", t), input)
+        else:
+            input = self.get("env/env_obs")
+            T,B,s = input.size()
+            input = input.reshape(T*B,s)
+            input = self.bn[model_id](input)
+            input = input.reshape(T,B,s)
+            self.set("env/normalized_env_obs",input)
+
+    def set_task(self,task_id):
+        self.task_id = task_id
+
+    def add_anchor(self, logger = None, **kwargs):
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Copying model and setting 'num_batches_tracked' to zero")
+        self.bn.append(copy.deepcopy(self.bn[-1]))
+        self.bn[-1].state_dict()["num_batches_tracked"] = 0
+        self.task_id = len(self.bn) - 1
+
+class Normalizer(SubspaceAgent):
+    def __init__(self,input_dimension):
+        super().__init__()
+
+        self.n_features = input_dimension[0]
+        self.n = None
+        self.id = nn.Linear(1, 1)
+        self.update_normalizer = True
+
+    def forward(self, t, **kwargs):
+        if not t is None:
+            input = self.get(("env/env_obs", t))
+            assert torch.isnan(input).sum() == 0.0, "problem"
+            if self.update_normalizer:
+                self.update(input)
+            input = self.normalize(input)
+            assert torch.isnan(input).sum() == 0.0, "problem"
+            self.set(("env/normalized_env_obs", t), input)
+
+    def update(self, x):
+        if self.n is None:
+            device = x.device
+            self.id.to(device)
+            self.n = torch.zeros(self.n_features).to(device)
+            self.mean = torch.zeros(self.n_features).to(device)
+            self.mean_diff = torch.zeros(self.n_features).to(device)
+            self.var = torch.ones(self.n_features).to(device)
+        self.n += 1.0
+        last_mean = self.mean.clone()
+        self.mean += (x - self.mean).mean(dim=0) / self.n
+        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
+        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
+
+    def normalize(self, inputs):
+        obs_std = torch.sqrt(self.var)
+        return (inputs - self.mean) / obs_std
+
+    def seed(self, seed):
+        torch.manual_seed(seed)
+
+    def set_task(self,task_id = None):
+        self.update_normalizer = False
+
+class FreezeBatchNorm(SubspaceAgent):
+    """
+    Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs"
+    """
+    def __init__(self,input_dimension):
+        super().__init__()
+        self.num_features = input_dimension[0]
+        self.bn = nn.ModuleList([nn.BatchNorm1d(num_features=self.num_features)])
+        self.task_id = 0
+    
+    def forward(self, t=None, **kwargs):
+        model_id = min(self.task_id, len(self.bn)-1)
+        if self.task_id>0:
+            self.eval()
         if not t is None:
             input = self.get(("env/env_obs", t))
             input = self.bn[model_id](input)
@@ -176,10 +258,10 @@ class SubspacePolicy(SubspaceAgent):
             if isinstance(module,LinearSubspace):
                 module.add_anchor(alphas[i])
                 # Sanity check
-                #if i == 0:
-                #    for j,anchor in enumerate(module.anchors):
-                #        print("--- anchor",j,":",anchor.weight[0].data[:4])
-                #i+=1
+                if i == 0:
+                    for j,anchor in enumerate(module.anchors):
+                        print("--- anchor",j,":",anchor.weight[0].data[:4])
+                i+=1
         self.n_anchors += 1
 
 

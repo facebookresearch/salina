@@ -20,7 +20,7 @@ model:
     algorithm: ${algorithm}
   
     policy_agent:
-      classname: salina_cl.agents.single_agents.ActionAgent
+      classname: salina_cl.agents.single_agents.NormalizerActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil

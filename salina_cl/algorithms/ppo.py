@@ -167,7 +167,7 @@ class ppo:
 
         r = {"n_epochs":epoch,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
         if self.cfg_ppo.n_control_rollouts == 0:
-            action_agent, critic_agent = copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
+            action_agent, critic_agent = copy.deepcopy(acquisition_agent.get_by_name("action")[0]),copy.deepcopy(critic_agent)
         else:
             action_agent, critic_agent = best_model
         

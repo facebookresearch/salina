@@ -24,7 +24,7 @@ model:
         acquisition_device: cuda:0
         k: 512
         n_envs: ${scenario.n_train_envs}
-        budget: 0.15
+        budget: 0.2
         
     algorithm2: ${algorithm}
 

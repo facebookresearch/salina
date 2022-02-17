@@ -128,7 +128,7 @@ class TwoSteps(Model):
         if self.policy_agent is None:
             self._create_policy_agent(task,logger)
         else:
-            logger.message("Adding an anchor to the policy subspace")
+            logger.message("Setting new task")
             self.policy_agent.set_task()
         self._create_critic_agent(task,logger)
         env_agent = task.make()
