@@ -316,7 +316,7 @@ def take_per_row_strided(A, indx, num_elem=2):
 
 
 class Workspace:
-    """ Workspace is the most import class in `SaLinA`. It correponds to a collection of tensors ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactShareTensor`).
+    """ Workspace is the most important class in `SaLinA`. It correponds to a collection of tensors ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactShareTensor`).
         In the majority of cases, we consider that all the tensors have the same time and batch sizes (but it is not mandatory for most of the functions)
     """
 
