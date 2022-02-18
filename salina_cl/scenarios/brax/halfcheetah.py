@@ -27,11 +27,23 @@ def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**k
     """
     return OneHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task])
 
-def halfcheetah_hard(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+def halfcheetah_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     A sequence of 6 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","defective_module","moon","rainfall","overweight"])
+
+def halfcheetah_hard2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    Different ordering
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","overweight","defective_module","normal","moon"])
+
+def halfcheetah_hard3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    Different ordering
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","defective_module","normal","moon""overweight"])
 
 env_cfgs = {
     "normal":{},

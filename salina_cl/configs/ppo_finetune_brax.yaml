@@ -3,11 +3,9 @@ seed: 0
 
 defaults:
   - logger: logger
-  - scenario: halfcheetah_hard
+  - scenario: halfcheetah_hard1
   - algorithm: ppo
   - override hydra/launcher: submitit_slurm
-
-scenario:
 
 model:
   classname: salina_cl.models.models.OneStep
