@@ -59,12 +59,8 @@ def display_kshot(alphas,rewards):
     radius = 0.5
     center = (0.5,0.5)
 
-    if n_anchors == 2:
-        subspace = Rectangle((0.,0.495),1.,0.01, fc=(1,1,1,0), edgecolor="black")
-        anchors = np.array([[0.,0.5],[1.,0.5]])
-    else:
-        subspace = RegularPolygon((0.5,0.5),n_anchors,radius = radius, fc=(1,1,1,0), edgecolor="black")
-        anchors = subspace.get_path().vertices[:-1] * radius + center
+    subspace = RegularPolygon((0.5,0.5),n_anchors,radius = radius, fc=(1,1,1,0), edgecolor="black")
+    anchors = subspace.get_path().vertices[:-1] * radius + center
 
     for i,anchor in enumerate(anchors):
         x = anchor[0] + (anchor[0]-center[0]) * 0.1
@@ -74,6 +70,7 @@ def display_kshot(alphas,rewards):
     coordinates = (alphas @ anchors).T
     ax.add_artist(subspace)
     points = ax.scatter(coordinates[0],coordinates[1],c=rewards, cmap="RdYlGn", s=50)
+    ax.scatter(coordinates[0][rewards.argmax()],coordinates[1][rewards.argmax()], s=300, color="darkgreen", marker="x")
     ax.set_xlim(0.,1.)
     ax.set_ylim(0.,1.)
 
@@ -84,3 +81,5 @@ def display_kshot(alphas,rewards):
     cbar.set_ticklabels([minVal, maxVal])
 
     return fig
+
+    

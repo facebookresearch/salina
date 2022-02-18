@@ -25,7 +25,7 @@ def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**k
     """
     halfcheetah with one task for benchmarking
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task])
+    return OneHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task])
 
 def halfcheetah_hard(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
@@ -161,6 +161,42 @@ class MultiHalfcheetah(Scenario):
 
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):
+            agent_cfg={
+                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "make_env_fn":make_halfcheetah,
+                "make_env_args":{"max_episode_steps":1000,
+                                 "env_cfg":cfg},
+                "n_envs":n_evaluation_envs
+            }
+            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k))
+
+    def train_tasks(self):
+        return self._train_tasks
+
+    def test_tasks(self):
+        return self._test_tasks
+
+class OneHalfcheetah(Scenario):
+    def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):
+        print("Scenario is ",cfgs)
+        env = make_halfcheetah(10)
+        input_dimension = [env.observation_space.shape[0]]
+        output_dimension = [env.action_space.shape[0]]
+
+        self._train_tasks=[]
+        for k,cfg in enumerate(cfgs):
+            agent_cfg={
+                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "make_env_fn":make_halfcheetah,
+                "make_env_args":{
+                                "max_episode_steps":1000,
+                                 "env_cfg":cfg},
+                "n_envs":n_train_envs
+            }
+            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
+
+        self._test_tasks=[]
+        for k,cfg in enumerate(["normal","defective_module","moon","rainfall","overweight"]):
             agent_cfg={
                 "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,

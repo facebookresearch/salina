@@ -7,6 +7,8 @@ defaults:
   - algorithm: ppo
   - override hydra/launcher: submitit_slurm
 
+scenario:
+
 model:
   classname: salina_cl.models.models.OneStep
   seed: ${seed}
@@ -20,7 +22,7 @@ model:
     algorithm: ${algorithm}
   
     policy_agent:
-      classname: salina_cl.agents.single_agents.NormalizerActionAgent
+      classname: salina_cl.agents.single_agents.ActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil

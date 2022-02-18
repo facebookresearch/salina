@@ -17,14 +17,14 @@ params:
   n_control_rollouts: 0
   n_timesteps: 100
   n_processes: 0
-  n_minibatches: 256
+  n_minibatches: 128
   n_envs_per_minibatch: 512
   n_timesteps_per_minibatch: 20
   n_times_per_minibatch: 1
-  policy_update_delay: 8
+  policy_update_delay: 4
 
   discount_factor: 0.99
-  clip_ratio: 0.2
+  clip_ratio: 0.3
   action_std: 0.4
   gae: 0.96
   reward_scaling: 1.0

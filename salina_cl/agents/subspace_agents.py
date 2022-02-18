@@ -17,7 +17,7 @@ from salina_cl.agents.tools import LinearSubspace, Sequential
 from salina_cl.agents.tools import weight_init
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),Normalizer(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
+    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),FreezeBatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
     return SubspaceAgents(Critic(n_anchors, input_dimension, n_layers, hidden_size))
@@ -67,6 +67,15 @@ class BatchNorm(SubspaceAgent):
         self.bn.append(copy.deepcopy(self.bn[-1]))
         self.bn[-1].state_dict()["num_batches_tracked"] = 0
         self.task_id = len(self.bn) - 1
+
+class FreezeBatchNorm(BatchNorm):
+    """
+    This batchnorm is frozen after task 1. More convenient to compare methods.
+    """
+    def add_anchor(self,task_id = None):
+        for params in self.parameters():
+            params.requires_grad = False
+
 
 class Normalizer(SubspaceAgent):
     def __init__(self,input_dimension):
@@ -278,8 +287,8 @@ class Critic(SubspaceAgent):
         self.model_critic.apply(weight_init)
 
     def forward(self, **kwargs):
-        input = self.get(self.iname)
-        alphas = self.get("alphas")
+        input = self.get(self.iname).detach()
+        alphas = self.get("alphas").detach()
         x = torch.cat([input,alphas], dim=-1)
         critic = self.model_critic(x).squeeze(-1)
         self.set("critic", critic)

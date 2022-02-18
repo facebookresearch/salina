@@ -93,9 +93,12 @@ class ppo:
             if epoch > 0: acquisition_workspace.copy_n_last_steps(1)
             acquisition_agent.train()
             acquisition_agent( acquisition_workspace, t=1 if epoch > 0 else 0, n_steps=self.cfg_ppo.n_timesteps - 1 if epoch > 0 else self.cfg_ppo.n_timesteps, action_std=self.cfg_ppo.action_std)
+            
+            
             workspace=Workspace(acquisition_workspace).to(self.cfg_ppo.learning_device)
             workspace.set_full("acquisition_action_logprobs",workspace["action_logprobs"].detach())
             workspace.set_full("acquisition_action",workspace["action"].detach())
+            workspace.set_full("env/normalized_env_obs",workspace["env/normalized_env_obs"].detach())
 
             if n_interactions+(workspace.time_size()-1)*workspace.batch_size() > n_max_interactions:
                 logger.message("== Maximum interactions reached")

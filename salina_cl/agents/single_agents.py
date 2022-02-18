@@ -16,77 +16,31 @@ import copy
 def CriticAgent(input_dimension, n_layers, hidden_size):
     return CRLAgents(Critic(input_dimension, n_layers, hidden_size))
 
-def NormalizerActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
-
-
 def ActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
+    return CRLAgents(FreezeBatchNorm(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
 
 def MultiActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),MultiAction(input_dimension,output_dimension, n_layers, hidden_size))
+    return CRLAgents(FreezeBatchNorm(input_dimension),MultiAction(input_dimension,output_dimension, n_layers, hidden_size))
 
 def FromscratchActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),FromscratchAction(input_dimension,output_dimension, n_layers, hidden_size))
+    return CRLAgents(FreezeBatchNorm(input_dimension),FromscratchAction(input_dimension,output_dimension, n_layers, hidden_size))
 
 def MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(FreezeBatchNorm(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 def FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(FreezeBatchNorm(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 def FreezeNN_FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(FreezeBatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 def FreezeNN_MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(BatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
-
-class Normalizer(CRLAgent):
-    def __init__(self,input_dimension):
-        super().__init__()
-
-        self.n_features = input_dimension[0]
-        self.n = None
-        self.id = nn.Linear(1, 1)
-        self.update_normalizer = True
-
-    def forward(self, t, **kwargs):
-        if not t is None:
-            input = self.get(("env/env_obs", t))
-            assert torch.isnan(input).sum() == 0.0, "problem"
-            if self.update_normalizer:
-                self.update(input)
-            input = self.normalize(input)
-            assert torch.isnan(input).sum() == 0.0, "problem"
-            self.set(("env/normalized_env_obs", t), input)
-
-    def update(self, x):
-        if self.n is None:
-            device = x.device
-            self.id.to(device)
-            self.n = torch.zeros(self.n_features).to(device)
-            self.mean = torch.zeros(self.n_features).to(device)
-            self.mean_diff = torch.zeros(self.n_features).to(device)
-            self.var = torch.ones(self.n_features).to(device)
-        self.n += 1.0
-        last_mean = self.mean.clone()
-        self.mean += (x - self.mean).mean(dim=0) / self.n
-        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
-        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
-
-    def normalize(self, inputs):
-        obs_std = torch.sqrt(self.var)
-        return (inputs - self.mean) / obs_std
-
-    def seed(self, seed):
-        torch.manual_seed(seed)
-
-    def set_task(self,task_id = None):
-        self.update_normalizer = False
+    return CRLAgents(FreezeBatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 class BatchNorm(CRLAgent):
     """
-    Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs"
+    Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs".
+    At each change of task, the last BN network is saved and cloned for the new task.
     """
     def __init__(self,input_dimension):
         super().__init__()
@@ -115,6 +69,14 @@ class BatchNorm(CRLAgent):
             self.task_id = len(self.bn) - 1
         else:
             self.task_id = task_id
+
+class FreezeBatchNorm(BatchNorm):
+    """
+    This batchnorm is frozen after task 1. More convenient to compare methods.
+    """
+    def set_task(self,task_id = None):
+        for params in self.parameters():
+            params.requires_grad = False
 
 class NN(CRLAgent):
     """
@@ -237,6 +199,6 @@ class Critic(CRLAgent):
         self.model_critic.apply(weight_init)
 
     def forward(self, **kwargs):
-        input = self.get(self.iname)
+        input = self.get(self.iname).detach()
         critic = self.model_critic(input).squeeze(-1)
         self.set("critic", critic)
