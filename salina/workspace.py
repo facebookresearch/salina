@@ -16,7 +16,7 @@ import salina
 from typing import List, Set, Dict, Tuple, Optional
 
 """ This module provides different ways to store tensors that are more flexible than the torch.Tensor class
-It also defined the `Workspace` as a dictionnay of tensors and a version of the workspace where tensors are in shared memory for multiprocessing
+It also defines the `Workspace` as a dictionary of tensors and a version of the workspace where tensors are in shared memory for multiprocessing
 """
 
 class SlicedTemporalTensor:
@@ -316,7 +316,7 @@ def take_per_row_strided(A, indx, num_elem=2):
 
 
 class Workspace:
-    """ Workspace is the most import class in `SaLinA`. It correponds to a collection of tensors ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactShareTensor`).
+    """ Workspace is the most important class in `SaLinA`. It correponds to a collection of tensors ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactShareTensor`).
         In the majority of cases, we consider that all the tensors have the same time and batch sizes (but it is not mandatory for most of the functions)
     """
 
