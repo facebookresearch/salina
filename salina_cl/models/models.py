@@ -8,6 +8,7 @@ from salina_cl.core import Model
 from salina import instantiate_class
 from salina_cl.agents.tools import weight_init
 import numpy as np
+import torch
 
 class Baseline(Model):
     """
@@ -77,6 +78,7 @@ class OneStep(Model):
         self.critic_agent = instantiate_class(critic_agent_cfg)
 
     def _train(self,task,logger):
+        print("----",logger.logger.log_dir+"/model.dat")
         if self.policy_agent is None:
             self._create_agent(task,logger)
         else:
@@ -84,6 +86,8 @@ class OneStep(Model):
         self.critic_agent.apply(weight_init)
         env_agent = task.make()
         r,self.policy_agent,self.critic_agent = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions=task.n_interactions())
+
+        torch.save(self.policy_agent,logger.logger.log_dir+"/model.dat")
         return r
 
     def memory_size(self):

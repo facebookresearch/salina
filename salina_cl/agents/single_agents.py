@@ -17,7 +17,7 @@ def CriticAgent(input_dimension, n_layers, hidden_size):
     return CRLAgents(Critic(input_dimension, n_layers, hidden_size))
 
 def ActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
+    return CRLAgents(Normalizer(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
 
 def MultiActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
     return CRLAgents(FreezeBatchNorm(input_dimension),MultiAction(input_dimension,output_dimension, n_layers, hidden_size))
@@ -41,40 +41,25 @@ class Normalizer(CRLAgent):
     def __init__(self,input_dimension):
         super().__init__()
 
-        self.n_features = input_dimension[0]
-        self.n = None
-        self.id = nn.Linear(1, 1)
-        self.update_normalizer = True
+        self.running_mean = nn.Parameter(torch.Tensor([ 6.1431e-01,  4.5919e-01,  0.0000e+00, -6.2606e-03,  0.0000e+00,
+         1.1327e-01, -6.0021e-02, -1.5187e-01, -2.2399e-01, -4.0081e-01,
+        -2.8977e-01,  6.5863e+00,  0.0000e+00, -7.2588e-03,  0.0000e+00,
+         1.6598e-01,  0.0000e+00,  5.8859e-02, -6.8729e-02,  8.9783e-02,
+         1.1471e-01, -1.9337e-01,  1.9044e-01]),requires_grad = False)
+        self.std = nn.Parameter(torch.sqrt(torch.Tensor([2.7747e-02, 7.0441e-01, 5.6052e-45, 5.3661e-02, 5.6052e-45, 4.2445e-01,
+        3.5026e-01, 1.3651e-01, 4.2359e-01, 5.5605e-01, 9.4230e-02, 5.3188e+00,
+        5.6052e-45, 1.9010e+00, 5.6052e-45, 1.0593e+01, 5.6052e-45, 1.5619e+02,
+        2.1769e+02, 7.1641e+02, 2.4682e+02, 1.0647e+03, 9.3556e+02])),requires_grad = False)
+        
 
     def forward(self, t, **kwargs):
         if not t is None:
-            input = self.get(("env/env_obs", t))
-            assert torch.isnan(input).sum() == 0.0, "problem"
-            self.update(input)
-            input = self.normalize(input)
-            assert torch.isnan(input).sum() == 0.0, "problem"
-            self.set(("env/normalized_env_obs", t), input)
+            x = self.get(("env/env_obs", t))
+            x = self.normalize(x)
+            self.set(("env/normalized_env_obs", t), x)
 
-    def update(self, x):
-        if self.n is None:
-            device = x.device
-            self.id.to(device)
-            self.n = torch.zeros(self.n_features).to(device)
-            self.mean = torch.zeros(self.n_features).to(device)
-            self.mean_diff = torch.zeros(self.n_features).to(device)
-            self.var = torch.ones(self.n_features).to(device)
-        self.n += 1.0
-        last_mean = self.mean.clone()
-        self.mean += (x - self.mean).mean(dim=0) / self.n
-        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
-        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
-
-    def normalize(self, inputs):
-        obs_std = torch.sqrt(self.var)
-        return (inputs - self.mean) / obs_std
-
-    def seed(self, seed):
-        torch.manual_seed(seed)
+    def normalize(self, x):
+        return (x - self.running_mean) / self.std
 
 class BatchNorm(CRLAgent):
     """

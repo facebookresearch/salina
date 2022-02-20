@@ -76,8 +76,9 @@ class ppo:
                     rewards=rewards+creward.to("cpu").tolist()
 
                 mean_reward=np.mean(rewards)
+                max_reward=np.max(rewards)
                 logger.add_scalar("validation/reward", mean_reward, epoch)
-                logger.add_scalar("validation/best_reward",reward.max().item(), epoch)
+                logger.add_scalar("validation/best_reward",max_reward, epoch)
                 print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
             
                 if best_performance is None or mean_reward >= best_performance:

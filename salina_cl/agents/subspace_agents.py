@@ -31,6 +31,33 @@ class SubspaceAgent(CRLAgent):
     def add_anchor(self,**kwargs):
         pass
 
+class Normalizer(SubspaceAgent):
+    """
+    Pre-trained normalizer over Halfcheetah. Helps to compare models fairly.
+    """
+    def __init__(self,input_dimension):
+        super().__init__()
+
+        self.running_mean = nn.Parameter(torch.Tensor([ 6.1431e-01,  4.5919e-01,  0.0000e+00, -6.2606e-03,  0.0000e+00,
+         1.1327e-01, -6.0021e-02, -1.5187e-01, -2.2399e-01, -4.0081e-01,
+        -2.8977e-01,  6.5863e+00,  0.0000e+00, -7.2588e-03,  0.0000e+00,
+         1.6598e-01,  0.0000e+00,  5.8859e-02, -6.8729e-02,  8.9783e-02,
+         1.1471e-01, -1.9337e-01,  1.9044e-01]),requires_grad = False)
+        self.std = nn.Parameter(torch.sqrt(torch.Tensor([2.7747e-02, 7.0441e-01, 5.6052e-45, 5.3661e-02, 5.6052e-45, 4.2445e-01,
+        3.5026e-01, 1.3651e-01, 4.2359e-01, 5.5605e-01, 9.4230e-02, 5.3188e+00,
+        5.6052e-45, 1.9010e+00, 5.6052e-45, 1.0593e+01, 5.6052e-45, 1.5619e+02,
+        2.1769e+02, 7.1641e+02, 2.4682e+02, 1.0647e+03, 9.3556e+02])),requires_grad = False)
+        
+
+    def forward(self, t, **kwargs):
+        if not t is None:
+            x = self.get(("env/env_obs", t))
+            x = self.normalize(x)
+            self.set(("env/normalized_env_obs", t), x)
+
+    def normalize(self, x):
+        return (x - self.running_mean) / self.std
+
 class BatchNorm(SubspaceAgent):
     """
     Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs"
@@ -117,12 +144,13 @@ class AlphaAgent(SubspaceAgent):
             self.set(("alphas", t), alphas)
 
     def add_anchor(self, alpha = None, logger = None,**kwargs):
+        device = self.id.device
         if alpha is None:
-            alpha = torch.Tensor([0.] * self.best_alphas.shape[1] + [1.])
+            alpha = torch.Tensor([0.] * self.best_alphas.shape[1] + [1.]).to(device)
         else:
-            alpha = torch.cat([alpha,torch.Tensor([0.])])
-        self.best_alphas = torch.cat([self.best_alphas,torch.zeros(self.best_alphas.shape[0],1)],dim=-1)
-        self.best_alphas = torch.cat([self.best_alphas,alpha.unsqueeze(0)],dim=0)
+            alpha = torch.cat([alpha,torch.Tensor([0.]).to(device)])
+        self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
+        self.best_alphas = torch.cat([self.best_alphas.to(device),alpha.unsqueeze(0)],dim=0)
         self.n_anchors += 1
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
