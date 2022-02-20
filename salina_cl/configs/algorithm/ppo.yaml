@@ -14,12 +14,12 @@ params:
   clip_grad: 10.0
 
   control_every_n_epochs: 10
-  n_control_rollouts: 0
+  n_control_rollouts: 5
   n_timesteps: 100
   n_processes: 0
   n_minibatches: 128
   n_envs_per_minibatch: 512
-  n_timesteps_per_minibatch: 20
+  n_timesteps_per_minibatch: 50
   n_times_per_minibatch: 1
   policy_update_delay: 4
 

@@ -43,19 +43,10 @@ class BatchNorm(SubspaceAgent):
     
     def forward(self, t=None, **kwargs):
         model_id = min(self.task_id, len(self.bn)-1)
-        if self.task_id>0:
-            self.eval
         if not t is None:
             input = self.get(("env/env_obs", t))
             input = self.bn[model_id](input)
             self.set(("env/normalized_env_obs", t), input)
-        else:
-            input = self.get("env/env_obs")
-            T,B,s = input.size()
-            input = input.reshape(T*B,s)
-            input = self.bn[model_id](input)
-            input = input.reshape(T,B,s)
-            self.set("env/normalized_env_obs",input)
 
     def set_task(self,task_id):
         self.task_id = task_id
@@ -68,94 +59,28 @@ class BatchNorm(SubspaceAgent):
         self.bn[-1].state_dict()["num_batches_tracked"] = 0
         self.task_id = len(self.bn) - 1
 
-class FreezeBatchNorm(BatchNorm):
-    """
-    This batchnorm is frozen after task 1. More convenient to compare methods.
-    """
-    def add_anchor(self,task_id = None):
-        for params in self.parameters():
-            params.requires_grad = False
-
-
-class Normalizer(SubspaceAgent):
-    def __init__(self,input_dimension):
-        super().__init__()
-
-        self.n_features = input_dimension[0]
-        self.n = None
-        self.id = nn.Linear(1, 1)
-        self.update_normalizer = True
-
-    def forward(self, t, **kwargs):
-        if not t is None:
-            input = self.get(("env/env_obs", t))
-            assert torch.isnan(input).sum() == 0.0, "problem"
-            if self.update_normalizer:
-                self.update(input)
-            input = self.normalize(input)
-            assert torch.isnan(input).sum() == 0.0, "problem"
-            self.set(("env/normalized_env_obs", t), input)
-
-    def update(self, x):
-        if self.n is None:
-            device = x.device
-            self.id.to(device)
-            self.n = torch.zeros(self.n_features).to(device)
-            self.mean = torch.zeros(self.n_features).to(device)
-            self.mean_diff = torch.zeros(self.n_features).to(device)
-            self.var = torch.ones(self.n_features).to(device)
-        self.n += 1.0
-        last_mean = self.mean.clone()
-        self.mean += (x - self.mean).mean(dim=0) / self.n
-        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
-        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
-
-    def normalize(self, inputs):
-        obs_std = torch.sqrt(self.var)
-        return (inputs - self.mean) / obs_std
-
-    def seed(self, seed):
-        torch.manual_seed(seed)
-
-    def set_task(self,task_id = None):
-        self.update_normalizer = False
-
 class FreezeBatchNorm(SubspaceAgent):
     """
-    Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs"
+    This batchnorm is frozen after task 1. More convenient to compare methods.
     """
     def __init__(self,input_dimension):
         super().__init__()
         self.num_features = input_dimension[0]
-        self.bn = nn.ModuleList([nn.BatchNorm1d(num_features=self.num_features)])
-        self.task_id = 0
+        self.bn = nn.BatchNorm1d(num_features=self.num_features)
+        self.stop_update = False
     
     def forward(self, t=None, **kwargs):
-        model_id = min(self.task_id, len(self.bn)-1)
-        if self.task_id>0:
+        if self.stop_update:
             self.eval()
         if not t is None:
             input = self.get(("env/env_obs", t))
-            input = self.bn[model_id](input)
+            input = self.bn(input)
             self.set(("env/normalized_env_obs", t), input)
-        else:
-            input = self.get("env/env_obs")
-            T,B,s = input.size()
-            input = input.reshape(T*B,s)
-            input = self.bn[model_id](input)
-            input = input.reshape(T,B,s)
-            self.set("env/normalized_env_obs",input)
 
-    def set_task(self,task_id):
-        self.task_id = task_id
-
-    def add_anchor(self, logger = None, **kwargs):
-        if not (logger is None):
-            logger = logger.get_logger(type(self).__name__+str("/"))
-            logger.message("Copying model and setting 'num_batches_tracked' to zero")
-        self.bn.append(copy.deepcopy(self.bn[-1]))
-        self.bn[-1].state_dict()["num_batches_tracked"] = 0
-        self.task_id = len(self.bn) - 1
+    def add_anchor(self,task_id = None, **kwargs):
+        for params in self.parameters():
+            params.requires_grad = False
+        self.stop_update = True
 
 class AlphaAgent(SubspaceAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat"):
@@ -169,13 +94,13 @@ class AlphaAgent(SubspaceAgent):
         self.best_alpha = None
         self.id = nn.Parameter(torch.randn(1,1))
 
-    def forward(self, t = None, k_shot = False,**args):
+    def forward(self, t = None, k_shot = False, force_random = False, **args):
         device = self.id.device
         if k_shot:
             if t > 0:
                 alphas = self.get(("alphas", t-1))
                 self.set(("alphas", t), alphas)
-        elif (not t is None) and self.training:
+        elif ((not t is None) and self.training) or force_random:
             B = self.workspace.batch_size()
             alphas =  self.dist.sample(torch.Size([B])).to(device)
             if isinstance(self.dist,Categorical):

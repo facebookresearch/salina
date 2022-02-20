@@ -64,26 +64,25 @@ class ppo:
             if (self.cfg_ppo.n_control_rollouts > 0) and (epoch%self.cfg_ppo.control_every_n_epochs==0):
                 for a in control_agent.get_by_name("action"):
                     a.load_state_dict(_state_dict(action_agent, self.cfg_ppo.acquisition_device))
-                control_agent.eval()
+                control_agent.train()
                 rewards=[]
                 for _ in range(self.cfg_ppo.n_control_rollouts):
                     w=Workspace()
-                    control_agent(w,t=0,stop_variable="env/done")
+                    control_agent(w, t=0, stop_variable="env/done", force_random = True)
                     length=w["env/done"].max(0)[1]
-                    n_interactions+=length.sum().item()
+                    #n_interactions+=length.sum().item()
                     arange = torch.arange(length.size()[0], device=length.device)
                     creward = w["env/cumulated_reward"][length, arange]
                     rewards=rewards+creward.to("cpu").tolist()
 
                 mean_reward=np.mean(rewards)
                 logger.add_scalar("validation/reward", mean_reward, epoch)
+                logger.add_scalar("validation/best_reward",reward.max().item(), epoch)
                 print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
             
                 if best_performance is None or mean_reward >= best_performance:
                     best_performance = mean_reward
-                    best_model = copy.deepcopy(action_agent),copy.deepcopy(critic_agent)
-                logger.add_scalar("validation/best_reward", best_performance, epoch)
-
+                    best_model = copy.deepcopy(control_agent.get_by_name("action")[0]),copy.deepcopy(critic_agent)
 
             # Acquisition of trajectories
             for a in acquisition_agent.get_by_name("action"):
@@ -95,7 +94,7 @@ class ppo:
             acquisition_agent( acquisition_workspace, t=1 if epoch > 0 else 0, n_steps=self.cfg_ppo.n_timesteps - 1 if epoch > 0 else self.cfg_ppo.n_timesteps, action_std=self.cfg_ppo.action_std)
             
             
-            workspace=Workspace(acquisition_workspace).to(self.cfg_ppo.learning_device)
+            workspace = Workspace(acquisition_workspace).to(self.cfg_ppo.learning_device)
             workspace.set_full("acquisition_action_logprobs",workspace["action_logprobs"].detach())
             workspace.set_full("acquisition_action",workspace["action"].detach())
             workspace.set_full("env/normalized_env_obs",workspace["env/normalized_env_obs"].detach())

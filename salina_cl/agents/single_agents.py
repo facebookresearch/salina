@@ -54,13 +54,6 @@ class BatchNorm(CRLAgent):
             input = self.get(("env/env_obs", t))
             input = self.bn[model_id](input)
             self.set(("env/normalized_env_obs", t), input)
-        else:
-            input = self.get("env/env_obs")
-            T,B,s = input.size()
-            input = input.reshape(T*B,s)
-            input = self.bn[model_id](input)
-            input = input.reshape(T,B,s)
-            self.set("env/normalized_env_obs",input)
 
     def set_task(self,task_id = None):
         if task_id is None:
@@ -70,13 +63,28 @@ class BatchNorm(CRLAgent):
         else:
             self.task_id = task_id
 
-class FreezeBatchNorm(BatchNorm):
+class FreezeBatchNorm(CRLAgent):
     """
     This batchnorm is frozen after task 1. More convenient to compare methods.
     """
+    def __init__(self,input_dimension):
+        super().__init__()
+        self.num_features = input_dimension[0]
+        self.bn = nn.BatchNorm1d(num_features=self.num_features)
+        self.stop_update = False
+    
+    def forward(self, t=None, **kwargs):
+        if self.stop_update:
+            self.eval()
+        if not t is None:
+            input = self.get(("env/env_obs", t))
+            input = self.bn(input)
+            self.set(("env/normalized_env_obs", t), input)
+
     def set_task(self,task_id = None):
         for params in self.parameters():
             params.requires_grad = False
+        self.stop_update = True
 
 class NN(CRLAgent):
     """
