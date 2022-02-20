@@ -17,7 +17,7 @@ from salina_cl.agents.tools import LinearSubspace, Sequential
 from salina_cl.agents.tools import weight_init
 
 def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),FreezeBatchNorm(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
+    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),Normalizer(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
     return SubspaceAgents(Critic(n_anchors, input_dimension, n_layers, hidden_size))
