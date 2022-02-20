@@ -37,6 +37,45 @@ def FreezeNN_FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hi
 def FreezeNN_MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
     return CRLAgents(FreezeBatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
+class Normalizer(CRLAgent):
+    def __init__(self,input_dimension):
+        super().__init__()
+
+        self.n_features = input_dimension[0]
+        self.n = None
+        self.id = nn.Linear(1, 1)
+        self.update_normalizer = True
+
+    def forward(self, t, **kwargs):
+        if not t is None:
+            input = self.get(("env/env_obs", t))
+            assert torch.isnan(input).sum() == 0.0, "problem"
+            self.update(input)
+            input = self.normalize(input)
+            assert torch.isnan(input).sum() == 0.0, "problem"
+            self.set(("env/normalized_env_obs", t), input)
+
+    def update(self, x):
+        if self.n is None:
+            device = x.device
+            self.id.to(device)
+            self.n = torch.zeros(self.n_features).to(device)
+            self.mean = torch.zeros(self.n_features).to(device)
+            self.mean_diff = torch.zeros(self.n_features).to(device)
+            self.var = torch.ones(self.n_features).to(device)
+        self.n += 1.0
+        last_mean = self.mean.clone()
+        self.mean += (x - self.mean).mean(dim=0) / self.n
+        self.mean_diff += (x - last_mean).mean(dim=0) * (x - self.mean).mean(dim=0)
+        self.var = torch.clamp(self.mean_diff / self.n, min=1e-2)
+
+    def normalize(self, inputs):
+        obs_std = torch.sqrt(self.var)
+        return (inputs - self.mean) / obs_std
+
+    def seed(self, seed):
+        torch.manual_seed(seed)
+
 class BatchNorm(CRLAgent):
     """
     Apply batch normalization on "env/env_obs" variable and store it in "env/normalized_env_obs".

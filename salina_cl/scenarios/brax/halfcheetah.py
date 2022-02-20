@@ -43,7 +43,7 @@ def halfcheetah_hard3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Different ordering
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","defective_module","normal","moon""overweight"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","defective_module","normal","moon","overweight"])
 
 env_cfgs = {
     "normal":{},

@@ -92,6 +92,7 @@ class AlphaAgent(SubspaceAgent):
         elif self.dist_type == "categorical":
             self.dist = Categorical(torch.ones(self.n_anchors))
         self.best_alpha = None
+        self.best_alphas = torch.eye(self.n_anchors)
         self.id = nn.Parameter(torch.randn(1,1))
 
     def forward(self, t = None, k_shot = False, force_random = False, **args):
@@ -115,8 +116,13 @@ class AlphaAgent(SubspaceAgent):
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
             self.set(("alphas", t), alphas)
 
-    def add_anchor(self, logger = None,**kwargs):
-        self.best_alpha = None
+    def add_anchor(self, alpha = None, logger = None,**kwargs):
+        if alpha is None:
+            alpha = torch.Tensor([0.] * self.best_alphas.shape[1] + [1.])
+        else:
+            alpha = torch.cat([alpha,torch.Tensor([0.])])
+        self.best_alphas = torch.cat([self.best_alphas,torch.zeros(self.best_alphas.shape[0],1)],dim=-1)
+        self.best_alphas = torch.cat([self.best_alphas,alpha.unsqueeze(0)],dim=0)
         self.n_anchors += 1
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
@@ -130,7 +136,7 @@ class AlphaAgent(SubspaceAgent):
         if task_id >= self.n_anchors:
             self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
         else: 
-            self.best_alpha = torch.eye(self.n_anchors)[task_id]
+            self.best_alpha = self.best_alphas[task_id]
         
 class SubspacePolicy(SubspaceAgent):
     def __init__(self, n_initial_anchors, input_dimension,output_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
@@ -179,22 +185,22 @@ class SubspacePolicy(SubspaceAgent):
             action = torch.tanh(action)
             self.set(("action", t), action)
 
-    def add_anchor(self,alpha = None, logger = None, **kwargs):
+    def add_anchor(self,anchor = None, logger = None, **kwargs):
         i = 0
-        alphas = [alpha] * (self.hidden_size + 2)
+        alphas = [anchor] * (self.hidden_size + 2)
         if not (logger is None):
             logger = logger.get_logger(type(self).__name__+str("/"))
-            if alpha is None:
+            if anchor is None:
                 logger.message("Adding one anchor with alpha = None")
             else:
-                logger.message("Adding one anchor with alpha = "+str(list(map(lambda x:round(x,2),alpha.tolist()))))
+                logger.message("Adding one anchor with alpha = "+str(list(map(lambda x:round(x,2),anchor.tolist()))))
         for module in self.model:
             if isinstance(module,LinearSubspace):
                 module.add_anchor(alphas[i])
                 # Sanity check
-                if i == 0:
-                    for j,anchor in enumerate(module.anchors):
-                        print("--- anchor",j,":",anchor.weight[0].data[:4])
+                #if i == 0:
+                #    for j,anchor in enumerate(module.anchors):
+                #        print("--- anchor",j,":",anchor.weight[0].data[:4])
                 i+=1
         self.n_anchors += 1
 

@@ -55,7 +55,7 @@ class k_shot:
             best_alpha = None
             r = {"n_epochs":0,"training_time":0,"n_interactions":0}
         if add_anchor:
-            action_agent.add_anchor(alpha = best_alpha,logger=logger)
+            action_agent.add_anchor(anchor = best_alpha, alpha = None, logger=logger)
             critic_agent.add_anchor(logger = logger)
 
 
