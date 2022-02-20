@@ -38,6 +38,9 @@ def FreezeNN_MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_s
     return CRLAgents(FreezeBatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 class Normalizer(CRLAgent):
+    """
+    Pre-trained normalizer over Halfcheetah. Helps to compare models fairly.
+    """
     def __init__(self,input_dimension):
         super().__init__()
 
