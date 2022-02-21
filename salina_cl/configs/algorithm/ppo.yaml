@@ -14,7 +14,7 @@ params:
   clip_grad: 10.0
 
   control_every_n_epochs: 10
-  n_control_rollouts: 5
+  n_control_rollouts: 0
   n_timesteps: 100
   n_processes: 0
   n_minibatches: 128
