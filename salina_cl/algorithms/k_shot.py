@@ -34,7 +34,7 @@ class k_shot:
                 with torch.no_grad():
                     acquisition_agent(w, t = 0, stop_variable = "env/done", k_shot = True)
                 w = w.select_batch(torch.LongTensor(list(range(self.cfg.k))))
-                length=w["env/done"].max(0)[1]
+                length = w["env/done"].max(0)[1]
                 n_interactions += length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
                 rewards.append(w["env/cumulated_reward"][length, arange])
