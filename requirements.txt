@@ -7,4 +7,5 @@ hydra-core
 numpy
 pandas
 opencv-python
+pygame
 xformers>=0.0.3
