@@ -1,6 +1,0 @@
-classname: salina_cl.scenarios.classic_control.cartpole.cartpole_7tasks
-name: cartpole_debug
-n_train_envs: 16
-n_evaluation_envs: 8
-n_tasks: 2
-n_steps: 10_000
