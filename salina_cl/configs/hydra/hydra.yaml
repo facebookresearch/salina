@@ -1,7 +1,7 @@
 run:
-  dir: /checkpoint/jbgaya/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+  dir: /checkpoint/jbgaya/CRL_subspace/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
 sweep:
-  dir: /checkpoint/jbgaya/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/${hydra.job.override_dirname}/seed=${seed}
+  dir: /checkpoint/jbgaya/CRL_subspace/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/${hydra.job.override_dirname}/seed=${seed}
   subdir: ${hydra.job.num}
 job:
   env_set:
