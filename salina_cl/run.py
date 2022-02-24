@@ -8,6 +8,7 @@ import hydra
 from salina import instantiate_class
 import torch
 import time
+import os
 
 @hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
@@ -28,6 +29,8 @@ def main(cfg):
         for k,v in m_size.items():
             logger_evaluation.add_scalar("memory/"+k,v,stage)
         stage+=1
+    if cfg.save_model:
+        torch.save(model,os.getcwd()+"/model.dat")
     logger.close()
     print("....done !")
 

@@ -58,6 +58,4 @@ class k_shot:
             action_agent.add_anchor(anchor = best_alpha, alpha = None, logger=logger)
             critic_agent.add_anchor(logger = logger)
 
-
-
         return r, action_agent, critic_agent

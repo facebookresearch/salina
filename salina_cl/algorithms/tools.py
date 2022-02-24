@@ -82,4 +82,25 @@ def display_kshot(alphas,rewards):
 
     return fig
 
-    
+def kshot_evolution_plot(rewards, n_samples = 10, steps = 100):
+    fig, ax = plt.subplots(figsize = (12,6))
+    n = rewards.shape[0]
+    max_rewards = []
+    ks = np.linspace(start = 1, stop = n, num=steps,dtype="int")
+    for k in ks:
+        max_reward = []
+        for _ in range(n_samples):
+            idx = torch.randperm(n)[:k]
+            max_reward.append(rewards[idx].max().item())
+        max_rewards.append(max_reward)
+    max_rewards = np.array(max_rewards)
+    mean_rewards = max_rewards.mean(1)
+    std_rewards = max_rewards.std(1)
+    ax.plot(ks,mean_rewards)
+    ax.set_ylim(rewards.max().item()*0.95,rewards.max().item()*1.05)
+    ax.set_xlim(0.,n+1)
+    ax.set_ylabel("max_reward")
+    ax.set_xlabel("nb shots")
+    ax.set_title("k-shot evolution")
+    ax.fill_between(ks, (mean_rewards-std_rewards), (mean_rewards+std_rewards), color='b', alpha=.1)
+    return fig

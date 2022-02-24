@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+from difflib import context_diff
 from salina_cl.core import Task
 from salina_cl.core import Scenario
 from brax.envs import wrappers
@@ -12,6 +13,7 @@ import brax
 from brax.envs.halfcheetah import Halfcheetah
 from google.protobuf import text_format
 from brax.envs.halfcheetah import _SYSTEM_CONFIG as halfcheetah_config
+from brax.experimental.biggym.registry.jump.envs.cheetah import JumpCheetah
 from brax import jumpy as jp
 import numpy as np
 
@@ -45,8 +47,21 @@ def halfcheetah_hard3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","defective_module","normal","moon","overweight"])
 
+def halfcheetah_hard4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    New scenario
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["jumpcheetah","normal","moon","carry_stuff","defective_module"])
+
+def halfcheetah_hard5(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    New scenario
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","carry_stuff","defective_module","jumpcheetah"])
+
 env_cfgs = {
     "normal":{},
+    "jumpcheetah":{},
     "disproportionate_feet":{
       "torso": 0.75,
       "thigh": 0.75,
@@ -71,6 +86,12 @@ env_cfgs = {
      "hugefriction":{"friction":1.5},
      "rainfall":{"friction":0.4},
      "moon":{"gravity":0.15},
+     "carry_stuff":{
+      "torso": 4.,
+      "thigh": 1.,
+      "shin": 1.,
+      "foot": 1.
+      },
      "overweight":{
       "torso": 1.5,
       "thigh": 1.5,
@@ -141,7 +162,7 @@ def make_halfcheetah(seed = 0,
                    env_cfg = "normal",
                    **kwargs):
 
-    env = CustomHalfcheetah(env_cfg, **kwargs)
+    env = JumpCheetah() if env_cfg == "jumpcheetah" else CustomHalfcheetah(env_cfg, **kwargs)
     if max_episode_steps is not None:
         env = wrappers.EpisodeWrapper(env, max_episode_steps, action_repeat)
     if batch_size:
@@ -208,7 +229,7 @@ class OneHalfcheetah(Scenario):
             self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
 
         self._test_tasks=[]
-        for k,cfg in enumerate(["normal","defective_module","moon","rainfall","overweight"]):
+        for k,cfg in enumerate(["normal","moon","carry_stuff","defective_module","jumpcheetah"]):
             agent_cfg={
                 "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,

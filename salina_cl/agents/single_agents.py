@@ -20,22 +20,22 @@ def ActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
     return CRLAgents(Normalizer(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
 
 def MultiActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),MultiAction(input_dimension,output_dimension, n_layers, hidden_size))
+    return CRLAgents(Normalizer(input_dimension),MultiAction(input_dimension,output_dimension, n_layers, hidden_size))
 
 def FromscratchActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),FromscratchAction(input_dimension,output_dimension, n_layers, hidden_size))
+    return CRLAgents(Normalizer(input_dimension),FromscratchAction(input_dimension,output_dimension, n_layers, hidden_size))
 
 def MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(Normalizer(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 def FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(Normalizer(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 def FreezeNN_FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(Normalizer(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 def FreezeNN_MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(FreezeBatchNorm(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+    return CRLAgents(Normalizer(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 class Normalizer(CRLAgent):
     """

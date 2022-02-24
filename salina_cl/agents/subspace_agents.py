@@ -119,7 +119,7 @@ class AlphaAgent(SubspaceAgent):
         elif self.dist_type == "categorical":
             self.dist = Categorical(torch.ones(self.n_anchors))
         self.best_alpha = None
-        self.best_alphas = torch.eye(self.n_anchors)
+        self.best_alphas = None
         self.id = nn.Parameter(torch.randn(1,1))
 
     def forward(self, t = None, k_shot = False, force_random = False, **args):
@@ -145,13 +145,16 @@ class AlphaAgent(SubspaceAgent):
 
     def add_anchor(self, alpha = None, logger = None,**kwargs):
         device = self.id.device
-        if alpha is None:
-            alpha = torch.Tensor([0.] * self.best_alphas.shape[1] + [1.]).to(device)
-        else:
-            alpha = torch.cat([alpha,torch.Tensor([0.]).to(device)])
-        self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
-        self.best_alphas = torch.cat([self.best_alphas.to(device),alpha.unsqueeze(0)],dim=0)
         self.n_anchors += 1
+        if self.best_alphas is None:
+            self.best_alphas = torch.Tensor([[1.] + [0.] * (self.n_anchors - 1)]).to(device)
+        else:
+            if alpha is None:
+                alpha = torch.Tensor([0.] * self.best_alphas.shape[1] + [1.]).to(device)
+            else:
+                alpha = torch.cat([alpha,torch.Tensor([0.]).to(device)])
+            self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
+            self.best_alphas = torch.cat([self.best_alphas.to(device),alpha.unsqueeze(0)],dim=0)
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         else:
@@ -160,8 +163,9 @@ class AlphaAgent(SubspaceAgent):
             logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Increasing alpha size to "+str(self.n_anchors))
 
+
     def set_task(self,task_id):
-        if task_id >= self.n_anchors:
+        if task_id >= self.best_alphas.shape[0]:
             self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
         else: 
             self.best_alpha = self.best_alphas[task_id]
