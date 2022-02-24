@@ -1,0 +1,27 @@
+run:
+  dir: /checkpoint/jbgaya/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+sweep:
+  dir: /checkpoint/jbgaya/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/${hydra.job.override_dirname}/seed=${seed}
+  subdir: ${hydra.job.num}
+job:
+  env_set:
+    OMP_NUM_THREADS: '1'
+    XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
+  config:
+    override_dirname:
+      item_sep: /
+      exclude_keys:
+        - seed
+launcher:
+  mem_gb: 16
+  max_num_timeout: 0
+  cpus_per_task: 1
+  signal_delay_s: 30
+  timeout_min: 300
+  gpus_per_node: 1
+  tasks_per_node: 1
+  partition: learnlab
+  comment: CoLLa2022
+job_logging:
+  root:
+    handlers: []
