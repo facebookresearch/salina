@@ -1,6 +1,6 @@
 name: ppo_finetune
 seed: 0
-save_model: True
+save_model: False
 
 defaults:
   - logger: logger
