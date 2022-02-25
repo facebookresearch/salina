@@ -292,7 +292,9 @@ def sort_best_experiments(df):
     df = df[["id","evaluation/global_avg_reward"]].groupby("id").mean().sort_values(by="evaluation/global_avg_reward",ascending=False)
     return df.index
 
-def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False):
+def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False, save_path = None):
+    if save_path is None:
+        save_path = PATH
     if os.path.exists(PATH+"experiments.dat") and (not force_loading):
         print("Experiments already agregated. Loading data...")
         with open(PATH+"experiments.dat", "rb") as f:
@@ -307,7 +309,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
         data = {"dfs":dfs,
                 "d_logs":d_logs,
                 "best_ids":best_ids}
-        with open(PATH+"experiments.dat", "wb") as f:
+        with open(save_path+"experiments.dat", "wb") as f:
             pickle.dump(data, f)
 
     normalizing = not (normalize_data is None)
