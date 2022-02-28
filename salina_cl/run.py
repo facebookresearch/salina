@@ -9,9 +9,16 @@ from salina import instantiate_class
 import torch
 import time
 import os
+from os.path import exists
+import numpy as np
+import pickle
 
 @hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
+    if not exists(cfg.perf_path):
+        os.makedirs(os.path.dirname(cfg.perf_path), exist_ok=True)
+        with open(cfg.perf_path, "wb") as f:
+            pickle.dump({},f)
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg, verbose =False)
     model = instantiate_class(cfg.model)
@@ -21,7 +28,8 @@ def main(cfg):
     stage=0
     for train_task in scenario.train_tasks():
         model.train(train_task,logger)
-        evaluation = model.evaluate(scenario.test_tasks(),logger_evaluation)        
+        evaluation = model.evaluate(scenario.test_tasks(),logger_evaluation)
+        print("--- evaluation:",evaluation)   
         for tid in evaluation:
             for k,v in evaluation[tid].items():
                 logger_evaluation.add_scalar(str(tid)+"/"+k,v,stage)
@@ -31,6 +39,14 @@ def main(cfg):
         stage+=1
     if cfg.save_model:
         torch.save(model,os.getcwd()+"/model.dat")
+    perf = np.mean([v['avg_reward'] for v in evaluation.values()])
+    d_perf = {os.getcwd():perf}
+    with open(cfg.perf_path, "rb") as f:
+        data = pickle.load(f)
+        data.update(d_perf)
+    with open(cfg.perf_path, "wb") as f:
+        pickle.dump(data,f)
+
     logger.close()
     print("....done !")
 

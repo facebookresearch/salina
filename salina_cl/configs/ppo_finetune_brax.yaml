@@ -1,6 +1,7 @@
-name: ppo_pnn
+name: ppo_finetune
 seed: 0
 save_model: False
+perf_path: /checkpoint/jbgaya/CRL_subspace/run/perf_per_experiment.dat
 
 defaults:
   - logger: logger
@@ -22,7 +23,7 @@ model:
     algorithm: ${algorithm}
   
     policy_agent:
-      classname: salina_cl.agents.pnn_agents.PNNAgent
+      classname: salina_cl.agents.single_agents.ActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil

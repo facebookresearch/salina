@@ -16,12 +16,13 @@ from brax.envs.halfcheetah import _SYSTEM_CONFIG as halfcheetah_config
 from brax.experimental.biggym.registry.jump.envs.cheetah import JumpCheetah
 from brax import jumpy as jp
 import numpy as np
+from omegaconf.listconfig import ListConfig
 
 def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     For debugging
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","disproportionate_feet","modified_physics"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal"])
 
 def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**kwargs):
     """
@@ -31,7 +32,7 @@ def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**k
 
 def halfcheetah_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
-    A sequence of 6 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
+    A sequence of 5 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","defective_module","moon","rainfall","overweight"])
 
@@ -181,6 +182,7 @@ class MultiHalfcheetah(Scenario):
         output_dimension = [env.action_space.shape[0]]
 
         self._train_tasks=[]
+        n_steps = n_steps if isinstance(n_steps,ListConfig) else [n_steps] * len(cfgs)
         for k,cfg in enumerate(cfgs):
             agent_cfg={
                 "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
@@ -190,7 +192,7 @@ class MultiHalfcheetah(Scenario):
                                  "env_cfg":cfg},
                 "n_envs":n_train_envs
             }
-            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
+            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps[k]))
 
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):

@@ -1,4 +1,4 @@
-name: ppo_finetune
+name: ppo_pnn
 seed: 0
 save_model: False
 
@@ -22,7 +22,7 @@ model:
     algorithm: ${algorithm}
   
     policy_agent:
-      classname: salina_cl.agents.single_agents.ActionAgent
+      classname: salina_cl.agents.pnn_agents.PNNAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil
