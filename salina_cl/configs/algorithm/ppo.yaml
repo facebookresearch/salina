@@ -9,7 +9,7 @@ params:
 
   optimizer_critic:
     classname: torch.optim.Adam
-    lr: 0.001
+    lr: 0.0003
 
   clip_grad: 10.0
 

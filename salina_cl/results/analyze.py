@@ -294,22 +294,23 @@ def sort_best_experiments(df):
 
 def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False, save_path = None):
     if save_path is None:
-        save_path = PATH
-    if os.path.exists(save_path+"experiments.dat") and (not force_loading):
+        save_path = PATH+"/experiment.dat"
+    if os.path.exists(save_path) and (not force_loading):
         print("Experiments already agregated. Loading data...")
-        with open(save_path+"experiments.dat", "rb") as f:
+        with open(save_path, "rb") as f:
             data = pickle.load(f)
             dfs = data["dfs"]
             d_logs = data["d_logs"]
             best_ids = data["best_ids"]
     else:
+        print("no ",save_path)
         print("Agregating experiments...")
         dfs,d_logs = agregate_experiments(PATH)
         best_ids = sort_best_experiments(dfs)
         data = {"dfs":dfs,
                 "d_logs":d_logs,
                 "best_ids":best_ids}
-        with open(save_path+"experiments.dat", "wb") as f:
+        with open(save_path, "wb") as f:
             pickle.dump(data, f)
 
     normalizing = not (normalize_data is None)
@@ -339,7 +340,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
         display(HTML(h))
         display(HTML("<h2>"+("_"*100)+"</h2>"))
 
-    with open(save_path+"experiments.dat", "wb") as f:
+    with open(save_path, "wb") as f:
         pickle.dump(data, f)
     if return_logs:
         return dfs,d_logs, best_ids

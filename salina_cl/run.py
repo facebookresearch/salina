@@ -29,7 +29,6 @@ def main(cfg):
     for train_task in scenario.train_tasks():
         model.train(train_task,logger)
         evaluation = model.evaluate(scenario.test_tasks(),logger_evaluation)
-        print("--- evaluation:",evaluation)   
         for tid in evaluation:
             for k,v in evaluation[tid].items():
                 logger_evaluation.add_scalar(str(tid)+"/"+k,v,stage)
@@ -38,7 +37,7 @@ def main(cfg):
             logger_evaluation.add_scalar("memory/"+k,v,stage)
         stage+=1
     if cfg.save_model:
-        torch.save(model,os.getcwd()+"/model.dat")
+        torch.save(model.policy_agent,os.getcwd()+"/policy.dat")
     perf = np.mean([v['avg_reward'] for v in evaluation.values()])
     d_perf = {os.getcwd():perf}
     with open(cfg.perf_path, "rb") as f:

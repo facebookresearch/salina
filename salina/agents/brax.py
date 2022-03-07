@@ -126,9 +126,8 @@ class BraxAgent(TAgent):
 
                 "cumulated_reward": self.cumulated_reward,
             }
-            if done.any():
-                assert done.all()
-            # Mettre des To(my_device) partout
+            #if done.any():
+            #    assert done.all()
             self.timestep += 1
             self.timestep = ((1.0 - done.float()) * self.timestep).long()
             self.cumulated_reward = (1.0 - done.float()) * self.cumulated_reward

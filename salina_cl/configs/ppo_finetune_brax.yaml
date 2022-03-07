@@ -1,7 +1,7 @@
 name: ppo_finetune
 seed: 0
 save_model: False
-perf_path: /checkpoint/jbgaya/CRL_subspace/run/perf_per_experiment.dat
+perf_path: /checkpoint/jbgaya/CRL_subspace/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/perf_per_experiment.dat
 
 defaults:
   - logger: logger
@@ -16,12 +16,12 @@ model:
   params:
     evaluation:
       device: cuda:0
-      seed: ${seed}
-      n_rollouts: 1
+      seed: 10
+      n_rollouts: 5
       evaluate_success: False
 
     algorithm: ${algorithm}
-  
+
     policy_agent:
       classname: salina_cl.agents.single_agents.ActionAgent
       hidden_size: 64

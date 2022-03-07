@@ -1,6 +1,6 @@
 
 run:
-  dir: /checkpoint/jbgaya/CRL_subspace/run/${scenario.name}/${name}/${hydra.job.override_dirname}/seed=${seed}
+  dir: /checkpoint/jbgaya/CRL_subspace/run/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/${hydra.job.override_dirname}/seed=${seed}
 sweep:
   dir: /checkpoint/jbgaya/CRL_subspace/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/${hydra.job.override_dirname}/seed=${seed}
   subdir: ${hydra.job.num}
@@ -22,7 +22,7 @@ launcher:
   gpus_per_node: 1
   tasks_per_node: 1
   partition: learnlab
-  comment: CoLLa2022
+  comment: NIPS2022
 job_logging:
   root:
     handlers: []
