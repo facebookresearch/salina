@@ -1,4 +1,4 @@
-benchmark_id: '1' # available benchmarks : 1 2 4
+benchmark_id: '1' # available benchmarks : 1 3 4
 name: ant_benchmark${scenario.benchmark_id}
 classname: salina_cl.scenarios.brax.ant.ant_benchmark${scenario.benchmark_id}
 n_train_envs: 512
