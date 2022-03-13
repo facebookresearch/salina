@@ -28,21 +28,21 @@ def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
 
 def halfcheetah_benchmark1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
-    Negative backward transfer (forgetting properties): task0 / task1 / task2
+    Negative backward transfer (forgetting properties): task0 / task1 / task2 / task3
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","defective_module_moon","tinyfoot_hugegravity"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"])
 
 def halfcheetah_benchmark2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
-    Negative forward transfer: task0 / task1 / task2
+    Negative forward transfer: task0 / task1 / task2 / task3
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","normal"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"])
 
 def halfcheetah_benchmark3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Distraction (orthogonal task-ish): task0 / distraction / task0
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","normal"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal"])
 
 def halfcheetah_benchmark4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
@@ -60,7 +60,7 @@ def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**k
     """
     return OneHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task])
 
-def halfcheetah_2tasks(n_train_envs,n_evaluation_envs,n_steps,task0 = "normal",task1 = "normal",**kwargs):
+def halfcheetah_2tasks(n_train_envs,n_evaluation_envs,n_steps,task0 = "normal",task1 = "inverted_actions",**kwargs):
     """
     halfcheetah with two tasks for benchmarking
     """
@@ -185,7 +185,8 @@ env_cfgs = {
  "defective_module_moon":{"obs_mask":0.5,'gravity': 0.15},
  "defective_module_rainfall":{"obs_mask":0.5,"friction":0.4},
  "crippled_backlegs":{"action_mask":[0,1,2]},
- "crippled_forelegs":{"action_mask":[3,4,5]}
+ "crippled_forelegs":{"action_mask":[3,4,5]},
+ "inverted_actions":{"action_swap":[0,1,2,3,4,5]},
 }
 env_gravity_cfgs = {"gravity_"+str(2*x/10):{"gravity":2*x/10} for x in range(1,11)}
 env_cfgs = dict(**env_cfgs,**env_gravity_cfgs)
@@ -208,6 +209,8 @@ class CustomHalfcheetah(Halfcheetah):
                 self.obs_mask = jp.concatenate(np.random.permutation(([0]*zeros)+([1]*ones)).reshape(1,-1))
             elif spec == "action_mask":
                 self.action_mask[coeff] = 0.
+            elif spec == "action_swap":
+                self.action_mask[coeff] = -1.
             else:
                 for body in config.bodies:
                     if spec in body.name:
@@ -299,7 +302,7 @@ class MultiHalfcheetah(Scenario):
         n_steps = n_steps if isinstance(n_steps,ListConfig) else [n_steps] * len(cfgs)
         for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
                 "make_env_args":{
                                 "max_episode_steps":1000,
@@ -311,7 +314,7 @@ class MultiHalfcheetah(Scenario):
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
                 "make_env_args":{"max_episode_steps":1000,
                                  "env_cfg":cfg},
@@ -335,7 +338,7 @@ class OneHalfcheetah(Scenario):
         self._train_tasks=[]
         for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
                 "make_env_args":{
                                 "max_episode_steps":1000,
@@ -347,7 +350,7 @@ class OneHalfcheetah(Scenario):
         self._test_tasks=[]
         for k,cfg in enumerate(["normal","moon","carry_stuff","defective_module","jumpcheetah"]):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
                 "make_env_args":{"max_episode_steps":1000,
                                  "env_cfg":cfg},

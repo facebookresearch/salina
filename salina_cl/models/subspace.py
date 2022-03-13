@@ -6,7 +6,8 @@
 #
 from salina_cl.core import Model
 from salina import instantiate_class
-from salina_cl.agents.tools import weight_init
+import torch
+import os
 
 class TwoSteps(Model):
     """
@@ -18,6 +19,7 @@ class TwoSteps(Model):
         self.algorithm2 = instantiate_class(self.cfg.algorithm2)
         self.policy_agent = None
         self.critic_agent = None
+        self.lr_policy = self.cfg.algorithm1.params.optimizer_policy.lr
 
     def _create_policy_agent(self,task,logger):
         logger.message("Creating policy Agent")
@@ -43,12 +45,14 @@ class TwoSteps(Model):
             self._create_critic_agent(task,logger)
 
         env_agent = task.make()
-        
-        budget1 = task.n_interactions() * self.cfg.algorithm1.params.budget
-        r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1, add_anchor = (task._task_id>0))
+        self.algorithm1.cfg_ppo.optimizer_policy.lr = self.lr_policy * (1 + task._task_id * self.cfg.lr_scaling)
+        logger.message("Setting policy_lr to "+str(self.algorithm1.cfg_ppo.optimizer_policy.lr))
 
-        budget2 = task.n_interactions() - r1["n_interactions"]
-        r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)
+        #budget1 = task.n_interactions() * (1 - self.cfg.algorithm2.params.budget) if (task._task_id>0) else task.n_interactions()
+        r1, self.policy_agent, self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
+        torch.save(self.critic_agent,os.getcwd()+"/critic_"+str(task._task_id)+".dat")
+        #budget2 = task.n_interactions() #- r1["n_interactions"]
+        r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = 0)
     
         return {kv1[0]:kv1[1]+kv2[1]  for kv1,kv2 in zip(r1.items(),r2.items())}
 

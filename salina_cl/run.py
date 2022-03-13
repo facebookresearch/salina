@@ -12,6 +12,7 @@ import os
 from os.path import exists
 import numpy as np
 import pickle
+from salina_cl.results.evaluation_subspace import *
 
 @hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
@@ -45,9 +46,26 @@ def main(cfg):
         data.update(d_perf)
     with open(cfg.perf_path, "wb") as f:
         pickle.dump(data,f)
-
     logger.close()
     print("....done !")
+    ds = {}
+    if cfg.final_evaluation:
+        print("Starting evaluation")
+        eval = evaluator(cfg.evaluation)
+        policy_agent = model.policy_agent
+        policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
+        while policy_agent[1].n_anchors > 2:
+            policy_agent = remove_anchor(policy_agent)
+            print("- set anchor agent to ",policy_agent[1].n_anchors)
+            d = {}
+            for test_task in scenario.test_tasks():
+                print("\t- Task",test_task._task_id)
+                critic_agent = torch.load(os.getcwd()+"/critic_"+str(policy_agent[1].n_anchors-1)+".dat")
+                d["task_"+str(test_task._task_id)] = eval.evaluate(policy_agent,critic_agent,test_task)
+            ds[str(policy_agent[1].n_anchors)+"_anchors"] = d
+        print("....done !")
+        with open(os.getcwd()+"/eval.pkl", "wb") as f:
+            pickle.dump(ds, f)
 
 if __name__ == "__main__":
     import torch.multiprocessing as mp

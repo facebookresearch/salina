@@ -317,8 +317,12 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     display(HTML("<h2>"+("_"*100)+"</h2>"))
     for i,best_id in enumerate(best_ids[:top_k]):
         rewards, memory,hps = extract_metrics(d_logs[best_id])
-
-        #Normalizing data if possible
+        #Generate HTML
+        display(HTML("<h2>#"+str(i+1)+"</h2>"))
+        h = generate_key_metrics_html(rewards)
+        display(HTML(h))
+        h = generate_reward_table_html(rewards)
+        display(HTML(h))
         if normalizing:
             with open(normalize_data, "rb") as f:
                 d = pickle.load(f)
@@ -326,14 +330,8 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
             random_rewards = np.stack([d["random_rewards"] for _ in range(n_seeds)])
             baseline_rewards = np.stack([d["baseline_rewards"] for _ in range(n_seeds)])
             normalized_rewards = (rewards - random_rewards) / (baseline_rewards - random_rewards)
-        #Generate HTML
-        display(HTML("<h2>#"+str(i+1)+"</h2>"))
-        h = generate_key_metrics_html(rewards)
-        display(HTML(h))
-        h = generate_reward_table_html(rewards)
-        display(HTML(h))
-        h = generate_reward_table_html(normalized_rewards,normalizing)
-        display(HTML(h))
+            h = generate_reward_table_html(normalized_rewards,normalizing)
+            display(HTML(h))
         h = generate_memory_table_html(memory,False)
         display(HTML(h))
         h = generate_hps_html(hps)

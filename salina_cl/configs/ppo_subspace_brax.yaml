@@ -1,13 +1,18 @@
 name: ppo_subspace
 seed: 0
-save_model: False
+save_model: True
+final_evaluation: True
+perf_path: /checkpoint/jbgaya/CRL_subspace/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/perf_per_experiment.dat
+
 
 defaults: 
   - logger: logger
   - scenario: halfcheetah_hard1
   - algorithm: ppo
   - hydra: hydra
+  - evaluation: evaluation_subspace
   - override hydra/launcher: submitit_slurm
+
 
 model:
   classname: salina_cl.models.subspace.TwoSteps
@@ -15,20 +20,20 @@ model:
   params:
     evaluation:
       device: cuda:0
-      seed: 10
+      seed: 1
       n_rollouts: 1
       evaluate_success: False
 
-    algorithm1:
-      classname: salina_cl.algorithms.k_shot.k_shot
+    algorithm1: ${algorithm}
+    lr_scaling:  0.5 #scaling of the lr * nb_anchors
+    algorithm2:
+      classname: salina_cl.algorithms.late_k_shot.k_shot
       params:
         n_processes: 0
         acquisition_device: cuda:0
         k: 512
         n_envs: ${scenario.n_train_envs}
-        budget: 0.2
-        
-    algorithm2: ${algorithm}
+        budget: 1.
 
     policy_agent:
       classname: salina_cl.agents.subspace_agents.SubspaceActionAgent

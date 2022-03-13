@@ -94,6 +94,8 @@ class AlphaAgent(SubspaceAgent):
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         elif self.dist_type == "categorical":
             self.dist = Categorical(torch.ones(self.n_anchors))
+        elif self.dist_type == "last_anchor":
+            self.dist = Categorical(torch.Tensor([0] * (self.n_anchors-1) + [1]))
         self.best_alpha = None
         self.best_alphas = None
         self.id = nn.Parameter(torch.randn(1,1))
@@ -165,6 +167,7 @@ class SubspacePolicy(SubspaceAgent):
             LinearSubspace(n_initial_anchors, hs, num_outputs),
         )
 
+
     def forward(self, t = None, action_std = 0.0, **kwargs):
         if not self.training: 
             assert action_std==0.0
@@ -181,6 +184,11 @@ class SubspacePolicy(SubspaceAgent):
             self.set("action_logprobs", logp_pi)
         else:
             x = self.get((self.iname, t))
+            done = self.get(("env/done", t)).float()
+            if t == 0:
+                self.done_monitor = 1 - done
+            else:
+                self.done_monitor *= (1 - done)
             alphas = self.get(("alphas",t))
             mean = self.model(x,alphas)
             var = torch.ones_like(mean) * action_std + 0.000001

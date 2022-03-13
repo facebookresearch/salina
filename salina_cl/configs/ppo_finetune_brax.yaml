@@ -1,6 +1,7 @@
 name: ppo_finetune
 seed: 0
 save_model: False
+final_evaluation: False
 perf_path: /checkpoint/jbgaya/CRL_subspace/multirun/${scenario.name}/${name}/${now:%Y-%m-%d_%H-%M-%S}/perf_per_experiment.dat
 
 defaults:

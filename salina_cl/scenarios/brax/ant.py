@@ -12,13 +12,14 @@ from brax.envs.ant import Ant
 from google.protobuf import text_format
 from brax.envs.ant import _SYSTEM_CONFIG as ant_config
 from brax import jumpy as jp
+from brax.envs import env as _env
 import numpy as np
 
 def ant_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     For debugging
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","tinyfoot_rainfall","huge_torso"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","tinyfoot_rainfall","hugetorso"])
 
 ######################################################################################################
 ################################### Pathological scenarios ###########################################
@@ -27,19 +28,25 @@ def ant_benchmark1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Negative backward transfer (forgetting properties): task0 / task1 / task2
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["damping","hugefoot","spring_rainfall"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["damping","hugefoot","spring_rainfall","moon"])
+
+def ant_benchmark2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    Negative forward transfer : task0 / task1 / task2
+    """
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["disabled_first_diagonal","disabled_second_diagonal","disabled_forefeet","disabled_backfeet"])
 
 def ant_benchmark3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Distraction (orthogonal task-ish): task0 / distraction / task0
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","hugefoot","normal"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal"])
 
 def ant_benchmark4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Skills Combination: task0 / task1 / distraction / task0 + task1
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","high_gravity","hugefoot_moon"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["disabled_hard1","disabled_hard2","disabled_forefeet","disabled_backfeet"])
 
 ######################################################################################################
 ######################################################################################################
@@ -60,7 +67,7 @@ def ant_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     A sequence of 5 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","tinyfoot_rainfall","huge_torso","defective_module","tinyfoot_moon"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","tinyfoot_rainfall","hugetorso","defective_module","tinyfoot_moon"])
 
 
 def ant_hard2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
@@ -85,7 +92,7 @@ env_cfgs = {
     "small_gravity":{'gravity':0.8}, ## reward 3491
     "high_gravity":{'gravity':1.25}, ## reward 
     "moon":{'gravity':0.7}, ## reward 2250
-    "huge_torso":{'Torso':1.5},  ## reward  5200 (good spirng = bon effet ressort)
+    "hugetorso":{'Torso':1.5},  ## reward  5200 (good spirng = bon effet ressort)
     "rainfall":{'friction':0.375}, ## reward  3521
     "spring":{"$ Torso_Aux 1":5,"$ Torso_Aux 2":5,"$ Torso_Aux 3":5,"$ Torso_Aux 4":5},  ## reward  3500
     "defective_module":{"obs_mask":0.5}, ## reward  1000
@@ -105,6 +112,18 @@ env_cfgs = {
      
      "spring_moon":{"$ Torso_Aux 1":5,"$ Torso_Aux 2":5,"$ Torso_Aux 3":5,"$ Torso_Aux 4":5, "gravity":0.7}, ## reward 2245
      "spring_rainfall":{"$ Torso_Aux 1":5,"$ Torso_Aux 2":5,"$ Torso_Aux 3":5,"$ Torso_Aux 4":5,'friction':0.375},
+
+
+     ## mixing actions
+    "disabled_hard1":{"action_mask":[2,3,4,5,6,7]},
+    "disabled_hard2":{"action_mask":[0,1,4,5,6,7]},
+    "disabled_hard3":{"action_mask":[0,1,2,3,6,7]},
+    "disabled_hard4":{"action_mask":[0,1,2,3,4,5]},
+    "disabled_forefeet":{"action_mask":[0,1,2,3]},
+    "disabled_backfeet":{"action_mask":[4,5,6,7]},
+    "disabled_first_diagonal":{"action_mask":[0,1,4,5]},
+    "disabled_second_diagonal":{"action_mask":[2,3,6,7]},
+    "inverted_actions":{"action_swap":[0,1,2,3,4,5,6,7]},
     ###################################################################################################################################################################
      
      
@@ -133,18 +152,21 @@ class CustomAnt(Ant):
         config = text_format.Parse(ant_config, brax.Config())
         env_specs = env_cfgs[env_cfg]
         self.obs_mask = jp.concatenate(np.ones((1,27)))
+        self.action_mask = jp.concatenate(np.ones((1,8)))
         for spec,coeff in env_specs.items():
             if spec == "gravity":
                 config.gravity.z *= coeff
             elif spec == "friction":
                 config.friction *= coeff
-            elif spec == "obs_mask":
+            elif spec == "mask":
                 zeros = int(coeff*27)
                 ones = 27-zeros
                 np.random.seed(0)
                 self.obs_mask = jp.concatenate(np.random.permutation(([0]*zeros)+([1]*ones)).reshape(1,-1))
             elif spec == "action_mask":
-                self.action_mask[coeff] = 0.            
+                self.action_mask[coeff] = 0.
+            elif spec == "action_swap":
+                self.action_mask[coeff] = -1.
             else:
                 for body in config.bodies:
                     if spec in body.name:
@@ -169,10 +191,34 @@ class CustomAnt(Ant):
         # joint angle velocities (8,)
         qvel = [qp.vel[0], qp.ang[0], joint_vel]
         #print(jp.concatenate(qpos + qvel))
-        #print(self.obs_mask)
-        #print(jp.concatenate(qpos + qvel) * self.obs_mask)
+        #print(self.mask)
+        #print(jp.concatenate(qpos + qvel) * self.mask)
         return jp.concatenate(qpos + qvel) * self.obs_mask
 
+    def step(self, state: _env.State, action: jp.ndarray) -> _env.State:
+        """Run one timestep of the environment's dynamics."""
+        action = action * self.action_mask
+        qp, info = self.sys.step(state.qp, action)
+        obs = self._get_obs(qp, info)
+
+        x_before = state.qp.pos[0, 0]
+        x_after = qp.pos[0, 0]
+        forward_reward = (x_after - x_before) / self.sys.config.dt
+        ctrl_cost = .5 * jp.sum(jp.square(action))
+        contact_cost = (0.5 * 1e-3 *
+                        jp.sum(jp.square(jp.clip(info.contact.vel, -1, 1))))
+        survive_reward = jp.float32(1)
+        reward = forward_reward - ctrl_cost - contact_cost + survive_reward
+
+        done = jp.where(qp.pos[0, 2] < 0.2, x=jp.float32(1), y=jp.float32(0))
+        done = jp.where(qp.pos[0, 2] > 1.0, x=jp.float32(1), y=done)
+        state.metrics.update(
+            reward_ctrl_cost=ctrl_cost,
+            reward_contact_cost=contact_cost,
+            reward_forward=forward_reward,
+            reward_survive=survive_reward)
+
+        return state.replace(qp=qp, obs=obs, reward=reward, done=done)
 
 def make_ant(seed = 0,
                    batch_size = None,
@@ -204,7 +250,7 @@ class MultiAnt(Scenario):
         self._train_tasks=[]
         for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.AutoResetBraxAgent",
                 "make_env_fn":make_ant,
                 "make_env_args":{
                                 "max_episode_steps":1000,
@@ -216,7 +262,7 @@ class MultiAnt(Scenario):
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
                 "make_env_fn":make_ant,
                 "make_env_args":{"max_episode_steps":1000,
                                  "env_cfg":cfg},
@@ -240,7 +286,7 @@ class OneAnt(Scenario):
         self._train_tasks=[]
         for k,cfg in enumerate(cfgs):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.AutoResetBraxAgent",
                 "make_env_fn":make_ant,
                 "make_env_args":{
                                 "max_episode_steps":1000,
@@ -250,9 +296,9 @@ class OneAnt(Scenario):
             self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
 
         self._test_tasks=[]
-        for k,cfg in enumerate(["hugefoot","tinyfoot_rainfall","huge_torso","defective_module","tinyfoot_moon"]):
+        for k,cfg in enumerate(["hugefoot","tinyfoot_rainfall","hugetorso","defective_module","tinyfoot_moon"]):
             agent_cfg={
-                "classname":"salina_cl.scenarios.brax.tools.AutoResetBraxAgent",
+                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
                 "make_env_fn":make_ant,
                 "make_env_args":{"max_episode_steps":1000,
                                  "env_cfg":cfg},
