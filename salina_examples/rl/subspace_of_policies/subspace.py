@@ -8,38 +8,29 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import copy
 
 class Linear(nn.Module):
-    def __init__(self, n_models, in_channels, out_channels, bias = True, same_init = False):
+    def __init__(self, n_anchors, in_channels, out_channels, bias = True, same_init = False):
         super().__init__()
-        self.n_models = n_models
+        self.n_anchors = n_anchors
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.is_bias = bias
 
         if same_init:
-            weight = torch.nn.init.xavier_uniform_(torch.zeros((1,out_channels,in_channels)))
-            weight = weight.repeat(n_models,1,1)
+            anchor = nn.Linear(in_channels,out_channels,bias=self.is_bias)
+            anchors = [copy.deepcopy(anchor) for _ in range(n_anchors)]
         else:
-            weight = torch.nn.init.xavier_uniform_(torch.zeros((n_models,out_channels,in_channels)))
-        self.weight = nn.Parameter(weight)
+            anchors = [nn.Linear(in_channels,out_channels,bias=self.is_bias) for _ in range(n_anchors)]
+        self.anchors = nn.ModuleList(anchors)
 
-        if self.is_bias:
-            if same_init:
-                bias = torch.nn.init.xavier_uniform_(torch.zeros((1,out_channels)))
-                bias = bias.repeat(n_models,1)
-            else:
-                bias = torch.nn.init.xavier_uniform_(torch.zeros((n_models,out_channels)))
-            self.bias = nn.Parameter(bias)
-        else:
-            self.register_parameter('bias_n', None)
+    def forward(self, x, alpha):
+        xs = [anchor(x) for anchor in self.anchors]
+        xs = torch.stack(xs,dim=-1)
 
-    def forward(self, x, t):
-        xs=[F.linear(x, self.weight[k], self.bias[k]) for k in range(self.n_models)]
-        xs=torch.stack(xs,dim=-1)
-        t = torch.stack([t] * self.out_channels,dim=-2)
-        xs = xs * t
-        xs = xs.sum(-1)
+        alpha = torch.stack([alpha] * self.out_channels, dim=-2)
+        xs = (xs * alpha).sum(-1)
         return xs
 
 class Sequential(nn.Sequential):

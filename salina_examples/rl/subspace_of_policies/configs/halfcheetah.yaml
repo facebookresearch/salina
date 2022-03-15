@@ -1,5 +1,6 @@
 env_name: CustomHalfcheetah
-wrapper_classname: salina_examples.rl.line_of_policies.envs.brax.create_brax_env
+env_cfg: Normal
+wrapper_classname: salina_examples.rl.subspace_of_policies.envs.brax.create_brax_env
 n_models: 2
 save_model: True
 device : cuda:0
@@ -17,19 +18,21 @@ acquisition:
   n_timesteps: 100
   env:
     env_name: ${env_name}
+    env_cfg: ${env_cfg}
     episode_length: 1000
 
 validation:
   seed: 1
-  n_envs: 128
-  evaluate_every: 1
+  n_envs: 512
+  evaluate_every: 10
   env:
     env_name: ${env_name}
+    env_cfg: ${env_cfg}
     episode_length: 1000
 
 
 action_agent:
-  classname: salina_examples.rl.line_of_policies.agents.LoPAgent
+  classname: salina_examples.rl.subspace_of_policies.agents.LoPAgent
   hidden_size: 64
   n_layers: 4
   n_models: ${n_models}
@@ -38,9 +41,9 @@ action_agent:
     env_name: ${env_name}
 
 critic_agent:
-  classname: salina_examples.rl.line_of_policies.agents.CriticAgent
+  classname: salina_examples.rl.subspace_of_policies.agents.CriticAgent
   hidden_size: 256
-  n_layers: 5
+  n_layers: 4
   alpha_size: ${n_models}
   env:
     classname: ${wrapper_classname}
@@ -78,18 +81,6 @@ hydra:
         item_sep: /
         exclude_keys:
           - seed
-  launcher:
-    mem_gb: 16
-    max_num_timeout: 0
-    cpus_per_task: 1
-    signal_delay_s: 30
-    timeout_min: 30
-    gpus_per_node: 1
-    tasks_per_node: 1
-    partition: learnlab
-  job_logging:
-    root:
-      handlers: []
 
 defaults:
   - override hydra/launcher: submitit_slurm

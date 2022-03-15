@@ -1,25 +1,18 @@
-
-wrapper_classname: salina_examples.rl.LoP.envs.create_brax_env
+wrapper_classname: salina_examples.rl.subspace_of_policies.envs.brax.create_brax_env
 device : cuda:0
-path: /private/home/jbgaya/Work/jb_stuff/subspace_project/generalization/experiments/brax/halfcheetah/LoP/46359511_11/model/max_reward
+path: ./
 k_shot: 5
 seed: 2
 env:
   env_name: CustomHalfcheetah
   episode_length: 1000
-  env_spec:
-    torso: 1.
-    thig: 1.
-    shin: 1
-    foot: 1.
-    gravity: 1.
-    friction: 1.
+  env_cfg:
 
 model:
   geometry: simplex
   distribution: flat
   policy:
-    classname: salina_examples.rl.LoP.agents.LoPAgent
+    classname: salina_examples.rl.subspace_of_policies.agents.LoPAgent
     n_models:
     hidden_size:
     n_layers:
@@ -30,19 +23,6 @@ model:
 hydra:
   run:
     dir: ./
-  launcher:
-    mem_gb: 16
-    max_num_timeout: 0
-    cpus_per_task: 1
-    signal_delay_s: 30
-    timeout_min: 30
-    gpus_per_node: 1
-    tasks_per_node: 1
-    partition: prioritylab
-    comment: ICLR2022
-  job_logging:
-    root:
-      handlers: []
 
 defaults:
   - override hydra/launcher: submitit_slurm

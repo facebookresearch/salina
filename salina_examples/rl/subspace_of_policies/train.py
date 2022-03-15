@@ -12,7 +12,7 @@ import torch
 from salina import Workspace, instantiate_class
 import salina.rl.functional as RLF
 from salina.agents import Agents, TemporalAgent
-from salina_examples.rl.line_of_policies.agents import AlphaAgent, Normalizer, CustomBraxAgent
+from salina_examples.rl.subspace_of_policies.agents import AlphaAgent, Normalizer, CustomBraxAgent
 
 def clip_grad(parameters, grad):
     return (torch.nn.utils.clip_grad_norm_(parameters, grad) if grad > 0 else torch.Tensor([0.0]))
@@ -66,6 +66,7 @@ def run_line_ppo(action_agent, critic_agent, logger, cfg):
         #workspace.set_full("acquisition_action",workspace["action"].detach())
         #workspace.set_full("env/normalized_env_obs",workspace["env/normalized_env_obs"].detach())
         n_interactions+=(workspace.time_size()-1)*workspace.batch_size()
+        logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
         workspace.zero_grad()
         miniworkspaces=[]
@@ -115,7 +116,7 @@ def run_line_ppo(action_agent, critic_agent, logger, cfg):
 
     # Saving model
     if cfg.save_model:
-        os.makedirs(os.getcwd +"/model")
+        os.makedirs(os.getcwd() +"/model")
         torch.save(action_agent.state_dict(),os.getcwd() +"/model/policy")
         torch.save(normalizer_agent.state_dict(),os.getcwd() +"/model/normalizer")
                 

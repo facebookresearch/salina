@@ -1,3 +1,9 @@
+#
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
 import numpy as np
 import torch
 import torch.nn as nn
@@ -5,8 +11,8 @@ import torch.nn.functional as F
 from torch.distributions.normal import Normal
 from salina import Agent, TAgent
 from brax.envs.to_torch import JaxToTorchWrapper
-from salina_examples.rl.line_of_policies.envs.brax import create_brax_env
-from salina_examples.rl.line_of_policies.subspace import Linear, Sequential
+from salina_examples.rl.subspace_of_policies.envs.brax import create_brax_env
+from salina_examples.rl.subspace_of_policies.subspace import Linear, Sequential
 from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.categorical import Categorical
 from torch.distributions.uniform import Uniform
@@ -142,17 +148,23 @@ class LoPAgent(TAgent):
 
     def cosine_similarity(self,i,j):
         assert (i < self.n_models) and (j < self.n_models), "index higher than n_models"
-        cos_sim = torch.Tensor([0.]).to(self.model[0].weight.device)
+        cos_sim = torch.Tensor([0.]).to(list(self.parameters())[0].device)
         n = 0
-        for w in self.parameters():
-            p = ((w[i] * w[j]).sum() / max(((w[i] ** 2).sum().sqrt() * (w[j] ** 2).sum().sqrt()),1e-8)) ** 2
-            cos_sim += p
-            n += 1
+        for module in self.model:
+            if isinstance(module,Linear):
+                w1 = module.anchors[i].weight
+                w2 = module.anchors[j].weight
+                p1 = ((w1 * w2).sum() / max(((w1 ** 2).sum().sqrt() * (w2 ** 2).sum().sqrt()),1e-8)) ** 2
+                b1 = module.anchors[i].bias
+                b2 = module.anchors[j].bias
+                p2 = ((b1 * b2).sum() / max(((b1 ** 2).sum().sqrt() * (b2 ** 2).sum().sqrt()),1e-8)) ** 2
+                cos_sim += p1 + p2
+                n += 2
         return cos_sim / n
 
     def L2_norm(self,i,j):
         assert (i < self.n_models) and (j < self.n_models), "index higher than n_models"
-        L2_norm = torch.Tensor([0.]).to(self.model[0].weight.device)
+        L2_norm = torch.Tensor([0.]).to(list(self.parameters())[0].device)
         n = 0
         for w in self.parameters():
             L2_norm += torch.linalg.norm(w[i] - w[j])
