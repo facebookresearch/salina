@@ -6,7 +6,7 @@ final_evaluation: False
 
 defaults:
   - logger: logger
-  - scenario: halfcheetah_debug
+  - scenario: halfcheetah_hard0
   - hydra: hydra
   - override hydra/launcher: submitit_slurm
 
