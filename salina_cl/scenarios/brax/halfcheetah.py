@@ -21,34 +21,34 @@ def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     For debugging
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","normal","normal"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","moon"])
 
 ######################################################################################################
 ################################### Pathological scenarios ###########################################
 
-def halfcheetah_benchmark1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+def halfcheetah_benchmark1(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
     """
     Negative backward transfer (forgetting properties): task0 / task1 / task2 / task3
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"] * repeat_scenario)
 
-def halfcheetah_benchmark2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+def halfcheetah_benchmark2(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
     """
     Negative forward transfer: task0 / task1 / task2 / task3
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"] * repeat_scenario)
 
-def halfcheetah_benchmark3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+def halfcheetah_benchmark3(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
     """
     Distraction (orthogonal task-ish): task0 / distraction / task0
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal"] * repeat_scenario)
 
-def halfcheetah_benchmark4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+def halfcheetah_benchmark4(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
     """
     Skills Combination: task0 / task1 / distraction / task0 + task1
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * repeat_scenario)
 
 
 ######################################################################################################
@@ -70,7 +70,7 @@ def halfcheetah_hard0(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     A sequence of 5 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","normal","moon"])
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal"])
 
 def halfcheetah_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """

@@ -1,0 +1,76 @@
+name: td3_finetune
+seed: 0
+perf_path: results/test.dat
+save_model: False
+final_evaluation: False
+
+defaults:
+  - logger: logger
+  - scenario: halfcheetah_debug
+  - hydra: hydra
+  - override hydra/launcher: submitit_slurm
+
+model:
+  classname: salina_cl.models.models.OneStep
+  seed: ${seed}
+  params:
+    evaluation:
+      device: cuda:0
+      seed: ${seed}
+      n_rollouts: 1
+      evaluate_success: False
+    reset_critic_on_task_change: False
+    algorithm: 
+      classname: salina_cl.algorithms.td3.td3
+      params:
+        learning_device: cuda:0
+        acquisition_device: cuda:0
+        buffer_device: cuda:0
+    
+        optimizer_policy:
+          classname: torch.optim.Adam
+          lr: 3e-4
+    
+        optimizer_q:
+          classname: torch.optim.Adam
+          lr: 3e-4
+    
+        control_every_n_epochs: 10
+        n_control_rollouts: 1
+      
+        n_processes: 0
+  
+        reward_scaling: 10.
+        policy_update_delay: 8
+        time_limit: 0
+        
+        n_timesteps: 2  ## burning timesteps
+        batch_size: 128   ## 128 ,256,512
+
+        action_noise: 0.2
+        target_noise: 0.4
+        noise_clip: 0.25
+       
+        clip_grad: 50.
+        inner_epochs: 128
+        discount_factor: 0.99
+        update_target_tau: 0.005
+        buffer_time_size: 2
+        buffer_size: 1_000_000
+        initial_buffer_size: 10_000
+        
+        ## check https://arxiv.org/pdf/2105.10919.pdf  page 15
+
+    policy_agent:
+      classname: salina_cl.agents.single_agents_td3.ActionAgent     #ActionAgent
+      hidden_size: 64
+      n_layers: 4
+      input_dimension: nil
+      output_dimension: nil
+
+    critic_agent:
+      classname: salina_cl.agents.single_agents_td3.TwinCritics #CriticAgent
+      hidden_size: 256
+      n_layers: 4
+      obs_dimension: nil
+      action_dimension: nil

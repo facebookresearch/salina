@@ -1,4 +1,5 @@
 benchmark_id: '1' # available benchmarks : 1 2 3 4
+repeat_scenario: 1
 name: halfcheetah_benchmark${scenario.benchmark_id}
 classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_benchmark${scenario.benchmark_id}
 n_train_envs: 512

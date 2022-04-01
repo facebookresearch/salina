@@ -54,15 +54,15 @@ def main(cfg):
         eval = evaluator(cfg.evaluation)
         policy_agent = model.policy_agent
         policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
-        while policy_agent[1].n_anchors > 2:
-            policy_agent = remove_anchor(policy_agent)
-            print("- set anchor agent to ",policy_agent[1].n_anchors)
+        while policy_agent[1].n_anchors > 0:
             d = {}
             for test_task in scenario.test_tasks():
                 print("\t- Task",test_task._task_id)
                 critic_agent = torch.load(os.getcwd()+"/critic_"+str(policy_agent[1].n_anchors-1)+".dat")
                 d["task_"+str(test_task._task_id)] = eval.evaluate(policy_agent,critic_agent,test_task)
             ds[str(policy_agent[1].n_anchors)+"_anchors"] = d
+            policy_agent = remove_anchor(policy_agent)
+            print("- set anchor agent to ",policy_agent[1].n_anchors)
         print("....done !")
         with open(os.getcwd()+"/eval.pkl", "wb") as f:
             pickle.dump(ds, f)

@@ -8,7 +8,6 @@ from salina_cl.core import Model
 from salina import instantiate_class
 from salina_cl.agents.tools import weight_init
 import numpy as np
-import torch
 
 class Baseline(Model):
     """
@@ -74,7 +73,8 @@ class OneStep(Model):
         self.policy_agent = instantiate_class(policy_agent_cfg)
 
         critic_agent_cfg = self.cfg.critic_agent
-        critic_agent_cfg.input_dimension = input_dimension
+        critic_agent_cfg.obs_dimension = input_dimension
+        critic_agent_cfg.action_dimension = output_dimension
         self.critic_agent = instantiate_class(critic_agent_cfg)
 
     def _train(self,task,logger):

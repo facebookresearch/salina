@@ -150,7 +150,8 @@ def extract_hps(log):
             values[k]=v
     return values
 
-def extract_metrics(logs):
+def extract_metrics(logs, keyword = ""):
+    keyword = keyword if len(keyword) == 0 else "/"+keyword
     print("Analyzing ",len(logs)," logs")
     hps = extract_hps(logs[0])
     dfs = []
@@ -170,7 +171,7 @@ def extract_metrics(logs):
     for seed in range(n_seeds):
         for task in range(n_tasks):
             for stage in range(n_tasks):
-                r_name ="evaluation/"+str(task)+"/avg_reward"
+                r_name ="evaluation/"+str(task)+keyword+"/avg_reward"
                 
                 d = df[(df["iteration"] == stage) & (df["seed"] == seed)]
                 try:
@@ -253,7 +254,7 @@ def analyze_scenario(logs,scenario):
         display(HTML(h))
         display(HTML("<h2>"+("_"*10)+"</h2>"))
 
-def agregate_experiments(path):
+def agregate_experiments(path, keyword = ""):
     logs = salina.logger.read_directory(path,use_bz2=True)
     dfs = []
     d_id = {}
@@ -268,7 +269,7 @@ def agregate_experiments(path):
                     df = log.to_dataframe()
                     _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/"))]+["iteration"]
                     df = df[_cols]
-                    n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
+                    n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x) and (keyword in x)])
                     df = df[df["iteration"] < n_tasks]
                     hp = extract_hps(log)
                     hp_key = str({k:v for k,v in hp.items() if not "seed" in k})
@@ -285,14 +286,14 @@ def agregate_experiments(path):
     dfs = pd.concat(dfs)
     return dfs,d_logs
 
-def sort_best_experiments(df):
-    nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x)])
+def sort_best_experiments(df, keyword = ""):
+    nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x) and (keyword in x)])
     df = df[df["iteration"] == nb_tasks]
-    df["evaluation/global_avg_reward"] = df[[c for c in df.columns if c.startswith("evaluation/")]].mean(axis=1)
+    df["evaluation/global_avg_reward"] = df[[c for c in df.columns if c.startswith("evaluation/") and (keyword in c)]].mean(axis=1)
     df = df[["id","evaluation/global_avg_reward"]].groupby("id").mean().sort_values(by="evaluation/global_avg_reward",ascending=False)
     return df.index
 
-def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False, save_path = None):
+def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False, save_path = None, keyword = ""):
     if save_path is None:
         save_path = PATH+"/experiment.dat"
     if os.path.exists(save_path) and (not force_loading):
@@ -305,8 +306,8 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     else:
         print("no ",save_path)
         print("Agregating experiments...")
-        dfs,d_logs = agregate_experiments(PATH)
-        best_ids = sort_best_experiments(dfs)
+        dfs,d_logs = agregate_experiments(PATH, keyword)
+        best_ids = sort_best_experiments(dfs, keyword)
         data = {"dfs":dfs,
                 "d_logs":d_logs,
                 "best_ids":best_ids}
@@ -316,7 +317,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     normalizing = not (normalize_data is None)
     display(HTML("<h2>"+("_"*100)+"</h2>"))
     for i,best_id in enumerate(best_ids[:top_k]):
-        rewards, memory,hps = extract_metrics(d_logs[best_id])
+        rewards, memory,hps = extract_metrics(d_logs[best_id], keyword)
         #Generate HTML
         display(HTML("<h2>#"+str(i+1)+"</h2>"))
         h = generate_key_metrics_html(rewards)
@@ -341,4 +342,4 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     with open(save_path, "wb") as f:
         pickle.dump(data, f)
     if return_logs:
-        return dfs,d_logs, best_ids
+        return dfs,d_logs, best_ids, rewards

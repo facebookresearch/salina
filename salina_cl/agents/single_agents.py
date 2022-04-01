@@ -230,10 +230,10 @@ class FromscratchAction(Action):
             self.task_id = task_id
 
 class Critic(CRLAgent):
-    def __init__(self, input_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
+    def __init__(self, obs_dimension, action_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
         super().__init__()
         self.iname = input_name 
-        input_size = input_dimension[0]
+        input_size = obs_dimension[0]
         hs = hidden_size
         n_layers = n_layers
         hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])

@@ -21,15 +21,25 @@ class SubspaceAgents(CRLAgents):
     def add_anchor(self, **kwargs):
         for agent in self:
             agent.add_anchor(**kwargs)
+    def remove_anchor(self, **kwargs):
+        for agent in self:
+            agent.remove_anchor(**kwargs)
+    def set_best_alpha(self, **kwargs):
+        for agent in self:
+            agent.set_best_alpha(**kwargs)
 
 class SubspaceAgent(CRLAgent):
     def add_anchor(self,**kwargs):
         pass
+    def remove_anchor(self,**kwargs):
+        pass
+    def set_best_alpha(self,**kwargs):
+        pass
 
 class Normalizer(Normalizer,SubspaceAgent): pass
 
-def SubspaceActionAgent(n_initial_anchors, dist_type, input_dimension,output_dimension, n_layers, hidden_size):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type),Normalizer(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
+def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, n_layers, hidden_size):
+    return SubspaceAgents(AlphaAgent(n_initial_anchors,dist_type,refresh_rate),Normalizer(input_dimension),SubspacePolicy(n_initial_anchors,input_dimension,output_dimension, n_layers, hidden_size))
 
 def CriticAgent(n_anchors, input_dimension, n_layers, hidden_size):
     return SubspaceAgents(Critic(n_anchors, input_dimension, n_layers, hidden_size))
@@ -86,10 +96,11 @@ class FreezeBatchNorm(SubspaceAgent):
         self.stop_update = True
 
 class AlphaAgent(SubspaceAgent):
-    def __init__(self, n_initial_anchors, dist_type = "flat"):
+    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1.):
         super().__init__()
         self.n_anchors = n_initial_anchors
         self.dist_type = dist_type
+        self.refresh_rate = refresh_rate
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         elif self.dist_type == "categorical":
@@ -97,7 +108,7 @@ class AlphaAgent(SubspaceAgent):
         elif self.dist_type == "last_anchor":
             self.dist = Categorical(torch.Tensor([0] * (self.n_anchors-1) + [1]))
         self.best_alpha = None
-        self.best_alphas = None
+        self.best_alphas = torch.Tensor([])
         self.id = nn.Parameter(torch.randn(1,1))
 
     def forward(self, t = None, k_shot = False, force_random = False, **args):
@@ -113,6 +124,12 @@ class AlphaAgent(SubspaceAgent):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
             if t > 0:
                 done = self.get(("env/done", t)).float().unsqueeze(-1)
+                if (done.sum() > 0) and (self.refresh_rate<1.):
+                    cr = self.get(("env/cumulated_reward", t-1))
+                    k = max(int(len(cr) * (1 - self.refresh_rate)) - 1, 0)
+                    threshold = sorted(cr,reverse = True)[k]
+                    refresh_variable = (cr < threshold).float().unsqueeze(-1)
+                    done *= refresh_variable
                 alphas_old = self.get(("alphas", t-1))
                 alphas =  alphas * done + alphas_old * (1 - done)
             self.set(("alphas", t), alphas)
@@ -121,26 +138,40 @@ class AlphaAgent(SubspaceAgent):
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
             self.set(("alphas", t), alphas)
 
-    def add_anchor(self, alpha = None, logger = None,**kwargs):
+    def set_best_alpha(self, alpha = None, logger = None,**kwargs):
+        device = self.id.device
+
+        if alpha is None:
+            alpha = torch.Tensor([0.] * (self.n_anchors - 1) + [1.]).to(device)
+        else:
+            alpha = alpha.to(device)
+        self.best_alphas = torch.cat([self.best_alphas.to(device),alpha.unsqueeze(0)],dim=0)
+
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            if alpha is None:
+                logger.message("Set best_alpha = None")
+            else:
+                logger.message("Set best_alpha = "+str(list(map(lambda x:round(x,2),alpha.tolist()))))
+            
+    def add_anchor(self, logger = None,**kwargs):
         device = self.id.device
         self.n_anchors += 1
-        if self.best_alphas is None:
-            self.best_alphas = torch.Tensor([[1.] + [0.] * (self.n_anchors - 1)]).to(device)
-        else:
-            if alpha is None:
-                alpha = torch.Tensor([0.] * self.best_alphas.shape[1] + [1.]).to(device)
-            else:
-                alpha = torch.cat([alpha,torch.Tensor([0.]).to(device)])
-            self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
-            self.best_alphas = torch.cat([self.best_alphas.to(device),alpha.unsqueeze(0)],dim=0)
+        self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
         if self.dist_type == "flat":
             self.dist = Dirichlet(torch.ones(self.n_anchors))
         else:
             self.dist = Categorical(torch.ones(self.n_anchors))
-        if not (logger is None):
-            logger = logger.get_logger(type(self).__name__+str("/"))
-            logger.message("Increasing alpha size to "+str(self.n_anchors))
+        logger.message("Increasing alpha size to "+str(self.n_anchors))
 
+    def remove_anchor(self, logger = None,**kwargs):
+        self.n_anchors -= 1
+        self.best_alphas = self.best_alphas[:,:-1]
+        if self.dist_type == "flat":
+            self.dist = Dirichlet(torch.ones(self.n_anchors))
+        else:
+            self.dist = Categorical(torch.ones(self.n_anchors))
+        logger.message("Decreasing alpha size to "+str(self.n_anchors))
 
     def set_task(self,task_id):
         if task_id >= self.best_alphas.shape[0]:
@@ -201,15 +232,15 @@ class SubspacePolicy(SubspaceAgent):
             action = torch.tanh(action)
             self.set(("action", t), action)
 
-    def add_anchor(self,anchor = None, logger = None, **kwargs):
+    def add_anchor(self,alpha = None, logger = None, **kwargs):
         i = 0
-        alphas = [anchor] * (self.hidden_size + 2)
+        alphas = [alpha] * (self.hidden_size + 2)
         if not (logger is None):
             logger = logger.get_logger(type(self).__name__+str("/"))
-            if anchor is None:
+            if alpha is None:
                 logger.message("Adding one anchor with alpha = None")
             else:
-                logger.message("Adding one anchor with alpha = "+str(list(map(lambda x:round(x,2),anchor.tolist()))))
+                logger.message("Adding one anchor with alpha = "+str(list(map(lambda x:round(x,2),alpha.tolist()))))
         for module in self.model:
             if isinstance(module,LinearSubspace):
                 module.add_anchor(alphas[i])
@@ -220,6 +251,15 @@ class SubspacePolicy(SubspaceAgent):
                 i+=1
         self.n_anchors += 1
 
+    def remove_anchor(self, logger = None, **kwargs):
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Removing last anchor")
+        for module in self.model:
+            if isinstance(module,LinearSubspace):
+                module.anchors = module.anchors[:-1]
+                module.n_anchors -= 1
+        self.n_anchors -= 1
 
 class Critic(SubspaceAgent):
     def __init__(self, n_anchors, input_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
@@ -242,6 +282,12 @@ class Critic(SubspaceAgent):
 
     def add_anchor(self, logger = None,**kwargs):
         self.__init__(self.n_anchors + 1, [self.input_size], self.n_layers, self.hs)
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Setting input size to "+str(self.input_size + self.n_anchors)+" and reinitializing network")
+
+    def remove_anchor(self, logger = None,**kwargs):
+        self.__init__(self.n_anchors - 1, [self.input_size], self.n_layers, self.hs)
         if not (logger is None):
             logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Setting input size to "+str(self.input_size + self.n_anchors)+" and reinitializing network")

@@ -5,6 +5,9 @@ logger:
   every_n_seconds: 10
   verbose: True
 
+defaults:
+  - override hydra/launcher: submitit_slurm
+
 n_envs: 32
 env_name: halfcheetah
 n_timesteps: 2
@@ -62,3 +65,32 @@ algorithm:
     n_envs: 1
     n_timesteps: 1001
     env_seed: 46
+
+hydra:
+  run:
+    dir: /checkpoint/jbgaya/test/run/
+  sweep:
+    dir: /checkpoint/jbgaya/test/multirun/
+    subdir: ${hydra.job.num}
+  job:
+    env_set:
+      OMP_NUM_THREADS: '1'
+      XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
+    config:
+      override_dirname:
+        item_sep: /
+        exclude_keys:
+          - seed
+  launcher:
+    mem_gb: 16
+    max_num_timeout: 0
+    cpus_per_task: 1
+    signal_delay_s: 30
+    timeout_min: 300
+    gpus_per_node: 1
+    tasks_per_node: 1
+    partition: learnlab
+    comment: NIPS2022
+  job_logging:
+    root:
+      handlers: []

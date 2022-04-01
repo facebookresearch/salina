@@ -12,6 +12,7 @@ from salina import Workspace, get_arguments, get_class
 from salina.agents import Agents, TemporalAgent, EpisodesDone
 import numpy as np
 from salina_cl.algorithms.tools import compute_time_unit, _state_dict, clip_grad
+from salina_cl.algorithms.tools import display_kshot
 from salina.agents.remote import NRemoteAgent
 
 class ppo:
@@ -23,6 +24,8 @@ class ppo:
         action_agent.train()
         critic_agent.train()
         time_unit=None
+        best_alpha = None
+        best_reward = - float("inf")
         if self.cfg_ppo.time_limit>0:
             time_unit=compute_time_unit(self.cfg_ppo.device)
             logger.message("Time unit is "+str(time_unit)+" seconds.")
@@ -59,6 +62,9 @@ class ppo:
         _training_start_time = time.time()
         best_model = None
         best_performance = None
+        normalized_env_obs = []
+        alphas_for_ve = []
+        j = 0
         while True:
         # Compute average performance of multiple rollouts
             if (self.cfg_ppo.n_control_rollouts > 0) and (epoch%self.cfg_ppo.control_every_n_epochs==0):
@@ -99,17 +105,30 @@ class ppo:
             workspace.set_full("acquisition_action_logprobs",workspace["action_logprobs"].detach())
             workspace.set_full("acquisition_action",workspace["action"].detach())
             workspace.set_full("env/normalized_env_obs",workspace["env/normalized_env_obs"].detach())
+            normalized_env_obs.append(workspace["env/normalized_env_obs"])
+            alphas_for_ve.append(workspace["alphas"])
+
 
             if n_interactions+(workspace.time_size()-1)*workspace.batch_size() > n_max_interactions:
                 logger.message("== Maximum interactions reached")
                 break
-            n_interactions+=(workspace.time_size()-1)*workspace.batch_size()
+            n_interactions += (workspace.time_size()-1)*workspace.batch_size()
             logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
 
             # Log cumulated reward of training trajectories
             d=workspace["env/done"]
             if d.any():
-                r=workspace["env/cumulated_reward"][d].mean().item()
+                rewards = workspace["env/cumulated_reward"][d].round().cpu()
+                if "alphas" in list(workspace.keys()) and rewards.max() > best_reward:
+                    normalized_env_obs = []
+                    alphas_for_ve = []
+                    #alphas = workspace["alphas"][d].cpu()
+                    best_alpha = workspace["alphas"][d].cpu()[rewards.argmax()]
+                    #image = display_kshot(alphas,rewards)
+                    #logger.add_figure("alphas_drawn",image,epoch)
+                    best_reward = max(best_reward,rewards.max())
+                    logger.message("Found new best reward: "+str(int(best_reward.item())))
+                r = rewards.mean().item()
                 logger.add_scalar("monitor/avg_training_reward",r,epoch)
                 if "env/success" in list(workspace.keys()):
                     r=workspace["env/success"][d].mean().item()
@@ -177,4 +196,8 @@ class ppo:
         action_agent.to("cpu")
         critic_agent.to("cpu")
         if self.cfg_ppo.n_processes>1: acquisition_agent.close()
-        return r,action_agent,critic_agent
+        normalized_env_obs = torch.cat(normalized_env_obs,dim=0)
+        logger.message("Number of states collected for value estimation: "+str(np.prod(normalized_env_obs.shape[:-1])))
+        alphas_for_ve = torch.cat(alphas_for_ve,dim=0)
+        infos = {"normalized_env_obs":normalized_env_obs, "best_alpha":best_alpha, "alphas_for_ve":alphas_for_ve}
+        return r,action_agent,critic_agent, infos
