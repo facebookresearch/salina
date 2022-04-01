@@ -175,11 +175,11 @@ class td3:
                     logger.add_scalar("loss/q_loss", q1.item(), iteration)
                     optimizer_action.step()
     
-                # Target network update
-                tau = cfg_td3.update_target_tau
-                soft_update_params(q_agent[0], q_target_agent[0], tau)
-                soft_update_params(q_agent[1], q_target_agent[1], tau)
-                soft_update_params(action_agent, target_action_agent, tau)
+                    # Target network update
+                    tau = cfg_td3.update_target_tau
+                    soft_update_params(q_agent[0], q_target_agent[0], tau)
+                    soft_update_params(q_agent[1], q_target_agent[1], tau)
+                    soft_update_params(action_agent, target_action_agent, tau)
     
                 iteration += 1
             _et_inner_epoch=time.time()
