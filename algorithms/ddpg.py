@@ -81,16 +81,16 @@ class ddpg(learner):
         for a in acquisitionAgent.get_by_name("action_agent"):
             a.load_state_dict(self.action_agent.state_dict())
 
-    def workspace_to_replay_buffer(self, acq_worspace):  # might will find better way to handle multi-workspace.
+    def workspace_to_replay_buffer(self, acq_workspace):  # might will find better way to handle multi-workspace.
         """
         Add to the replay buffer an acquisition workspace
         or a list of acquisition workspaces
         """
-        if isinstance(acq_worspace, Iterable):
-            for workspace in acq_worspace:
+        if isinstance(acq_workspace, Iterable):
+            for workspace in acq_workspace:
                 self.replay_buffer.put(workspace, time_size=self.cfg.algorithm.time_size)
         else: 
-            self.replay_buffer.put(acq_worspace, time_size=self.cfg.algorithm.time_size)
+            self.replay_buffer.put(acq_workspace, time_size=self.cfg.algorithm.time_size)
         
     def train(self, acq_workspace, n_actor_steps, n_total_actor_steps, logger):
 
@@ -99,9 +99,9 @@ class ddpg(learner):
         
         if self.replay_buffer.size() < self.cfg.algorithm.initial_buffer_size:
                 return
-        self.train_critic_and_actor(n_actor_steps, n_total_actor_steps,logger)
+        self.train_critic_and_actor(n_actor_steps, n_total_actor_steps, logger)
 
-    def train_critic_and_actor(self,n_actor_steps, n_total_actor_steps,logger):
+    def train_critic_and_actor(self, n_actor_steps, n_total_actor_steps, logger):
         for i in range(n_actor_steps):
             grad_step_id = n_total_actor_steps-n_actor_steps+i
             train_workspace = self.replay_buffer.get(self.cfg.algorithm.batch_size)
