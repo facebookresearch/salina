@@ -3,7 +3,7 @@ algorithm:
   n_envs: 1
   num_processes : 1
   max_epochs: 10000
-  device : 'cuda'
+  device : 'cpu' #  was 'cuda'
 
   batch_size: 128
   discount_factor: 0.995
@@ -18,8 +18,8 @@ algorithm:
   policy_delay : 2
 
   # action_agent:
-  #   classname: models.salina_models.DeterministicAgent
-  #   hidden_layers: [256,256]
+  #  classname: models.salina_models.DeterministicAgent
+  #  hidden_layers: [256,256]
 
   action_agent:
     classname: models.cem_rl_article_models.Actor
