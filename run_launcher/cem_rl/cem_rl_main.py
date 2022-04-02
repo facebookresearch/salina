@@ -135,7 +135,7 @@ def debug_train(cfg):
         cem_rl.train(acquisition_workspaces,n_interactions,logger)
 
 
-@hydra.main(config_path=os.path.join(os.getcwd(),'run_launcher/configs/'), config_name="cem_rl_only_td3.yaml")
+@hydra.main(config_path=os.path.join(os.getcwd(), '../configs/'), config_name="cem_rl_only_td3.yaml")
 def main(cfg : DictConfig):
     import torch.multiprocessing as mp
     mp.set_start_method("spawn")
