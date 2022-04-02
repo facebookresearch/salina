@@ -2,28 +2,29 @@ import copy
 import gym
 from gym.wrappers import TimeLimit
 from omegaconf import DictConfig
-from salina import Workspace,Agent, instantiate_class
+from salina import Workspace, Agent, instantiate_class
 from salina.agents.asynchronous import AsynchronousAgent
 import torch
-from typing import Callable, Union
-from gym.spaces import Box,Discrete
+from typing import Callable, Union, List
+from gym.spaces import Box, Discrete
 
 def get_env_dimensions(env) -> tuple:
     env = instantiate_class(env)
     obs_dim = env.observation_space.shape[0]
-    if isinstance(env.action_space,Discrete) : 
+    if isinstance(env.action_space, Discrete) :
         action_dim = env.action_space.n
         del env 
-        return obs_dim,action_dim
+        return obs_dim, action_dim
 
     elif isinstance(env.action_space,Box) : 
         action_dim = env.action_space.shape[0]
         max_action = env.action_space.high[0]
         del env 
-        return obs_dim,action_dim,max_action
+        return obs_dim, action_dim, max_action
     else:
         raise Exception(f'{type(env.action_space)} unknown')
-    
+
+
 def make_gym_env(max_episode_steps, env_name):
     return TimeLimit(gym.make(env_name), max_episode_steps=max_episode_steps)
 
@@ -36,7 +37,9 @@ def soft_param_update(network_to_update, network, rho):
 
 # dict configs utils :
 def key_path_in_dict(nested_dict: dict, key_path: str):
-    ''' Check if a sequences of keys exists in a nested dict '''
+    """
+    Check if a sequences of keys exists in a nested dict
+    """
     try:
         keys = key_path.split('.')
         rv = nested_dict
@@ -143,7 +146,7 @@ class nRemoteParamAgent(Agent):
                     else:
                         pool.remove(agent)
 
-    def get_workspaces(self) -> list[Workspace]:
+    def get_workspaces(self) -> List[Workspace]:
         try:
             return self.workspaces
         except AttributeError:
@@ -186,7 +189,7 @@ class nRemoteDistinctAgents(Agent):
             async_agent = AsynchronousAgent(None)
             self.async_agents.append(async_agent)
 
-    def __call__(self, acq_agents: list[Agent],
+    def __call__(self, acq_agents: List[Agent],
                  agents_args: Union[list, dict, None],
                  **kwargs):
 
@@ -232,7 +235,7 @@ class nRemoteDistinctAgents(Agent):
                         pool.remove(async_agent)
                 j += 1
 
-    def get_workspaces(self) -> list[Workspace]:
+    def get_workspaces(self) -> List[Workspace]:
         try:
             return self.workspaces
         except AttributeError:
