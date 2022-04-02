@@ -1,0 +1,65 @@
+algorithm:
+
+  learnable_hyper_parameters:
+    [
+        {name : entropy_coef,
+        range : [0,1]}
+      ,
+        {name : critic_coef,
+        range : [0,1]}
+      ,
+        {name : a2c_coef,
+        range : [0,1]}
+        # We could add the path to a mutation function 
+        # for hyper-parameters with specific structures.
+    ]
+
+  rl_agent:
+    classname: algorithms.a2c.A2C
+    discount_factor: 0.95
+    entropy_coef: 0.001
+    critic_coef: 1.0
+    a2c_coef: 0.1
+    prob_agent:
+      classname: models.salina_models.ProbAgent
+      hidden_layers: [32]
+    action_agent:
+      classname: models.salina_models.ActionAgent
+    v_agent:
+      classname: models.salina_models.V_Agent
+      hidden_layers: [32]
+    optimizer:
+      classname: torch.optim.Adam
+      lr: 0.01
+    env : ${env}
+
+  es_algorithm:
+    classname: run_launcher.pbt.pbt_utils.PBT_ES
+    pop_size: 10
+    mutation_prob : 0.1
+    selection_fct : 
+      classname: run_launcher.pbt.pbt_utils.truncation_selection
+    mutation_fct : 
+      classname: run_launcher.pbt.pbt_utils.PBT_Agent.perturb
+
+  n_train_envs: 4
+  # n_eval_envs: 1
+  n_process: 2
+  n_timesteps: 16
+  max_epochs: 1000
+  train_budget : 1000
+
+seed : 0  
+
+env:
+  classname: utils.make_gym_env
+  env_name: CartPole-v1
+  max_episode_steps: 100
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: pbt_a2c
+  every_n_seconds: 10
+  verbose: true
+
+

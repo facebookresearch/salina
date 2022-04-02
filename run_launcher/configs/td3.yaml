@@ -1,0 +1,55 @@
+algorithm:
+  env_seed: 432
+  n_envs: 8
+  n_timesteps: 50
+  num_processes : 1
+  max_epochs: 10000
+  device : cuda
+
+  batch_size: 128
+  discount_factor: 0.995
+
+  initial_buffer_size: 10000
+  buffer_size :        100000
+  time_size : 2 # indicates the number of sequential timesteps in replay buffer
+
+  action_noise : 0.1
+  update_target_rho: 0.005
+  clip_grad: 2
+  policy_delay : 2
+
+  # action_agent:
+  #   classname: models.salina_models.DeterministicAgent
+  #   hidden_layers: [256,256]
+  action_agent:
+    classname: models.cem_rl_article_models.Actor
+    args:
+      layer_norm : True
+
+  # q_agent:
+  #   classname: models.salina_models.Q_Agent
+  #   hidden_layers: [256,256]
+  q_agent:
+    classname: models.cem_rl_article_models.Critic
+    args:
+      layer_norm : True
+      policy_noise : 0.2
+      noise_clip : 0.5
+
+  learner: 
+    classname: algorithms.td3.td3
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.001
+
+env:
+  classname: utils.make_gym_env
+  env_name: Pendulum-v1
+  max_episode_steps: 200
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: td3
+  every_n_seconds: 10
+  verbose: True
