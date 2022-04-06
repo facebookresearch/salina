@@ -322,7 +322,8 @@ def take_per_row_strided(A, indx, num_elem=2):
 
 class Workspace:
     """ Workspace is the most important class in `SaLinA`. 
-    It correponds to a collection of tensors ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactShareTensor`).
+    It correponds to a collection of tensors 
+    ('SlicedTemporalTensor`, `CompactTemporalTensor` or ` CompactSharedTensor`).
     In the majority of cases, we consider that all the tensors have the same time and batch sizes 
     (but it is not mandatory for most of the functions)
     """
@@ -332,7 +333,8 @@ class Workspace:
         """ Create an empty workspace
 
         Args:
-            workspace (Workspace, optional): If specified, it creates a copy of the workspace (where tensors are cloned as CompactTemporalTensors)
+            workspace (Workspace, optional): If specified, it creates a copy of the workspace 
+        (where tensors are cloned as CompactTemporalTensors)
         """
         self.variables = {}
         self.is_shared = False
@@ -461,14 +463,16 @@ class Workspace:
         return self.select_batch(who)
 
     def copy_time(self, from_time:int, to_time:int, n_steps:int, var_names:Optional[list[str]]=None):
-        """ Copy all the variables values from time `from_time` to `from_time+n_steps` to `to_time` to `to_time+n_steps`
+        """ Copy all the variables values from time `from_time` to `from_time+n_steps` 
+        to `to_time` to `to_time+n_steps`
         It can be restricted to specific variables uusing `var_names`.
         """
         for k, v in self.variables.items():
             if var_names is None or k in var_names:
                 v.copy_time(from_time, to_time, n_steps)
 
-    def get_time_truncated(self, var_name:str, from_time:int, to_time:int, batch_dims:Optional[tuple(int,int)]=None) -> torch.Tensor:
+    def get_time_truncated(self, var_name:str, from_time:int, to_time:int,
+                           batch_dims:Optional[tuple(int,int)]=None) -> torch.Tensor:
         """ Return workspace[var_name][from_time:to_time]
         """
         assert from_time >= 0 and to_time >= 0 and to_time > from_time
