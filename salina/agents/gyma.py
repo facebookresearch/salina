@@ -116,7 +116,7 @@ class GymAgent(TAgent):
         self._common_init(n)
         self.last_frame = {}
 
-    def _reset(self, k, save_render):
+    def _common_reset(self, k, save_render):
         env = self.envs[k]
         self.cumulated_reward[k] = 0.0
         o = env.reset()
@@ -130,7 +130,6 @@ class GymAgent(TAgent):
             image = env.render(mode="image").unsqueeze(0)
             observation["rendering"] = image
 
-        self.last_frame[k] = observation
         done = torch.tensor([False])
         initial_state = torch.tensor([True])
         self.finished[k] = False
@@ -147,7 +146,12 @@ class GymAgent(TAgent):
             "timestep": timestep,
             "cumulated_reward": torch.tensor([self.cumulated_reward[k]]).float(),
         }
-        return _torch_type(ret)
+        return _torch_type(ret), observation
+
+    def _reset(self, k, save_render):
+        retour, observation = self._common_reset(k, save_render)
+        self.last_frame[k] = observation
+        return retour
 
     def _step(self, k, action, save_render):
         if self.finished[k]:
@@ -193,6 +197,11 @@ class GymAgent(TAgent):
         }
         return _torch_type(ret)
 
+    def set_obs(self, observations, t):
+        observations = _torch_cat_dict(observations)
+        for k in observations:
+            self.set((self.output + k, t), observations[k].to(self.ghost_params.device))
+
     def forward(self, t=0, save_render=False, **kwargs):
         """Do one step by reading the `action` at t-1
         If t==0, environments are reset
@@ -220,11 +229,7 @@ class GymAgent(TAgent):
             for k, e in enumerate(self.envs):
                 obs = self._step(k, action[k], save_render)
                 observations.append(obs)
-            observations = _torch_cat_dict(observations)
-            for k in observations:
-                self.set(
-                    (self.output + k, t), observations[k].to(self.ghost_params.device)
-                )
+            self.set_obs(observations, t)
 
     def seed(self, seed):
         self._seed = seed
@@ -294,24 +299,9 @@ class AutoResetGymAgent(GymAgent):
         self.is_running = [False for k in range(n)]
 
     def _reset(self, k, save_render):
-        env = self.envs[k]
-        self.cumulated_reward[k] = 0.0
-        o = env.reset()
-
-        self.cumulated_reward[k] = 0
-        observation = _format_frame(o)
-        if isinstance(observation, torch.Tensor):
-            observation = {"env_obs": observation}
-        else:
-            assert isinstance(observation, dict)
-        done = torch.tensor([False])
-        initial_state = torch.tensor([True])
-        self.finished[k] = False
-        finished = torch.tensor([False])
-        reward = torch.tensor([0.0]).float()
-        self.timestep[k] = 0
-        timestep = torch.tensor([self.timestep[k]])
         self.is_running[k] = True
+        retour, observation = self._common_reset(k, save_render)
+        return retour
 
         if save_render:
             image = env.render(mode="image").unsqueeze(0)
@@ -361,6 +351,9 @@ class AutoResetGymAgent(GymAgent):
 
 
     def forward(self, t=0, save_render=False, **kwargs):
+        """
+        Do one step by reading the `action`
+        """
         if self.envs is None:
             self._initialize_envs(self.n_envs)
 
@@ -374,9 +367,7 @@ class AutoResetGymAgent(GymAgent):
                 assert action.size()[0] == self.n_envs, "Incompatible number of envs"
                 observations.append(self._step(k, action[k], save_render))
 
-        observations = _torch_cat_dict(observations)
-        for k in observations:
-            self.set((self.output + k, t), observations[k].to(self.ghost_params.device))
+        self.set_obs(observations, t)
 
 
 class NoAutoResetGymAgent(GymAgent):
@@ -399,4 +390,3 @@ class NoAutoResetGymAgent(GymAgent):
             output=output,
             use_seed=use_seed
         )
-
