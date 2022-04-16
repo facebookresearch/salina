@@ -13,10 +13,12 @@ import gym
 
 
 def _format_frame(frame):
+    print("before format", frame)
     if isinstance(frame, dict):
         r = {}
         for k in frame:
             r[k] = _format_frame(frame[k])
+        print("case 1", r)
         return r
     elif isinstance(frame, list):
         t = torch.tensor(frame).unsqueeze(0)
@@ -24,6 +26,7 @@ def _format_frame(frame):
             t = t.float()
         else:
             t = t.long()
+        print("case 2", r)
         return t
     elif isinstance(frame, np.ndarray):
         t = torch.from_numpy(frame).unsqueeze(0)
@@ -31,8 +34,10 @@ def _format_frame(frame):
             t = t.float()
         else:
             t = t.long()
+        print("case 3", r)
         return t
     elif isinstance(frame, torch.Tensor):
+        print("case 4", frame.unsqueeze(0))
         return frame.unsqueeze(0)  # .float()
     elif isinstance(frame, bool):
         return torch.tensor([frame]).bool()
@@ -45,6 +50,7 @@ def _format_frame(frame):
         try:
             # Check if its a LazyFrame from OpenAI Baselines
             o = torch.from_numpy(frame.__array__()).unsqueeze(0).float()
+            print("case 5", o)
             return o
         except:
             assert False
@@ -68,7 +74,7 @@ def _torch_cat_dict(d):
 
 
 class GymAgent(TAgent):
-    """ Create an Agent from a gyn environment
+    """ Create an Agent from a gym environment
     """
     def __init__(
         self,
@@ -265,7 +271,7 @@ class GymAgent(TAgent):
 
 
 class AutoResetGymAgent(GymAgent):
-    """The same as GymAgent, but with an automoatic reset when done is True"""
+    """The same as GymAgent, but with an automatic reset when done is True"""
 
     def __init__(
         self,
@@ -371,7 +377,7 @@ class AutoResetGymAgent(GymAgent):
 
 
 class NoAutoResetGymAgent(GymAgent):
-    """ Create an Agent from a gym environment
+    """ The same as GymAgent, named to make sure it is NoAutoReset
     """
     def __init__(
         self,
