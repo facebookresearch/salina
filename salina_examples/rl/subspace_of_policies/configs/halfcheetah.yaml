@@ -1,0 +1,86 @@
+env_name: CustomHalfcheetah
+env_cfg: Normal
+wrapper_classname: salina_examples.rl.subspace_of_policies.envs.brax.create_brax_env
+n_models: 2
+save_model: True
+device : cuda:0
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: .
+  every_n_seconds: 10
+  modulo: 1
+  verbose: False
+
+acquisition:
+  seed: 0
+  n_envs: 512
+  n_timesteps: 100
+  env:
+    env_name: ${env_name}
+    env_cfg: ${env_cfg}
+    episode_length: 1000
+
+validation:
+  seed: 1
+  n_envs: 512
+  evaluate_every: 10
+  env:
+    env_name: ${env_name}
+    env_cfg: ${env_cfg}
+    episode_length: 1000
+
+
+action_agent:
+  classname: salina_examples.rl.subspace_of_policies.agents.LoPAgent
+  hidden_size: 64
+  n_layers: 4
+  n_models: ${n_models}
+  env:
+    classname: ${wrapper_classname}
+    env_name: ${env_name}
+
+critic_agent:
+  classname: salina_examples.rl.subspace_of_policies.agents.CriticAgent
+  hidden_size: 256
+  n_layers: 4
+  alpha_size: ${n_models}
+  env:
+    classname: ${wrapper_classname}
+    env_name: ${env_name}
+
+algorithm:
+  n_processes: 0
+  clip_grad: 10
+  policy_update_delay: 4
+  n_minibatches: 128
+  minibatch_size: 512
+  n_timesteps_per_minibatch: 20
+  max_interactions: 10_000_000
+  discount_factor: 0.99
+  clip_ratio: 0.3
+  action_std: 0.5
+  gae: 0.96
+  reward_scaling: 1
+  lr_policy: 0.001
+  lr_critic: 0.0003
+  beta: 0.
+  n_models: ${n_models}
+  geometry: simplex
+  distribution: flat
+
+hydra:
+  run:
+    dir: ./results/LoP
+  job:
+    env_set:
+      OMP_NUM_THREADS: '1'
+      XLA_PYTHON_CLIENT_PREALLOCATE: 'false'
+    config:
+      override_dirname:
+        item_sep: /
+        exclude_keys:
+          - seed
+
+defaults:
+  - override hydra/launcher: submitit_slurm

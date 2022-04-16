@@ -1,5 +1,0 @@
-classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_debug
-name: halfcheetah_debug
-n_train_envs: 512
-n_evaluation_envs: 512
-n_steps: 1_000_000

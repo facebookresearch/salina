@@ -1,0 +1,28 @@
+wrapper_classname: salina_examples.rl.subspace_of_policies.envs.brax.create_brax_env
+device : cuda:0
+path: ./
+k_shot: 5
+seed: 2
+env:
+  env_name: CustomHalfcheetah
+  episode_length: 1000
+  env_cfg:
+
+model:
+  geometry: simplex
+  distribution: flat
+  policy:
+    classname: salina_examples.rl.subspace_of_policies.agents.LoPAgent
+    n_models:
+    hidden_size:
+    n_layers:
+    env:
+      classname: ${wrapper_classname}
+      env_name: ${env.env_name}
+
+hydra:
+  run:
+    dir: ./
+
+defaults:
+  - override hydra/launcher: submitit_slurm
