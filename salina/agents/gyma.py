@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from salina import TAgent
+import gym
 
 
 def _format_frame(frame):
