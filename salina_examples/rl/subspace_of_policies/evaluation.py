@@ -14,7 +14,7 @@ from salina.agents import Agents, TemporalAgent
 from salina import Workspace, instantiate_class
 from salina_examples.rl.subspace_of_policies.agents import Normalizer, CustomBraxAgent
 from salina.agents import Agents, TemporalAgent
-from salina_examples.rl.subspace_of_policies.envs import test_cfgs
+from salina_examples.rl.subspace_of_policies.envs.halfcheetah import env_cfgs
 from torch.distributions.dirichlet import Dirichlet
 
 def generate_k_shot_points(n,dim,geometry,dist):
