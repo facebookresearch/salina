@@ -64,8 +64,7 @@ def run_eval(cfg):
 
     alpha = generate_k_shot_points(cfg.k_shot,cfg.model.policy.n_models,cfg.model.geometry,cfg.model.distribution)
 
-    for env_name, env_spec in test_cfgs.items():
-        env_spec = env_spec["env_spec"]
+    for env_name, env_spec in env_cfgs.items():
         cfg.env.env_spec.torso = env_spec["torso"]
         cfg.env.env_spec.thig = env_spec["thig"]
         cfg.env.env_spec.shin = env_spec["shin"]
