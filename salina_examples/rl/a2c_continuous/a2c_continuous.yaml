@@ -1,0 +1,47 @@
+env_name: ContinuousCartPoleEnv-v0
+max_episode_steps : 200
+
+logger:
+  classname: salina.logger.TFLogger
+  log_dir: ./tmp
+  cache_size: 10000
+  modulo: 1
+  verbose: True
+
+action_agent:
+  classname: a2c_continuous.ContinuousActionAgent
+  hidden_size: 64
+  n_layers: 2
+  env:
+    classname: salina_examples.rl.ppo_continuous.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: ${max_episode_steps}
+
+critic_agent:
+  classname: a2c_continuous.ContinuousCriticAgent
+  hidden_size: 64
+  n_layers: 2
+  env:
+    classname: salina_examples.rl.ppo_continuous.agents.make_gym_env
+    env_name: ${env_name}
+    max_episode_steps: ${max_episode_steps}
+
+algorithm:
+  env_seed: 432
+  action_variance: 0.3
+  n_envs: 8
+  n_timesteps: 32
+  max_epochs: 10000
+  discount_factor: 0.95
+  entropy_coef: 0.000
+  critic_coef: 1.0
+  a2c_coef: 0.1
+
+  env:
+    classname: salina_examples.rl.ppo_continuous.agents.make_gym_env
+    env_name :  ${env_name}
+    max_episode_steps: ${max_episode_steps}
+
+  optimizer:
+    classname: torch.optim.Adam
+    lr: 0.001

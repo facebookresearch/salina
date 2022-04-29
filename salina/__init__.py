@@ -39,6 +39,7 @@ def get_class(arguments):
     else:
         classname = arguments.classname
         module_path, class_name = classname.rsplit(".", 1)
+        # print(module_path)
         module = import_module(module_path)
         c = getattr(module, class_name)
         return c
