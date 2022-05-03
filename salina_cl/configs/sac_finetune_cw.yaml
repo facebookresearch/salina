@@ -12,7 +12,7 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 model:
-  classname: salina_cl.models.models.OneStep
+  classname: salina_cl.models.models.Baseline
   seed: ${seed}
   params:
     checkpoint: True
@@ -23,7 +23,7 @@ model:
       evaluate_success: False
     reset_critic_on_task_change: False
     algorithm:
-      classname: salina_cl.algorithms.sac_cw.sac
+      classname: salina_cl.algorithms.sac.sac
       params:
         learning_device: cuda:0
         acquisition_device: cpu
@@ -67,16 +67,15 @@ model:
         initial_buffer_size: 1_000
 
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.CWActionAgent
+      classname: salina_cl.agents.single_agents_sac.ActionAgent
       hidden_size: 256
-      n_layers: 4
       input_dimension: nil
       output_dimension: nil
       start_steps: 10_000
+      layer_norm: False
 
     critic_agent:
-      classname: salina_cl.agents.single_agents_sac.CWTwinCritics
+      classname: salina_cl.agents.single_agents_sac.TwinCritics
       hidden_size: 256
-      n_layers: 4
       obs_dimension: nil
       action_dimension: nil
