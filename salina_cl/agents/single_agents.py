@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from torch import nn
 from torch.distributions.normal import Normal
 from salina_cl.core import CRLAgent, CRLAgents
-from salina_cl.agents.tools import weight_init
 import copy
 
 def CriticAgent(input_dimension, n_layers, hidden_size):
@@ -65,7 +64,7 @@ class Normalizer(CRLAgent):
                                                             1.6400e+01, 2.5816e+01, 1.4181e+01])),requires_grad = False)
         
 
-    def forward(self, t, **kwargs):
+    def forward(self, t = None, **kwargs):
         if not t is None:
             x = self.get(("env/env_obs", t))
             x = (x - self.running_mean) / self.std
@@ -238,7 +237,6 @@ class Critic(CRLAgent):
         n_layers = n_layers
         hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
         self.model_critic = nn.Sequential(nn.Linear(input_size, hs), nn.ReLU(), *hidden_layers, nn.Linear(hs, 1))
-        self.model_critic.apply(weight_init)
 
     def forward(self, **kwargs):
         input = self.get(self.iname).detach()

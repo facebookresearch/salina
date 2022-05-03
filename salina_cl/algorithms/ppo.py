@@ -23,7 +23,7 @@ class ppo:
         logger = logger.get_logger(type(self).__name__+str("/"))
         action_agent.train()
         critic_agent.train()
-        time_unit=None
+        time_unit = None
         best_alpha = None
         best_reward = - float("inf")
         if self.cfg_ppo.time_limit>0:
@@ -31,9 +31,9 @@ class ppo:
             logger.message("Time unit is "+str(time_unit)+" seconds.")
 
         action_agent.set_name("action")
-        acq_action_agent=copy.deepcopy(action_agent)
+        acq_action_agent = copy.deepcopy(action_agent)
         acquisition_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(self.cfg_ppo.acquisition_device)
-        acquisition_workspace=Workspace()
+        acquisition_workspace = Workspace()
         if self.cfg_ppo.n_processes > 1:
             acquisition_agent,acquisition_workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg_ppo.n_processes, time_size=self.cfg_ppo.n_timesteps, n_steps=1)
         acquisition_agent.seed(seed)
@@ -74,7 +74,7 @@ class ppo:
                 rewards=[]
                 for _ in range(self.cfg_ppo.n_control_rollouts):
                     w=Workspace()
-                    control_agent(w, t=0, stop_variable="env/done", force_random = True)
+                    control_agent(w, t = 0, stop_variable = "env/done", force_random = True)
                     length=w["env/done"].max(0)[1]
                     #n_interactions+=length.sum().item()
                     arange = torch.arange(length.size()[0], device=length.device)

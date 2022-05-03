@@ -267,7 +267,7 @@ def agregate_experiments(path, keyword = ""):
             if has_scenario(log,scenario):
                 try:
                     df = log.to_dataframe()
-                    _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/"))]+["iteration"]
+                    _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/")) and (not "distribution" in c)]+["iteration"]
                     df = df[_cols]
                     n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x) and (keyword in x)])
                     df = df[df["iteration"] < n_tasks]
@@ -339,7 +339,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
         display(HTML(h))
         display(HTML("<h2>"+("_"*100)+"</h2>"))
 
-    with open(save_path, "wb") as f:
-        pickle.dump(data, f)
+    #with open(save_path, "wb") as f:
+    #    pickle.dump(data, f)
     if return_logs:
         return dfs,d_logs, best_ids, rewards

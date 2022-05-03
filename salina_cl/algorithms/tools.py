@@ -104,3 +104,82 @@ def kshot_evolution_plot(rewards, n_samples = 10, steps = 100):
     ax.set_title("k-shot evolution")
     ax.fill_between(ks, (mean_rewards-std_rewards), (mean_rewards+std_rewards), color='b', alpha=.1)
     return fig
+
+def display_kshot_3anchors(alphas,rewards,task_name):
+    fig, ax = plt.subplots(figsize = (16,12))
+    plt.axis('off')
+    n_anchors = alphas.shape[1]
+    radius = 0.5
+    center = (0.5,0.5)
+
+    subspace = RegularPolygon((0.5,0.5),n_anchors,radius = radius, fc=(1,1,1,0), edgecolor="black")
+    anchors = subspace.get_path().vertices[:-1] * radius + center
+
+    for i,anchor in enumerate(anchors):
+        x = anchor[0] -0.05 + (anchor[0]-center[0]) * 0.1
+        y = anchor[1] + (anchor[1]-center[1]) * 0.2 if anchor[0]-center[0]!=0 else anchor[1] + (anchor[1]-center[1]) * 0.05
+        ax.text(x,y,"("+"0,"*i+"1"+",0"*(n_anchors-i-1)+")",fontsize="x-large")
+
+    coordinates = (alphas @ anchors).T
+    ax.add_artist(subspace)
+    points = ax.scatter(coordinates[0],coordinates[1],c=rewards, cmap="RdYlGn", s=25)
+    x_best,y_best = coordinates[0][rewards.argmax()],coordinates[1][rewards.argmax()]
+    
+    #projection
+    p3 = np.array([x_best,y_best])
+    p2 = np.array([0.5,1.])
+    p1 = np.array([0.0669873, 0.25 ]) if x_best <= 0.5 else np.array([0.9330127, 0.25])
+    l2 = np.sum((p1-p2)**2)
+    t = np.sum((p3 - p1) * (p2 - p1)) / l2
+    t = max(0, min(1, np.sum((p3 - p1) * (p2 - p1)) / l2))
+    projection = p1 + t * (p2 - p1)
+    
+    
+    best_point = ax.scatter(x_best,y_best, s=90, facecolor='green', edgecolor="black", marker="p",linewidth=2, label='best reward')
+    ax.set_xlim(0.,1.)
+    ax.set_ylim(0.,1.)
+    ts = plt.text(projection[0] - 0.1 if x_best<0.5 else projection[0] + 0.05,projection[1],str(int(rewards.max())),size=15)
+    plt.plot([x_best,projection[0] - 0.025 if x_best<0.5 else projection[0] + 0.045],[y_best,projection[1]],color="black",linewidth=1)
+    cbar = fig.colorbar(points, ax=ax, pad=0.2, shrink = 0.5)
+    #minVal = int(rewards.min().item())
+    #maxVal = int(rewards.max().item())
+    #cbar.set_ticks([minVal, maxVal])
+    #cbar.set_ticklabels([minVal, maxVal])
+    ax.legend(handles=[best_point],loc="upper right", bbox_to_anchor=(0.7, 0.4, 0.7, 0.4))
+    ax.set_title(task_name,loc="left",size=15)
+    return fig
+
+def display_kshot_2anchors(alphas,rewards,task_name):
+    fig, ax = plt.subplots(figsize = (16,12))
+    plt.axis('off')
+    n_anchors = alphas.shape[1]
+    radius = 0.5
+    center = (0.5,0.5)
+
+    subspace = RegularPolygon((0.5,0.5),n_anchors,radius = radius, fc=(1,1,1,0), edgecolor="black")
+    anchors = subspace.get_path().vertices[:-1] * radius + center
+
+    for i,anchor in enumerate(anchors):
+        x = anchor[0] -0.05 + (anchor[0]-center[0]) * 0.1
+        y = anchor[1] + (anchor[1]-center[1]) * 0.2 if anchor[0]-center[0]!=0 else anchor[1] + (anchor[1]-center[1]) * 0.05
+        ax.text(x,y,"("+"0,"*i+"1"+",0"*(n_anchors-i-1)+")",fontsize="x-large")
+
+    coordinates = (alphas @ anchors).T
+    ax.add_artist(subspace)
+    points = ax.scatter(coordinates[0],coordinates[1],c=rewards, cmap="RdYlGn", s=45)
+    x_best,y_best = coordinates[0][rewards.argmax()],coordinates[1][rewards.argmax()]
+    
+    
+    best_point = ax.scatter(x_best,y_best, s=400, color="black", marker="x",linewidth=3, label='best reward')
+    ax.set_xlim(0.,1.)
+    ax.set_ylim(0.,1.)
+    ts = plt.text(x_best+0.05,y_best,str(int(rewards.max())),size=15)
+    #plt.plot([x_best,projection[0] - 0.025 if x_best<0.5 else projection[0] + 0.045],[y_best,projection[1]],color="black",linewidth=2)
+    cbar = fig.colorbar(points, ax=ax, pad=0.2, shrink = 0.5)
+    #minVal = int(rewards.min().item())
+    #maxVal = int(rewards.max().item())
+    #cbar.set_ticks([minVal, maxVal])
+    #cbar.set_ticklabels([minVal, maxVal])
+    ax.legend(handles=[best_point],loc="upper right", bbox_to_anchor=(0.7, 0.4, 0.7, 0.4))
+    ax.set_title(task_name,loc="left",size=15)
+    return fig

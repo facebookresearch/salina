@@ -58,18 +58,16 @@ model:
         buffer_time_size: 2
         buffer_size: 1_000_000
         initial_buffer_size: 10_000
-        
-        ## check https://arxiv.org/pdf/2105.10919.pdf  page 15
 
     policy_agent:
-      classname: salina_cl.agents.single_agents_td3.ActionAgent     #ActionAgent
+      classname: salina_cl.agents.single_agents_td3.NormalizedActionAgent     #ActionAgent
       hidden_size: 64
       n_layers: 4
       input_dimension: nil
       output_dimension: nil
 
     critic_agent:
-      classname: salina_cl.agents.single_agents_td3.TwinCritics #CriticAgent
+      classname: salina_cl.agents.single_agents_td3.NormalizedTwinCritics #CriticAgent
       hidden_size: 256
       n_layers: 4
       obs_dimension: nil

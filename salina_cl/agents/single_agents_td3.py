@@ -4,20 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
-from torch.distributions.normal import Normal
 from salina_cl.core import CRLAgent, CRLAgents
-from salina_cl.agents.tools import weight_init
-import copy
 
-def ActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
+def BraxActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
     return CRLAgents(Normalizer(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
 
-def TwinCritics(obs_dimension, action_dimension, n_layers, hidden_size):
+def BraxTwinCritics(obs_dimension, action_dimension, n_layers, hidden_size):
     return CRLAgents(Critic(obs_dimension, action_dimension, n_layers, hidden_size, output_name = "q1"),Critic(obs_dimension, action_dimension, n_layers, hidden_size, output_name = "q2"))
+
+def CWActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
+    return CRLAgents(CWAction(input_dimension,output_dimension, n_layers, hidden_size, input_name = "env/env_obs"))
+
+def CWTwinCritics(obs_dimension, action_dimension, n_layers, hidden_size):
+    return CRLAgents(CWCritic(obs_dimension, action_dimension, n_layers, hidden_size, input_name = "env/env_obs",output_name = "q1"),CWCritic(obs_dimension, action_dimension, n_layers, hidden_size, input_name = "env/env_obs", output_name = "q2"))
    
 class Normalizer(CRLAgent):
     """
@@ -88,6 +89,64 @@ class Critic(CRLAgent):
         self.output_name = output_name
         hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
         self.model = nn.Sequential(nn.Linear(input_size, hs), nn.ReLU(), *hidden_layers, nn.Linear(hs, 1))
+
+    def forward(self, detach_action=False,**kwargs):
+        input = self.get(self.iname).detach()
+        action = self.get(("action"))
+        if detach_action:
+            action = action.detach()
+        input = torch.cat([input, action], dim=-1)
+        critic = self.model(input).squeeze(-1)
+        self.set(self.output_name, critic)
+
+class CWAction(CRLAgent):
+    def __init__(self, input_dimension,output_dimension, n_layers, hidden_size, input_name = "env/env_obs"):
+        super().__init__()
+        self.iname = input_name
+        self.task_id = 0
+        hs = hidden_size
+        input_size = input_dimension[0]
+        
+        self.model = nn.Sequential(
+            nn.Linear(input_size,hs),
+            nn.LayerNorm(hs),
+            nn.Tanh(),
+            nn.Linear(hs,hs),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(hs,hs),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(hs,output_dimension[0]),
+        )
+
+    def forward(self, t = None, epsilon = 0.000001, epsilon_clip=100000, **kwargs):
+        input = self.get(self.iname if t is None else (self.iname, t)).detach()
+        action = self.model(input)
+        action = torch.tanh(action)
+        s = action.size()
+        noise = torch.randn(*s, device=action.device) * epsilon
+        noise = torch.clip(noise, min=-epsilon_clip, max=epsilon_clip)
+        action = action + noise
+        action = torch.clip(action, min=-1.0, max=1.0)
+        self.set("action" if t is None else ("action", t), action)
+
+class CWCritic(CRLAgent):
+    def __init__(self, obs_dimension, action_dimension, n_layers, hidden_size, input_name = "env/env_obs", output_name = "q"):
+        super().__init__()
+
+        self.iname = input_name 
+        input_size = obs_dimension[0] + action_dimension[0]
+        hs = hidden_size
+        self.output_name = output_name
+        self.model = nn.Sequential(
+            nn.Linear(input_size,hs),
+            nn.LayerNorm(hs),
+            nn.Tanh(),
+            nn.Linear(hs,hs),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(hs,hs),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(hs,1),
+        )
 
     def forward(self, detach_action=False,**kwargs):
         input = self.get(self.iname).detach()

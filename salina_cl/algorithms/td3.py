@@ -30,7 +30,7 @@ class td3:
     
         action_agent.set_name("action")
 
-        acq_action_agent=copy.deepcopy(action_agent)
+        acq_action_agent = copy.deepcopy(action_agent)
         acq_agent = TemporalAgent(Agents(env_agent, acq_action_agent)).to(cfg_td3.acquisition_device)
         acquisition_workspace=Workspace()
         if cfg_td3.n_processes>1:
@@ -96,14 +96,22 @@ class td3:
                     arange = torch.arange(length.size()[0], device=length.device)
                     creward = w["env/cumulated_reward"][length, arange]
                     rewards=rewards+creward.to("cpu").tolist()
+                    if "env/success" in w.variables:
+                        success_rate = w["env/success"][length, arange].mean().item()
+                        logger.add_scalar("validation/success_rate", success_rate, epoch)
+                    if "env/goalDist" in w.variables:
+                        goalDist = w["env/goalDist"][length, arange].mean().item()
+                        logger.add_scalar("monitor/goalDist", goalDist, epoch)
+
+
     
                 mean_reward=np.mean(rewards)
                 logger.add_scalar("validation/reward", mean_reward, epoch)
                 print("reward at ",epoch," = ",mean_reward," vs ",best_performance)
     
-                if best_performance is None or mean_reward>best_performance:
-                    best_performance=mean_reward
-                    best_model=copy.deepcopy(action_agent),copy.deepcopy(q_agent)
+                if best_performance is None or mean_reward > best_performance:
+                    best_performance = mean_reward
+                    best_model = copy.deepcopy(action_agent),copy.deepcopy(q_agent)
                 logger.add_scalar("validation/best_reward", best_performance, epoch)
     
     
@@ -119,6 +127,12 @@ class td3:
             creward = creward[done]
             if creward.size()[0] > 0:
                 logger.add_scalar("monitor/reward", creward.mean().item(), epoch)
+                if "env/success" in acquisition_workspace.variables:
+                    success_rate = acquisition_workspace["env/success"][done].mean().item()
+                    logger.add_scalar("monitor/success_rate", success_rate, epoch)
+                if "env/goalDist" in acquisition_workspace.variables:
+                    goalDist = acquisition_workspace["env/goalDist"][done].mean().item()
+                    logger.add_scalar("monitor/goalDist", goalDist, epoch)
             logger.add_scalar("monitor/replay_buffer_size", replay_buffer.size(), epoch)
     
             n_interactions += (acquisition_workspace.time_size() - 1) * acquisition_workspace.batch_size()
@@ -158,7 +172,7 @@ class td3:
                     logger.add_scalar("monitor/grad_norm_q_2", n.item(), iteration)
                 optimizer_q_1.step()
                 optimizer_q_2.step()
-    
+
                 ### Actor loss
                 if iteration % cfg_td3.policy_update_delay == 0:
                     done = replay_workspace["env/done"]
@@ -187,7 +201,7 @@ class td3:
             epoch+=1
             if n_interactions>n_max_interactions:
                 logger.message("== Maximum interactions reached")
-                is_training=False
+                is_training = False
             else:
                 if cfg_td3.time_limit>0:
                     is_training=time.time()-_training_start_time<cfg_td3.time_limit*time_unit

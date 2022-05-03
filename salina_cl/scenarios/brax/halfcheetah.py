@@ -42,7 +42,7 @@ def halfcheetah_benchmark3(n_train_envs,n_evaluation_envs,n_steps, repeat_scenar
     """
     Distraction (orthogonal task-ish): task0 / distraction / task0
     """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal"] * repeat_scenario)
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"] * repeat_scenario)
 
 def halfcheetah_benchmark4(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
     """

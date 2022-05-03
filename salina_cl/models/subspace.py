@@ -9,12 +9,16 @@ from salina.agents import Agents,TemporalAgent
 from salina.agents.brax import EpisodesDone
 from salina import Workspace
 from torch.distributions.dirichlet import Dirichlet
-from salina_cl.algorithms.tools import display_kshot
+from inspect import currentframe, getframeinfo
+from salina_cl.algorithms.tools import display_kshot_2anchors, display_kshot_3anchors
 from ternary.helpers import simplex_iterator
 from salina import instantiate_class
 import torch
 import os
 import copy
+import time
+import matplotlib.pyplot as plt
+from matplotlib.patches import RegularPolygon
 
 def draw_alphas(n_anchors, steps, scale):
     midpoint = torch.ones(n_anchors).unsqueeze(0) / n_anchors
@@ -32,20 +36,55 @@ def draw_alphas(n_anchors, steps, scale):
         alphas = torch.cat([midpoint,dist.sample(torch.Size([steps - 2])),last_anchor], dim = 0)
     return alphas
 
+def display_kshot(alphas,rewards):
+    fig, ax = plt.subplots(figsize = (10,8))
+    plt.axis('off')
+    n_anchors = alphas.shape[1]
+    radius = 0.5
+    center = (0.5,0.5)
 
-class TwoSteps(Model):
+    subspace = RegularPolygon((0.5,0.5),n_anchors,radius = radius, fc=(1,1,1,0), edgecolor="black")
+    anchors = subspace.get_path().vertices[:-1] * radius + center
+
+    for i,anchor in enumerate(anchors):
+        x = anchor[0] + (anchor[0]-center[0]) * 0.1
+        y = anchor[1] + (anchor[1]-center[1]) * 0.1
+        ax.text(x,y,"θ"+str(i+1),fontsize="x-large")
+
+    coordinates = (alphas @ anchors).T
+    ax.add_artist(subspace)
+    points = ax.scatter(coordinates[0],coordinates[1],c=rewards, cmap="RdYlGn", s=5)
+    ax.scatter(coordinates[0][rewards.argmax()],coordinates[1][rewards.argmax()], s=300, color="darkgreen", marker="x")
+    ax.set_xlim(0.,1.)
+    ax.set_ylim(0.,1.)
+
+    cbar = fig.colorbar(points, ax=ax, pad=0.1)
+    minVal = int(rewards.min().item())
+    maxVal = int(rewards.max().item())
+    cbar.set_ticks([minVal, maxVal])
+    cbar.set_ticklabels([minVal, maxVal])
+
+    return fig
+
+
+def display_time(last_time, line):
+    new_time = time.time()
+    print(line,": ",round(new_time-last_time,2),"sec")
+    return new_time
+
+
+class Subspace(Model):
     """
-    A model that is using 2 algorithms. 
+
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
-        self.algorithm0 = instantiate_class(self.cfg.algorithm0)
-        self.algorithm1 = instantiate_class(self.cfg.algorithm1)
-        self.algorithm2 = instantiate_class(self.cfg.algorithm2)
+        self.algorithm = instantiate_class(self.cfg.algorithm)
+        self.find_alpha = instantiate_class(self.cfg.alpha_search)
         self.policy_agent = None
         self.critic_agent = None
         self.best_alpha_train = []
-        self.lr_policy = self.cfg.algorithm1.params.optimizer_policy.lr
+        self.lr_policy = self.cfg.algorithm.params.optimizer_policy.lr
 
     def _create_policy_agent(self,task,logger):
         logger.message("Creating policy Agent")
@@ -59,9 +98,11 @@ class TwoSteps(Model):
 
     def _create_critic_agent(self,task,logger):
         logger.message("Creating Critic Agent")
-        input_dimension = task.input_dimension()
+        obs_dimension = task.input_dimension()
+        action_dimension = task.output_dimension()
         critic_agent_cfg = self.cfg.critic_agent
-        critic_agent_cfg.input_dimension = input_dimension
+        critic_agent_cfg.obs_dimension = obs_dimension
+        critic_agent_cfg.action_dimension = action_dimension
         critic_agent_cfg.n_anchors = self.policy_agent[0].n_anchors
         self.critic_agent = instantiate_class(critic_agent_cfg)
 
@@ -71,22 +112,22 @@ class TwoSteps(Model):
             self._create_critic_agent(task,logger)
 
         env_agent = task.make()
-        self.algorithm1.cfg_ppo.optimizer_policy.lr = self.lr_policy * (1 + task._task_id * self.cfg.lr_scaling)
-        logger.message("Setting policy_lr to "+str(self.algorithm1.cfg_ppo.optimizer_policy.lr))
+        self.algorithm.cfg.optimizer_policy.lr = self.lr_policy * (1 + task._task_id * self.cfg.lr_scaling)
+        logger.message("Setting policy_lr to "+str(self.algorithm.cfg.optimizer_policy.lr))
+        if task._task_id > 0:
+            self.policy_agent.add_anchor(logger = logger)
+            self.critic_agent.add_anchor(logger = logger)
+        r1, self.policy_agent, self.critic_agent, infos = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
+        r2, self.policy_agent, self.critic_agent, infos = self.find_alpha.run(self.policy_agent, self.critic_agent,logger, infos, task._task_id)
 
-        
-        if task._task_id >0:
-            budget0 = task.n_interactions() * self.cfg.algorithm0.params.budget
-            r0, self.policy_agent, self.critic_agent = self.algorithm0.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget0)
-        #budget1 = task.n_interactions() * (1 - self.cfg.algorithm2.params.budget) if (task._task_id>0) else task.n_interactions()
-        r1, self.policy_agent, self.critic_agent, infos = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
-        torch.save(self.critic_agent,os.getcwd()+"/critic_"+str(task._task_id)+".dat")
-        self.best_alpha_train.append(infos["best_alpha"])
-
-        #budget2 = task.n_interactions() #- r1["n_interactions"]
-        r2, self.policy_agent, self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, logger, infos, task._task_id)
-    
-        return {kv1[0]:kv1[1]+kv2[1]  for kv1,kv2 in zip(r1.items(),r2.items())}
+        if self.cfg.checkpoint:
+            torch.save(self.critic_agent,os.getcwd()+"/critic_"+str(task._task_id)+".dat")
+            torch.save(self.policy_agent,os.getcwd()+"/policy_"+str(task._task_id)+".dat")
+            os.makedirs(os.getcwd()+"/replay_buffer_"+str(task._task_id))
+            for variable in infos["replay_buffer"].variables:
+                v = variable.replace("/","_")
+                torch.save(infos["replay_buffer"].variables[variable].cpu(),os.getcwd()+"/replay_buffer_"+str(task._task_id)+"/"+v+".dat")
+        return r1
 
     def memory_size(self):
         pytorch_total_params = sum(p.numel() for p in self.policy_agent.parameters())
@@ -119,73 +160,90 @@ class TwoSteps(Model):
 
     def _evaluate_single_task(self,task,logger):
         metrics={}
-        env_agent=task.make()
+        env_agent = task.make()
         policy_agent, critic_agent =self.get_evaluation_agent(task.task_id())
-
-        if not policy_agent is None:
-            policy_agent.eval()
-            no_autoreset=EpisodesDone()
-            acquisition_agent=TemporalAgent(Agents(env_agent,no_autoreset,policy_agent))
-            acquisition_agent.seed(self.seed*13+self._stage*100)
-            acquisition_agent.to(self.cfg.evaluation.device)
-
-            avg_reward=0.0
-            n=0
-            avg_success=0.0
-            for r in range(self.cfg.evaluation.n_rollouts):
-                workspace=Workspace()
-                acquisition_agent(workspace,t=0,stop_variable="env/done")
-                ep_lengths=workspace["env/done"].max(0)[1]+1
-                B=ep_lengths.size()[0]
-                arange=torch.arange(B).to(ep_lengths.device)
-                cr=workspace["env/cumulated_reward"][ep_lengths-1,arange]
-                avg_reward+=cr.sum().item()
-                if self.cfg.evaluation.evaluate_success:
-                    cr=workspace["env/success"][ep_lengths-1,arange]
-                    avg_success+=cr.sum().item()
-                n+=B
-            avg_reward/=n
-            metrics["avg_reward"]=avg_reward
-            if self.cfg.evaluation.evaluate_success:
-                avg_success/=n
-                metrics["success_rate"]=avg_success
+#
+        #best_alpha = policy_agent[0].best_alpha.to(self.cfg.evaluation.device)
+        #logger.message("Best alpha for task "+str(task._task_id)+":"+str(best_alpha.tolist()))
+        #best_alpha = torch.cat([best_alpha,torch.zeros(policy_agent[0].n_anchors - best_alpha.shape[-1]).to(self.cfg.evaluation.device)], dim = 0)
+        #alphas = torch.stack([best_alpha for _ in range(self.cfg.evaluation.n_evaluation_envs)], dim = 0)
+#
+        #policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
+        #policy_agent.eval()
+        #no_autoreset=EpisodesDone()
+        #acquisition_agent=TemporalAgent(Agents(env_agent,no_autoreset,policy_agent))
+        #acquisition_agent.seed(self.seed*13+self._stage*100)
+        #acquisition_agent.to(self.cfg.evaluation.device)
+        #avg_reward=0.0
+        #n=0
+        #avg_success=0.0
+        #w = Workspace()
+        #for r in range(self.cfg.evaluation.n_rollouts):
+        #    w.set_full("alphas",torch.stack([alphas for _ in range(1001)],dim=0))
+        #    acquisition_agent(w, t=0, stop_variable="env/done")
+        #    ep_lengths = w["env/done"].max(0)[1]+1
+        #    B = ep_lengths.size()[0]
+        #    arange=torch.arange(B).to(ep_lengths.device)
+        #    cr=w["env/cumulated_reward"][ep_lengths-1,arange]
+        #    avg_reward+=cr.sum().item()
+        #    if self.cfg.evaluation.evaluate_success:
+        #        cr=w["env/success"][ep_lengths-1,arange]
+        #        avg_success+=cr.sum().item()
+        #    n += B
+        #avg_reward /= n
+        #metrics["best_alpha/avg_reward"] = avg_reward
+        #if self.cfg.evaluation.evaluate_success:
+        #    avg_success /= n
+        #    metrics["success_rate"] = avg_success
 
         # Oracle and full value estimation
         alphas = draw_alphas(policy_agent[0].n_anchors,self.cfg.evaluation.steps, self.cfg.evaluation.scale).to(self.cfg.evaluation.device)
-        best_alpha_train = self.best_alpha_train[min(task._task_id,len(self.best_alpha_train)-1)].to(self.cfg.evaluation.device)
+        best_alpha_train = policy_agent[0].best_alpha.to(self.cfg.evaluation.device)
         best_alpha_train = torch.cat([best_alpha_train,torch.zeros(alphas.shape[-1] - best_alpha_train.shape[-1]).to(self.cfg.evaluation.device)], dim = 0)
         alphas = torch.cat([best_alpha_train.unsqueeze(0),alphas],dim = 0)
+        policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
+        policy_agent.eval()
         oracle_task = copy.deepcopy(task)
         oracle_task._env_agent_cfg["n_envs"] = alphas.shape[0]
         env_agent = oracle_task.make()
-        policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
-        acquisition_agent = TemporalAgent(Agents(env_agent, policy_agent)).to(self.cfg.evaluation.device)
+        no_autoreset = EpisodesDone()
+        acquisition_agent = TemporalAgent(Agents(env_agent, no_autoreset, policy_agent)).to(self.cfg.evaluation.device)
         critic_agent.eval().to(self.cfg.evaluation.device)
         acquisition_agent.seed(self.seed*13+self._stage*100)
-        w = Workspace()
         rewards = []
         values = []
+        w = Workspace()
+        w.set_full("alphas",torch.stack([alphas for _ in range(1001)],dim=0))
         for i in range(self.cfg.evaluation.n_rollouts):
-            w = Workspace()
-            w.set_full("alphas",torch.stack([alphas for _ in range(1001)],dim=0))
             with torch.no_grad():
-                acquisition_agent(w, t = 0, stop_variable = "env/done", action_std=0.)
+                acquisition_agent(w, t = 0, stop_variable = "env/done")
                 critic_agent(w)
             ep_lengths= w["env/done"].max(0)[1]+1
-            B=ep_lengths.size()[0]
-            arange=torch.arange(B).to(ep_lengths.device)
+            B = ep_lengths.size()[0]
+            arange = torch.arange(B).to(ep_lengths.device)
             cr = w["env/cumulated_reward"][ep_lengths-1,arange]
             rewards.append(cr)
-            values.append(w["critic"].mean(0))
+            values.append(w["q1"].mean(0))
         rewards = torch.stack(rewards, dim = 0).mean(0)
         values = torch.stack(values, dim = 0).mean(0)
-        image = display_kshot(alphas.cpu(),values.round().cpu())
-        logger.add_figure("evaluation/"+str(task.task_id())+"/values_distribution",image,0)
-        image = display_kshot(alphas.cpu(),rewards.round().cpu())
-        logger.add_figure("evaluation/"+str(task.task_id())+"/reward_distribution",image,0)
+        #if alphas.shape[-1] == 2:
+        #    logger_images = logger.get_logger("")
+        #    logger_images.prefix = "stage_"+str(policy_agent[0].n_anchors - 1)+"/task_"+str(task.task_id())
+        #    image = display_kshot_2anchors(alphas.cpu(),values.round().cpu(),"task_"+str(task.task_id()))
+        #    logger_images.add_figure("/value_distribution",image,0)
+        #    image = display_kshot_2anchors(alphas.cpu(),rewards.round().cpu(),"task_"+str(task.task_id()))
+        #    logger_images.add_figure("/reward_distribution",image,0)
+        #elif alphas.shape[-1] == 3:
+        #    logger_images = logger.get_logger("")
+        #    logger_images.prefix = "stage_"+str(policy_agent[0].n_anchors - 1)+"/task_"+str(task.task_id())
+        #    image = display_kshot_3anchors(alphas.cpu(),values.round().cpu(),"task_"+str(task.task_id()))
+        #    logger_images.add_figure("/value_distribution",image,0)
+        #    image = display_kshot_3anchors(alphas.cpu(),rewards.round().cpu(),"task_"+str(task.task_id()))
+        #    logger_images.add_figure("/reward_distribution",image,0)
+        metrics["best_alpha/avg_reward"] = rewards[0].item()
+        metrics["avg_reward"] = rewards.mean().item()
         metrics["oracle/avg_reward"] = rewards.max().item()
         metrics["value/avg_reward"] = rewards[values.argmax()].item()
-        metrics["best_alpha_train/avg_reward"] = rewards[0].item()
         metrics["midpoint/avg_reward"] = rewards[1].item()
         metrics["last_anchor/avg_reward"] = rewards[-1].item()
         return metrics
