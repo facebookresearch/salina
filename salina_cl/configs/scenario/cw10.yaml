@@ -1,0 +1,8 @@
+classname: salina_cl.scenarios.metaworld.continual_world.CW_scenarios
+name: CW10  ## or CW20
+n_train_envs: 1 ## ?
+n_evaluation_envs: 32
+n_steps: 1e6  ## 1e6
+#num_levels: 200
+#start_level: 0
+#distribution_mode: easy
