@@ -9,11 +9,11 @@ from salina_cl.core import Scenario
 import gym
 import metaworld
 import numpy as np
-from salina.agents.gyma import AutoResetGymAgent
 import random
 from gym.wrappers import TimeLimit
-from continualworld.utils.wrappers import OneHotAdder, RandomizationWrapper, SuccessCounter
-from typing import Any, Dict, List, Tuple, Union
+from typing import List
+
+
 TASK_SEQS = {
     "CW2": [
         "drawer-close-v1",
@@ -49,6 +49,45 @@ def get_mt50() -> metaworld.MT50:
 MT50 = get_mt50()
 def get_subtasks(name: str) -> List[metaworld.Task]:
     return [s for s in MT50.train_tasks if s.env_name == name]
+
+class RandomizationWrapper(gym.Wrapper):
+    """Manages randomization settings in MetaWorld environments."""
+
+    ALLOWED_KINDS = [
+        "deterministic",
+        "random_init_all",
+        "random_init_fixed20",
+        "random_init_small_box",
+    ]
+
+    def __init__(self, env: gym.Env, subtasks: List[metaworld.Task], kind: str) -> None:
+        assert kind in RandomizationWrapper.ALLOWED_KINDS
+        super().__init__(env)
+        self.subtasks = subtasks
+        self.kind = kind
+
+        env.set_task(subtasks[0])
+        if kind == "random_init_all":
+            env._freeze_rand_vec = False
+
+        if kind == "random_init_fixed20":
+            assert len(subtasks) >= 20
+
+        if kind == "random_init_small_box":
+            diff = env._random_reset_space.high - env._random_reset_space.low
+            self.reset_space_low = env._random_reset_space.low + 0.45 * diff
+            self.reset_space_high = env._random_reset_space.low + 0.55 * diff
+
+    def reset(self, **kwargs) -> np.ndarray:
+        if self.kind == "random_init_fixed20":
+            self.env.set_task(self.subtasks[random.randint(0, 19)])
+        elif self.kind == "random_init_small_box":
+            rand_vec = np.random.uniform(
+                self.reset_space_low, self.reset_space_high, size=self.reset_space_low.size
+            )
+            self.env._last_rand_vec = rand_vec
+
+        return self.env.reset(**kwargs)
 
 class MetaWorldWrapper(gym.Wrapper):
     def __init__(self,e):
