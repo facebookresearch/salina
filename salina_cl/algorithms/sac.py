@@ -164,7 +164,7 @@ class sac:
                     n = torch.nn.utils.clip_grad_norm_(q_agent.parameters(), cfg.clip_grad)
                     #logger.add_scalar("monitor/grad_norm_q", n.item(), iteration)
                 optimizer_q.step()
-
+                
                 # == Actor and entropy losses
                 if iteration % cfg.policy_update_delay == 0:
                     action_agent(replay_workspace, policy_update = True)
@@ -174,13 +174,15 @@ class sac:
                     q2 = replay_workspace["q2"]
                     qloss = torch.min(q1,q2).mean()
                     entropy_loss = (entropy.detach() * logp).mean()
+                    loss_regularizer = action_agent.add_regularizer()
                     optimizer_action.zero_grad()
-                    loss = - qloss + entropy_loss
+                    loss = - qloss + entropy_loss + loss_regularizer
                     loss.backward()
                     if cfg.clip_grad > 0:
                         n = torch.nn.utils.clip_grad_norm_(action_agent.parameters(), cfg.clip_grad)
                         #logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
                     #logger.add_scalar("loss/q_loss", qloss.item(), iteration)
+                    #logger.add_scalar("loss/regularizer", loss_regularizer.item(), iteration)
                     optimizer_action.step()
 
                     optimizer_entropy.zero_grad()
