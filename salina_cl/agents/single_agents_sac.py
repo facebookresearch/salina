@@ -31,6 +31,12 @@ def FromscratchActionAgent(input_dimension,output_dimension, hidden_size, start_
     """
     return CRLAgents(FromscratchAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs"))
 
+def EWCActionAgent(input_dimension,output_dimension, hidden_size, start_steps):
+    """
+    EWC regularizer added on the baseline model.
+    """
+    return CRLAgents(EWCAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs"))
+
 def TwinCritics(obs_dimension, action_dimension, hidden_size):
     """
     Twin q value functions for SAC algorithm.
@@ -106,6 +112,38 @@ class FromscratchAction(Action):
             self.task_id = len(self.model) - 1
         else:
             self.task_id = task_id
+
+
+class EWCAction(Action):
+    def __init__(self, input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps = 0, input_name = "env/env_obs", layer_norm = False):
+        super().__init__(input_dimension,output_dimension, hidden_size, start_steps, input_name,layer_norm)
+        self.fisher_coeff = fisher_coeff
+    def register_and_consolidate(self,fisher_diagonals):
+        param_names = [n.replace('.', '_') for n, p in  self.model.named_parameters()]
+        fisher_dict={n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
+        for name, param in self.model.named_parameters():
+            name = name.replace('.', '_')
+            self.model.register_buffer(f"{name}_mean", param.data.clone())
+            if self.task>1:
+                fisher = getattr(self.model, f"{name}_fisher")+ fisher_dict[name].data.clone() ## add to the old fisher coeff
+            else:
+                fisher =  fisher_dict[name].data.clone()
+            self.model.register_buffer(f"{name}_fisher", fisher)
+        self.task+=1
+    
+    def add_regularizer(self):
+        if self.task>1:
+            losses = []
+            for name, param in self.model.named_parameters():
+                name = name.replace('.', '_')
+                mean = getattr(self.model, f"{name}_mean")
+                fisher = getattr(self.model,f"{name}_fisher")
+                losses.append((fisher * (param - mean)**2).sum())
+           
+          
+            return (self.fisher_coeff)*sum(losses).view(1).to(list(self.parameters())[0].device)
+        else:
+            return torch.Tensor([0.]).to(list(self.parameters())[0].device)
 
 class Critic(CRLAgent):
     def __init__(self, obs_dimension, action_dimension, hidden_size, input_name = "env/env_obs", output_name = "q"):

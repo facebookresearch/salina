@@ -70,8 +70,8 @@ class TwoSteps(Model):
         self.policy_agent=None
         self.critic_agent=None
 
-    def _create_policy_agent(self,task,logger):
-        logger.message("Creating policy Agent")
+    def _create_agent(self,task,logger):
+        logger.message("Creating Policy and Critic Agents")
         assert self.policy_agent is None
         input_dimension = task.input_dimension()
         output_dimension = task.output_dimension()
@@ -80,29 +80,19 @@ class TwoSteps(Model):
         policy_agent_cfg.output_dimension = output_dimension
         self.policy_agent = instantiate_class(policy_agent_cfg)
 
-    def _create_critic_agent(self,task,logger):
-        logger.message("Creating Critic Agent")
-        input_dimension = task.input_dimension()
         critic_agent_cfg = self.cfg.critic_agent
-        critic_agent_cfg.input_dimension = input_dimension
-        critic_agent_cfg.n_anchors = self.policy_agent[0].n_anchors
+        critic_agent_cfg.obs_dimension = input_dimension
+        critic_agent_cfg.action_dimension = output_dimension
         self.critic_agent = instantiate_class(critic_agent_cfg)
 
     def _train(self,task,logger):
         if self.policy_agent is None:
-            self._create_policy_agent(task,logger)
+            self._create_agent(task,logger)
         else:
-            logger.message("Setting new task")
             self.policy_agent.set_task()
-        self._create_critic_agent(task,logger)
         env_agent = task.make()
-
-        budget1 = task.n_interactions() * self.cfg.algorithm1.budget
-        r1,self.policy_agent,self.critic_agent = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget1)
-
-        budget2 = task.n_interactions() - r1["n_interaction"]
-        r2,self.policy_agent,self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = budget2)
-        
+        r1,self.policy_agent,self.critic_agent, infos = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
+        r2,self.policy_agent,self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, infos, logger)
         return {k1:v1+v2  for k1,v1,k2,v2 in zip(r1.items(),r2.items)}
 
     def memory_size(self):
