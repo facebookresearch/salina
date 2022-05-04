@@ -25,17 +25,17 @@ def MultiActionAgent(input_dimension,output_dimension, hidden_size, start_steps,
     """
     return CRLAgents(MultiAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def FromscratchActionAgent(input_dimension,output_dimension, hidden_size, start_steps):
+def FromscratchActionAgent(input_dimension,output_dimension, hidden_size, start_steps, layer_norm = False):
     """
     From scratch: the model is saved when the task is ended, and a new random one is created for the next task.
     """
-    return CRLAgents(FromscratchAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs"))
+    return CRLAgents(FromscratchAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def EWCActionAgent(input_dimension,output_dimension, hidden_size, start_steps):
+def EWCActionAgent(input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps, layer_norm = False):
     """
     EWC regularizer added on the baseline model.
     """
-    return CRLAgents(EWCAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs"))
+    return CRLAgents(EWCAction(input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
 def TwinCritics(obs_dimension, action_dimension, hidden_size):
     """
@@ -118,21 +118,23 @@ class EWCAction(Action):
     def __init__(self, input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps = 0, input_name = "env/env_obs", layer_norm = False):
         super().__init__(input_dimension,output_dimension, hidden_size, start_steps, input_name,layer_norm)
         self.fisher_coeff = fisher_coeff
+        self.regularize = False
+
     def register_and_consolidate(self,fisher_diagonals):
         param_names = [n.replace('.', '_') for n, p in  self.model.named_parameters()]
         fisher_dict={n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
         for name, param in self.model.named_parameters():
             name = name.replace('.', '_')
             self.model.register_buffer(f"{name}_mean", param.data.clone())
-            if self.task>1:
-                fisher = getattr(self.model, f"{name}_fisher")+ fisher_dict[name].data.clone() ## add to the old fisher coeff
+            if self.regularize:
+                fisher = getattr(self.model, f"{name}_fisher") + fisher_dict[name].data.clone() ## add to the old fisher coeff
             else:
                 fisher =  fisher_dict[name].data.clone()
             self.model.register_buffer(f"{name}_fisher", fisher)
-        self.task+=1
+        self.regularize = True
     
     def add_regularizer(self):
-        if self.task>1:
+        if self.regularize:
             losses = []
             for name, param in self.model.named_parameters():
                 name = name.replace('.', '_')
