@@ -1,7 +1,7 @@
 name: sac_subspace
 seed: 0
 perf_path: results/test.dat
-save_model: True
+save_model: False
 final_evaluation: False
 
 defaults: 
@@ -69,6 +69,15 @@ model:
         buffer_time_size: 2
         buffer_size: 1_280_000
         initial_buffer_size: 12800
+
+   #k_shot:
+    #  classname: salina_cl.algorithms.k_shot.k_shot
+    #  params:
+    #    device: cuda:0
+    #    n_max_interactions: 128_001
+    #    n_processes: 0
+    #    time_size: ${model.params.algorithm.params.buffer_time_size}
+
 
     alpha_search:
       classname: salina_cl.algorithms.alpha_search.value_estimation

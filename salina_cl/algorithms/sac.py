@@ -79,7 +79,6 @@ class sac:
         epoch=0
         is_training=True
         _training_start_time=time.time()
-        best_model=None
         best_performance=None
         logger.message("Start training")
         ## there is a warmup of 1000 steps before training
@@ -180,9 +179,9 @@ class sac:
                     loss.backward()
                     if cfg.clip_grad > 0:
                         n = torch.nn.utils.clip_grad_norm_(action_agent.parameters(), cfg.clip_grad)
-                        #logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
-                    #logger.add_scalar("loss/q_loss", qloss.item(), iteration)
-                    #logger.add_scalar("loss/regularizer", loss_regularizer.item(), iteration)
+                        logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
+                    logger.add_scalar("loss/q_loss", qloss.item(), iteration)
+                    logger.add_scalar("loss/regularizer", loss_regularizer.item(), iteration)
                     optimizer_action.step()
 
                     optimizer_entropy.zero_grad()
@@ -216,9 +215,6 @@ class sac:
                     for penalty in cosine_similarities[layer]:
                         logger.add_scalar("Cos_sim/"+layer+"/"+penalty,cosine_similarities[layer][penalty],epoch)
 
-
-
-
             if n_interactions > n_max_interactions:
                 logger.message("== Maximum interactions reached")
                 is_training = False
@@ -228,6 +224,5 @@ class sac:
 
         r = {"n_epochs":epoch, "training_time":time.time() - _training_start_time, "n_interactions":n_interactions}
         if cfg.n_processes>1: acq_agent.close()
-        #action_agent, q_agent = best_model
         infos = {"replay_buffer":replay_buffer}
         return r, action_agent.to("cpu"), q_agent.to("cpu"), infos

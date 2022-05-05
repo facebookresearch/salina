@@ -79,7 +79,7 @@ class Subspace(Model):
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
-        self.algorithm = instantiate_class(self.cfg.algorithm)
+        self.train_algorithm = instantiate_class(self.cfg.algorithm)
         self.find_alpha = instantiate_class(self.cfg.alpha_search)
         self.policy_agent = None
         self.critic_agent = None
@@ -112,12 +112,12 @@ class Subspace(Model):
             self._create_critic_agent(task,logger)
 
         env_agent = task.make()
-        self.algorithm.cfg.optimizer_policy.lr = self.lr_policy * (1 + task._task_id * self.cfg.lr_scaling)
-        logger.message("Setting policy_lr to "+str(self.algorithm.cfg.optimizer_policy.lr))
+        self.train_algorithm.cfg.optimizer_policy.lr = self.lr_policy * (1 + task._task_id * self.cfg.lr_scaling)
+        logger.message("Setting policy_lr to "+str(self.train_algorithm.cfg.optimizer_policy.lr))
         if task._task_id > 0:
             self.policy_agent.add_anchor(logger = logger)
             self.critic_agent.add_anchor(logger = logger)
-        r1, self.policy_agent, self.critic_agent, infos = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
+        r1, self.policy_agent, self.critic_agent, infos = self.train_algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
         r2, self.policy_agent, self.critic_agent, infos = self.find_alpha.run(self.policy_agent, self.critic_agent,logger, infos, task._task_id)
 
         if self.cfg.checkpoint:

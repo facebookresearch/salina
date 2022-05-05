@@ -19,7 +19,7 @@ class k_shot:
         logger = logger.get_logger(type(self).__name__+str("/"))
         if (action_agent[0].n_anchors > 1) and (n_max_interactions > 0):
             action_agent.eval()
-            acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.acquisition_device)
+            acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
             if self.cfg.n_processes > 1:
                 acquisition_agent, workspace = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)

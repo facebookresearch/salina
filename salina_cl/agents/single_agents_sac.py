@@ -8,8 +8,6 @@ import torch
 from torch import nn
 from salina_cl.core import CRLAgent, CRLAgents
 import torch.nn.functional as F
-from torch import distributions as pyd
-import math
 import numpy as np
 import copy
 
