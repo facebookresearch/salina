@@ -179,9 +179,9 @@ class sac:
                     loss.backward()
                     if cfg.clip_grad > 0:
                         n = torch.nn.utils.clip_grad_norm_(action_agent.parameters(), cfg.clip_grad)
-                        logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
-                    logger.add_scalar("loss/q_loss", qloss.item(), iteration)
-                    logger.add_scalar("loss/regularizer", loss_regularizer.item(), iteration)
+                        #logger.add_scalar("monitor/grad_norm_action", n.item(), iteration)
+                    #logger.add_scalar("loss/q_loss", qloss.item(), iteration)
+                    #logger.add_scalar("loss/regularizer", loss_regularizer.item(), iteration)
                     optimizer_action.step()
 
                     optimizer_entropy.zero_grad()
