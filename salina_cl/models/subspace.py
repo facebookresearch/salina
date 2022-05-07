@@ -9,8 +9,6 @@ from salina.agents import Agents,TemporalAgent
 from salina.agents.brax import EpisodesDone
 from salina import Workspace
 from torch.distributions.dirichlet import Dirichlet
-from inspect import currentframe, getframeinfo
-from salina_cl.algorithms.tools import display_kshot_2anchors, display_kshot_3anchors
 from ternary.helpers import simplex_iterator
 from salina import instantiate_class
 import torch
@@ -79,8 +77,9 @@ class Subspace(Model):
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
+        self.k_shot = instantiate_class(self.cfg.k_shot)
         self.train_algorithm = instantiate_class(self.cfg.algorithm)
-        self.find_alpha = instantiate_class(self.cfg.alpha_search)
+        self.alpha_search = instantiate_class(self.cfg.alpha_search)
         self.policy_agent = None
         self.critic_agent = None
         self.best_alpha_train = []
@@ -114,11 +113,13 @@ class Subspace(Model):
         env_agent = task.make()
         self.train_algorithm.cfg.optimizer_policy.lr = self.lr_policy * (1 + task._task_id * self.cfg.lr_scaling)
         logger.message("Setting policy_lr to "+str(self.train_algorithm.cfg.optimizer_policy.lr))
+        infos = {}
         if task._task_id > 0:
+            r0, self.policy_agent, self.critic_agent, infos = self.k_shot.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed)
             self.policy_agent.add_anchor(logger = logger)
-            self.critic_agent.add_anchor(logger = logger)
-        r1, self.policy_agent, self.critic_agent, infos = self.train_algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
-        r2, self.policy_agent, self.critic_agent, infos = self.find_alpha.run(self.policy_agent, self.critic_agent,logger, infos, task._task_id)
+            self.critic_agent.add_anchor(n_anchors = self.policy_agent[0].n_anchors,logger = logger)
+        r1, self.policy_agent, self.critic_agent, infos = self.train_algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions(), infos = infos)
+        r2, self.policy_agent, self.critic_agent, infos = self.alpha_search.run(self.policy_agent, self.critic_agent, env_agent, logger, self.seed, task.task_id(), infos = infos)
 
         if self.cfg.checkpoint:
             torch.save(self.critic_agent,os.getcwd()+"/critic_"+str(task._task_id)+".dat")
@@ -127,6 +128,7 @@ class Subspace(Model):
             for variable in infos["replay_buffer"].variables:
                 v = variable.replace("/","_")
                 torch.save(infos["replay_buffer"].variables[variable].cpu(),os.getcwd()+"/replay_buffer_"+str(task._task_id)+"/"+v+".dat")
+            del infos
         return r1
 
     def memory_size(self):
@@ -246,4 +248,5 @@ class Subspace(Model):
         metrics["value/avg_reward"] = rewards[values.argmax()].item()
         metrics["midpoint/avg_reward"] = rewards[1].item()
         metrics["last_anchor/avg_reward"] = rewards[-1].item()
+        del w
         return metrics

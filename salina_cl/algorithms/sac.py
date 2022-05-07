@@ -19,7 +19,7 @@ class sac:
     def __init__(self,params):
         self.cfg = params
     
-    def run(self, action_agent, q_agent, env_agent,logger, seed, n_max_interactions):
+    def run(self, action_agent, q_agent, env_agent,logger, seed, n_max_interactions, infos = {}):
         time_unit=None
         logger = logger.get_logger(type(self).__name__+str("/"))
         
@@ -224,5 +224,5 @@ class sac:
 
         r = {"n_epochs":epoch, "training_time":time.time() - _training_start_time, "n_interactions":n_interactions}
         if cfg.n_processes>1: acq_agent.close()
-        infos = {"replay_buffer":replay_buffer}
+        infos["replay_buffer"] = replay_buffer
         return r, action_agent.to("cpu"), q_agent.to("cpu"), infos

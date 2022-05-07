@@ -71,6 +71,9 @@ class AlphaAgent(SubspaceAgent):
         if (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
+            if t == 0:
+                print("\n\n\n---- eval called !")
+                print("alphas: ",alphas[0])
             self.set(("alphas", t), alphas)
         elif not (t is None):
             B = self.workspace.batch_size()
@@ -130,13 +133,17 @@ class AlphaAgent(SubspaceAgent):
         self.n_anchors += 1
         self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
         self.dist = create_dist(self.dist_type,self.n_anchors)
-        logger.message("Increasing alpha size to "+str(self.n_anchors))
+        if not logger is None:
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Increasing alpha size to "+str(self.n_anchors))
 
     def remove_anchor(self, logger = None,**kwargs):
         self.n_anchors -= 1
         self.best_alphas = self.best_alphas[:,:-1]
         self.dist = create_dist(self.dist_type,self.n_anchors)
-        logger.message("Decreasing alpha size to "+str(self.n_anchors))
+        if not logger is None:
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Decreasing alpha size to "+str(self.n_anchors))
 
     def set_task(self,task_id):
         if task_id >= self.best_alphas.shape[0]:
@@ -284,18 +291,14 @@ class Critic(SubspaceAgent):
             alphas = self.get("alphas_policy_update")
         else:
             alphas = self.get("alphas")
+        if alphas.shape[-1] < self.n_anchors:
+            alphas = torch.cat([alphas,torch.zeros(*alphas.shape[:-1],self.n_anchors - alphas.shape[-1]).to(alphas.device)], dim = -1)
         input = torch.cat([input, action, alphas], dim=-1)
         critic = self.model(input).squeeze(-1)
         self.set(self.output_name, critic)
 
-    def add_anchor(self, logger = None,**kwargs):
-        self.__init__(self.n_anchors + 1, [self.obs_dimension], [self.action_dimension], self.hs, input_name = self.iname, output_name = self.output_name)
-        if not (logger is None):
-            logger = logger.get_logger(type(self).__name__+str("/"))
-            logger.message("Setting input size to "+str(self.input_size)+" and reinitializing network")
-
-    def remove_anchor(self, logger = None,**kwargs):
-        self.__init__(self.n_anchors - 1, [self.obs_dimension], [self.action_dimension], self.hs, input_name = self.iname, output_name = self.output_name)
+    def add_anchor(self, n_anchors = None, logger = None,**kwargs):
+        self.__init__(self.n_anchors if n_anchors is None else n_anchors, [self.obs_dimension], [self.action_dimension], self.hs, input_name = self.iname, output_name = self.output_name)
         if not (logger is None):
             logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Setting input size to "+str(self.input_size)+" and reinitializing network")

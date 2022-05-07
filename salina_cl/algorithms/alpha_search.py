@@ -8,8 +8,9 @@ import time
 import torch
 from salina_cl.agents.tools import LinearSubspace
 from torch.distributions.dirichlet import Dirichlet
+from salina.agents import Agents, TemporalAgent
 from salina import Workspace
-from salina_cl.algorithms.tools import display_kshot
+from salina.agents.remote import NRemoteAgent
 from ternary.helpers import simplex_iterator
 
 def remove_anchor(model):
@@ -34,7 +35,6 @@ def draw_alphas(n_anchors, steps, scale, batch_size = None):
         dist = Dirichlet(torch.ones(n_anchors))
         last_anchor = torch.Tensor([0] * (n_anchors - 1) + [1]).unsqueeze(0)
         alphas = torch.cat([last_anchor,midpoint,dist.sample(torch.Size([steps - 2]))], dim = 0)
-    
     #alphas = torch.split(alphas, alphas.shape[0] if batch_size is None else batch_size, dim = 0)
     return alphas
 
@@ -42,9 +42,11 @@ class value_estimation:
     def __init__(self,params):
         self.cfg = params
 
-    def run(self,action_agent, critic_agent, logger, infos, task_id):
+    def run(self,action_agent, critic_agent, env_agent, logger, seed, task_id, infos = {}):
         logger = logger.get_logger(type(self).__name__+str("/"))
         if (action_agent[0].n_anchors > 1):
+
+            # Estimating best alpha
             critic_agent.to(self.cfg.device)
             replay_buffer = infos["replay_buffer"]
             alphas = draw_alphas(action_agent[-1].n_anchors,self.cfg.steps, self.cfg.scale).to(self.cfg.device)
@@ -59,14 +61,41 @@ class value_estimation:
                     critic_agent(replay_workspace)
                 values.append(replay_workspace["q1"].mean(0))
             values = torch.stack(values,dim = 0).mean(0)
-            #image = display_kshot(alphas[0].cpu(),values.round().cpu())
-            #logger.add_figure(str(task_id)+"/values_distribution",image,0)
             best_alpha = alphas[0,values.argmax()].reshape(-1)
+            action_agent.set_best_alpha(alpha = best_alpha, logger=logger)
+            action_agent.set_task(task_id)
+            logger.message("best alpha is : "+str(list(map(lambda x:round(x,2),best_alpha.tolist()))))
             logger.message("Time elapsed: "+str(round(time.time() - _training_start_time,0))+" sec")
-            r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":0}
+            del replay_workspace
+            
+
+            # Validating best alpha through rollout 
+            n_interactions = 0
+            action_agent.eval()
+            acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
+            acquisition_agent.seed(seed)
+            if self.cfg.n_processes > 1:
+                acquisition_agent, w = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)
+            else:
+                w = Workspace()
+            with torch.no_grad():
+                acquisition_agent(w, t = 0, stop_variable = "env/done")
+            length = w["env/done"].max(0)[1]
+            n_interactions += length[:self.cfg.n_rollouts].sum().item()
+            arange = torch.arange(length.size()[0], device=length.device)
+            rewards = w["env/cumulated_reward"][length, arange][:self.cfg.n_rollouts].mean()
+
+            # Deciding to keep the anchor or not
+            if rewards < infos["best_reward_before_training"] * (1 + self.cfg.improvement_threshold):
+                action_agent.remove_anchor(logger=logger)
+                action_agent.set_best_alpha(alpha = infos["best_alpha_before_training"], logger=logger)
+
+            r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
+            del w
         else:
             best_alpha = None
             r = {"n_epochs":0,"training_time":0,"n_interactions":0}
-        action_agent.set_best_alpha(alpha = best_alpha, logger=logger)
+            action_agent.set_best_alpha(alpha = best_alpha, logger=logger)
         infos["best_alpha"] = best_alpha
+        
         return r, action_agent, critic_agent, infos

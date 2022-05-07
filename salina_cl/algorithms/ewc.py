@@ -27,16 +27,22 @@ class ewc:
 
         #We do it sample by sample
         for obs in batch_obs:
-            #gathering gradients for each output dimension
-            out = []
-            grads = []
-            for i in range(output_dim):
-                out.append(policy(obs)[i])
-                out[-1].backward()
-                grads.append([copy.deepcopy(param.grad) for param in policy.parameters()])
+            #gathering mus grad
+            grads_mu = []
+            for i in range(output_dim // 2):
+                mu_i = policy(obs)[i]
+                mu_i.backward()
+                grads_mu.append([copy.deepcopy(param.grad) for param in policy.parameters()])
                 policy.zero_grad()
-            grads_mu,grads_std = grads[:len(grads)//2],grads[len(grads)//2:]
-            stds = out[len(grads)//2:]
+            grads_std = []
+            stds = []
+            #gathering std grad
+            for i in range(output_dim // 2,output_dim):
+                std_i = policy(obs)[i].exp()
+                std_i.backward()
+                grads_std.append([copy.deepcopy(param.grad) for param in policy.parameters()])
+                stds.append(std_i)
+                policy.zero_grad()
 
             #calculating fisher matrix
             fisher = [copy.deepcopy(param.grad) for param in policy.parameters()]

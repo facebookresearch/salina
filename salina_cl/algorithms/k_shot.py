@@ -15,9 +15,9 @@ class k_shot:
     def __init__(self,params):
         self.cfg = params
     
-    def run(self,action_agent, critic_agent, env_agent, logger, seed, n_max_interactions, add_anchor = True):
+    def run(self,action_agent, critic_agent, env_agent, logger, seed, infos = {}):
         logger = logger.get_logger(type(self).__name__+str("/"))
-        if (action_agent[0].n_anchors > 1) and (n_max_interactions > 0):
+        if (action_agent[0].n_anchors > 1) and (self.cfg.n_max_interactions > 0):
             action_agent.eval()
             acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
@@ -32,17 +32,17 @@ class k_shot:
                 w = Workspace()
                 w.set("alphas",0,alphas)
                 with torch.no_grad():
-                    acquisition_agent(w, t = 0, stop_variable = "env/done", k_shot = True)
-                w = w.select_batch(torch.LongTensor(list(range(self.cfg.k))))
+                    acquisition_agent(w, t = 0, stop_variable = "env/done", force_random = True)
                 length = w["env/done"].max(0)[1]
                 n_interactions += length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
                 rewards.append(w["env/cumulated_reward"][length, arange])
-                if (n_interactions + length.sum().item()) > n_max_interactions:
+                if (n_interactions + length.sum().item()) > self.cfg.n_max_interactions:
                     logger.message("k-shot ends with "+str(n_interactions)+" interactions used.")
                     break
             rewards = torch.stack(rewards, dim = 0).mean(0)
             best_alpha = w["alphas"][0,rewards.argmax()].reshape(-1)
+            best_reward = rewards.max().item()
             logger.add_scalar("mean_reward", rewards.mean().item(), 0)
             logger.add_scalar("max_reward", rewards.max().item(), 0)
             logger.message("mean reward:"+str(round(rewards.mean().item(),0)))
@@ -53,9 +53,9 @@ class k_shot:
             r = {"n_epochs":0,"training_time":time.time()-_training_start_time,"n_interactions":n_interactions}
         else:
             best_alpha = None
+            best_reward = - float("inf")
             r = {"n_epochs":0,"training_time":0,"n_interactions":0}
-        if add_anchor:
-            action_agent.add_anchor(anchor = best_alpha, alpha = None, logger=logger)
-            critic_agent.add_anchor(logger = logger)
-
-        return r, action_agent, critic_agent
+        infos["best_reward_before_training"] = best_reward
+        infos["best_alpha_before_training"] = best_alpha
+        
+        return r, action_agent, critic_agent, infos
