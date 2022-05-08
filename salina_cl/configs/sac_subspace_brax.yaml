@@ -75,7 +75,7 @@ model:
       params:
         device: cuda:0
         n_envs: ${scenario.n_train_envs}
-        n_max_interactions: 128_001
+        n_max_interactions: 0
         n_processes: 0
         time_size: ${model.params.algorithm.params.buffer_time_size}
 

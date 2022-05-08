@@ -70,6 +70,15 @@ model:
         buffer_size: 1_280_000
         initial_buffer_size: 12_800
 
+    k_shot:
+      classname: salina_cl.algorithms.k_shot.k_shot
+      params:
+        device: cuda:0
+        n_envs: ${scenario.n_train_envs}
+        n_max_interactions: 128_001
+        n_processes: 0
+        time_size: ${model.params.algorithm.params.buffer_time_size}
+
  
     alpha_search:
       classname: salina_cl.algorithms.alpha_search.value_estimation
@@ -78,6 +87,9 @@ model:
         n_estimations: 1024
         steps: 4096
         scale: 89
+        n_processes: 0
+        n_rollouts: 5
+        improvement_threshold: 0.1
         time_size: ${model.params.algorithm.params.buffer_time_size}
 
     policy_agent:

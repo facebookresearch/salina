@@ -1,4 +1,4 @@
-name: sac_pnn
+name: sac_ewc
 seed: 0
 perf_path: results/test.dat
 save_model: False
@@ -6,7 +6,7 @@ final_evaluation: False
 
 defaults:
   - logger: logger
-  - scenario: halfcheetah_debug
+  - scenario: halfcheetah_benchmark
   - hydra: hydra
   - override hydra/launcher: submitit_slurm
 
@@ -14,7 +14,7 @@ model:
   classname: salina_cl.models.models.TwoSteps
   seed: ${seed}
   params:
-    checkpoint: True
+    checkpoint: False
     evaluation:
       device: cuda:0
       seed: ${seed}
