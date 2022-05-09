@@ -154,7 +154,8 @@ class dual_subspace_estimation:
             del replay_buffer
             
 
-            # Validating best alpha through rollout 
+            # Validating best alpha through rollout
+            logger.message("Evaluating the two best alphas...")  
             n_interactions = 0
             B = self.cfg.n_rollouts
             task._env_agent_cfg["n_envs"] = B
@@ -179,6 +180,9 @@ class dual_subspace_estimation:
             best_reward_before_training = w["env/cumulated_reward"][length, arange][B - (B // 2):].mean()
 
             # Deciding to keep the anchor or not
+            logger.message("best_reward = "+str(round(best_reward.item(),0))) 
+            logger.message("best_reward_before_training = "+str(round(best_reward_before_training.item(),0))) 
+            logger.message("threshold = "+str(round(best_reward_before_training.item() * (1 + self.cfg.improvement_threshold),0)))
             if best_reward < best_reward_before_training * (1 + self.cfg.improvement_threshold):
                 action_agent.set_best_alpha(alpha = best_alpha_before_training, logger=logger)
                 action_agent.remove_anchor(logger=logger)

@@ -32,13 +32,13 @@ class SubspaceAgent(CRLAgent):
     def set_best_alpha(self,**kwargs):
         pass
 
-def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, keep_same_alpha):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, keep_same_alpha),
+def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha):
+    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha),
                           SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
                           )
 
-def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, keep_same_alpha):
-    return SubspaceAgents(DualAlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, keep_same_alpha),
+def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha):
+    return SubspaceAgents(DualAlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha),
                           SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
                           )
 
@@ -60,7 +60,7 @@ def create_dist(dist_type,n_anchors):
     return dist
 
 class AlphaAgent(SubspaceAgent):
-    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, keep_same_alpha = True):
+    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, repeat_alpha = 1000):
         super().__init__()
         self.n_anchors = n_initial_anchors
         self.dist_type = dist_type
@@ -71,29 +71,48 @@ class AlphaAgent(SubspaceAgent):
         self.id = nn.Parameter(torch.randn(1,1))
         self.resampling_q = resampling_q
         self.resampling_policy = resampling_policy
-        self.keep_same_alpha = keep_same_alpha
+        self.repeat_alpha = repeat_alpha
 
-    def forward(self, t = None, force_random = False, q_update = False, policy_update = False, **args):
+    #reward tracking
+    def track_reward(self,t = None):
+        if not t is None:
+            if t == 0:
+                r = self.get(("env/reward", t))
+                self.set(("tracking_reward",t),r)
+            elif t > 0:
+                r = self.get(("env/reward", t))
+                old_tracking_reward = self.get(("tracking_reward", t - 1))
+                refresh_timestep = ((self.get(("env/timestep", t - 1)) % self.repeat_alpha) == 0).float()
+                tracking_reward = r + old_tracking_reward * (1 - refresh_timestep)
+                self.set(("tracking_reward",t),tracking_reward)
+
+    def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False, **args):
         device = self.id.device
-        if (not self.training) and (not force_random):
+        self.track_reward(t)
+        if mute_alpha:
+            pass
+        elif (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
             self.set(("alphas", t), alphas)
         elif not (t is None):
+            # reward tracking
             B = self.workspace.batch_size()
             alphas =  self.dist.sample(torch.Size([B])).to(device)
             if isinstance(self.dist,Categorical):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
-            if t > 0 and self.keep_same_alpha:
+            if t > 0 and self.repeat_alpha > 1:
                 done = self.get(("env/done", t)).float().unsqueeze(-1)
-                if (done.sum() > 0) and (self.refresh_rate<1.):
-                    cr = self.get(("env/cumulated_reward", t-1))
+                refresh_timestep = ((self.get(("env/timestep", t)) % self.repeat_alpha) == 0).float().unsqueeze(-1)
+                refresh = torch.max(done,refresh_timestep)
+                if ((done.sum() > 0) or (refresh_timestep.sum() > 0) ) and (self.refresh_rate<1.):
+                    cr = self.get(("tracking_reward", t))
                     k = max(int(len(cr) * (1 - self.refresh_rate)) - 1, 0)
                     threshold = sorted(cr,reverse = True)[k]
-                    refresh_variable = (cr < threshold).float().unsqueeze(-1)
-                    done *= refresh_variable
+                    refresh_condition = (cr < threshold).float().unsqueeze(-1)
+                    refresh *= refresh_condition
                 alphas_old = self.get(("alphas", t-1))
-                alphas =  alphas * done + alphas_old * (1 - done)
+                alphas =  alphas * refresh + alphas_old * (1 - refresh)
             self.set(("alphas", t), alphas)
         elif q_update:
             if self.resampling_q:
@@ -156,22 +175,36 @@ class AlphaAgent(SubspaceAgent):
             self.best_alpha = self.best_alphas[task_id]
 
 class DualAlphaAgent(SubspaceAgent):
-    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, keep_same_alpha = True):
+    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, repeat_alpha = 1000):
         super().__init__()
         self.n_anchors = n_initial_anchors
         self.dist_type = dist_type
         self.refresh_rate = refresh_rate
         self.dist = create_dist(self.dist_type,self.n_anchors)
-        self.dist2 = create_dist(self.dist_type,self.n_anchors - 1)
+        self.dist2 = create_dist("flat",self.n_anchors - 1)
         self.best_alpha = None
         self.best_alphas = torch.Tensor([])
         self.id = nn.Parameter(torch.randn(1,1))
         self.resampling_q = resampling_q
         self.resampling_policy = resampling_policy
-        self.keep_same_alpha = keep_same_alpha
+        self.repeat_alpha = repeat_alpha
+
+    #reward tracking
+    def track_reward(self,t = None):
+        if not t is None:
+            if t == 0:
+                r = self.get(("env/reward", t))
+                self.set(("tracking_reward",t),r)
+            elif t > 0:
+                r = self.get(("env/reward", t))
+                old_tracking_reward = self.get(("tracking_reward", t - 1))
+                refresh_timestep = ((self.get(("env/timestep", t - 1)) % self.repeat_alpha) == 0).float()
+                tracking_reward = r + old_tracking_reward * (1 - refresh_timestep)
+                self.set(("tracking_reward",t),tracking_reward)
 
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False,**args):
         device = self.id.device
+        self.track_reward(t)
         if mute_alpha:
             pass
         elif (not self.training) and (not force_random):
@@ -187,16 +220,18 @@ class DualAlphaAgent(SubspaceAgent):
             alphas = torch.cat([alphas1,alphas2], dim = 0)
             if isinstance(self.dist,Categorical):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
-            if t > 0 and self.keep_same_alpha:
+            if t > 0 and self.repeat_alpha > 1:
                 done = self.get(("env/done", t)).float().unsqueeze(-1)
-                if (done.sum() > 0) and (self.refresh_rate<1.):
-                    cr = self.get(("env/cumulated_reward", t-1))
+                refresh_timestep = ((self.get(("env/timestep", t)) % self.repeat_alpha) == 0).float().unsqueeze(-1)
+                refresh = torch.max(done,refresh_timestep)
+                if ((done.sum() > 0) or (refresh_timestep.sum() > 0) ) and (self.refresh_rate<1.):
+                    cr = self.get(("tracking_reward", t))
                     k = max(int(len(cr) * (1 - self.refresh_rate)) - 1, 0)
                     threshold = sorted(cr,reverse = True)[k]
-                    refresh_variable = (cr < threshold).float().unsqueeze(-1)
-                    done *= refresh_variable
+                    refresh_condition = (cr < threshold).float().unsqueeze(-1)
+                    refresh *= refresh_condition
                 alphas_old = self.get(("alphas", t-1))
-                alphas =  alphas * done + alphas_old * (1 - done)
+                alphas =  alphas * refresh + alphas_old * (1 - refresh)
             self.set(("alphas", t), alphas)
         elif q_update:
             if self.resampling_q:
@@ -244,7 +279,7 @@ class DualAlphaAgent(SubspaceAgent):
         self.n_anchors += 1
         self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
         self.dist = create_dist(self.dist_type,self.n_anchors)
-        self.dist2 = create_dist(self.dist_type,self.n_anchors - 1)
+        self.dist2 = create_dist("flat",self.n_anchors - 1)
         if not logger is None:
             logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Increasing alpha size to "+str(self.n_anchors))
@@ -253,7 +288,7 @@ class DualAlphaAgent(SubspaceAgent):
         self.n_anchors -= 1
         self.best_alphas = self.best_alphas[:,:-1]
         self.dist = create_dist(self.dist_type,self.n_anchors)
-        self.dist2 = create_dist(self.dist_type,self.n_anchors - 1)
+        self.dist2 = create_dist("flat",self.n_anchors - 1)
         if not logger is None:
             logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Decreasing alpha size to "+str(self.n_anchors))

@@ -104,7 +104,7 @@ model:
       refresh_rate: 1.
       resampling_q: True
       resampling_policy: False
-      keep_same_alpha: True
+      repeat_alpha: 10
 
     critic_agent:
       classname: salina_cl.agents.subspace_agents_sac.TwinCritics
