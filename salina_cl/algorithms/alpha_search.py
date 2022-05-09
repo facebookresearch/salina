@@ -42,7 +42,7 @@ class value_estimation:
     def __init__(self,params):
         self.cfg = params
 
-    def run(self,action_agent, critic_agent, env_agent, logger, seed, task_id, infos = {}):
+    def run(self,action_agent, critic_agent, task, logger, seed, infos = {}):
         logger = logger.get_logger(type(self).__name__+str("/"))
         if (action_agent[0].n_anchors > 1):
 
@@ -63,7 +63,7 @@ class value_estimation:
             values = torch.stack(values,dim = 0).mean(0)
             best_alpha = alphas[0,values.argmax()].reshape(-1)
             action_agent.set_best_alpha(alpha = best_alpha, logger=logger)
-            action_agent.set_task(task_id)
+            action_agent.set_task(task.task_id())
             logger.message("best alpha is : "+str(list(map(lambda x:round(x,2),best_alpha.tolist()))))
             logger.message("Time elapsed: "+str(round(time.time() - _training_start_time,0))+" sec")
 
@@ -75,6 +75,8 @@ class value_estimation:
             # Validating best alpha through rollout 
             n_interactions = 0
             action_agent.eval()
+            task._env_agent_cfg["n_envs"] = self.cfg.n_rollouts
+            env_agent = task.make()
             acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
             if self.cfg.n_processes > 1:
@@ -84,9 +86,9 @@ class value_estimation:
             with torch.no_grad():
                 acquisition_agent(w, t = 0, stop_variable = "env/done")
             length = w["env/done"].max(0)[1]
-            n_interactions += length[:self.cfg.n_rollouts].sum().item()
+            n_interactions += length.sum().item()
             arange = torch.arange(length.size()[0], device=length.device)
-            rewards = w["env/cumulated_reward"][length, arange][:self.cfg.n_rollouts].mean()
+            rewards = w["env/cumulated_reward"][length, arange].mean()
 
             # Deciding to keep the anchor or not
             if rewards < infos["best_reward_before_training"] * (1 + self.cfg.improvement_threshold):
@@ -106,7 +108,7 @@ class dual_subspace_estimation:
     def __init__(self,params):
         self.cfg = params
 
-    def run(self,action_agent, critic_agent, env_agent, logger, seed, task_id, infos = {}):
+    def run(self,action_agent, critic_agent, task, logger, seed, infos = {}):
         logger = logger.get_logger(type(self).__name__+str("/"))
         if (action_agent[0].n_anchors > 1):
 
@@ -130,7 +132,8 @@ class dual_subspace_estimation:
             logger.message("Time elapsed: "+str(round(time.time() - _training_start_time,0))+" sec")
             
             alphas = draw_alphas(action_agent[-1].n_anchors - 1, self.cfg.steps, self.cfg.scale).to(self.cfg.device)
-            alphas = torch.cat([alphas,torch.zeros(alphas.shape[:-1]).to(self.cfg.device)], dim = -1)
+            if alphas.shape[-1] < action_agent[-1].n_anchors:
+                alphas = torch.cat([alphas,torch.zeros(*alphas.shape[:-1],1).to(self.cfg.device)], dim = -1)
             alphas = torch.stack([alphas for _ in range(self.cfg.time_size)], dim=0)
             values = []
             logger.message("Starting value estimation")
@@ -154,8 +157,10 @@ class dual_subspace_estimation:
             # Validating best alpha through rollout 
             n_interactions = 0
             B = self.cfg.n_rollouts
-            alphas = torch.cat([torch.stack([best_alpha for _ in range(B)],dim=0),torch.stack([best_alpha_before_training for _ in range(B)],dim=0)],dim = 0)
-            alphas = torch.stack([alphas for _ in range(1000)], dim=0)
+            task._env_agent_cfg["n_envs"] = B
+            env_agent = task.make()
+            alphas = torch.cat([torch.stack([best_alpha for _ in range(B // 2)],dim=0),torch.stack([best_alpha_before_training for _ in range(B - (B // 2))],dim=0)],dim = 0)
+            alphas = torch.stack([alphas for _ in range(1001)], dim=0)
             action_agent.eval()
             acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
@@ -175,8 +180,8 @@ class dual_subspace_estimation:
 
             # Deciding to keep the anchor or not
             if best_reward < best_reward_before_training * (1 + self.cfg.improvement_threshold):
-                action_agent.remove_anchor(logger=logger)
                 action_agent.set_best_alpha(alpha = best_alpha_before_training, logger=logger)
+                action_agent.remove_anchor(logger=logger)
             else:
                 action_agent.set_best_alpha(alpha = best_alpha, logger=logger)
 

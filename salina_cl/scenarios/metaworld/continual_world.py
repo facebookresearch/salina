@@ -16,13 +16,20 @@ from typing import List
 
 TASK_SEQS = {
     "CW2": [
-        "drawer-close-v1",
+        "hammer-v1",
         "push-wall-v1",
     ],
     "CW3": [
-        "push-v1",
-        "window-close-v1",
-        "hammer-v1"
+        "hammer-v1",
+        "push-wall-v1",
+        "faucet-close-v1",
+    ],
+    "CW5": [
+        "hammer-v1",
+        "push-wall-v1",
+        "faucet-close-v1",
+        "push-back-v1",
+        "stick-pull-v1",
     ],
     "CW10": [
         "hammer-v1",

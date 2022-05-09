@@ -21,9 +21,9 @@ class ewc:
         action_agent = action_agent.to(self.cfg.device)
         policy = action_agent[-1].model[min(len(action_agent[-1].model)-1,task_id)]
         output_dim = action_agent[-1].output_dimension
+        policy.zero_grad()
         reg_weights = [copy.deepcopy(param.grad) for param in policy.parameters()]
         batch_obs = infos['replay_buffer'].get(self.cfg.n_samples).to(self.cfg.device)["env/env_obs"][0]
-
 
         #We do it sample by sample
         for obs in batch_obs:
@@ -34,11 +34,14 @@ class ewc:
                 mu_i.backward()
                 grads_mu.append([copy.deepcopy(param.grad) for param in policy.parameters()])
                 policy.zero_grad()
+            
+            #gathering std grad      
             grads_std = []
             stds = []
-            #gathering std grad
             for i in range(output_dim // 2,output_dim):
-                std_i = policy(obs)[i].exp()
+                std_i = policy(obs)[i]
+                std_i = torch.clip(std_i, min=-20., max=2.)
+                std_i = std_i.exp()
                 std_i.backward()
                 grads_std.append([copy.deepcopy(param.grad) for param in policy.parameters()])
                 stds.append(std_i)
@@ -52,8 +55,10 @@ class ewc:
             
             #averaging over batch dimension
             for i in range(len(reg_weights)):
+                fisher[i] = torch.clamp(fisher[i],min=1e-5) #clipping from below, see https://github.com/awarelab/continual_world/blob/main/continualworld/methods/ewc.py#L66
                 reg_weights[i] += fisher[i] / self.cfg.n_samples
 
+        #register new regluarisation weights for next task
         action_agent[-1].register_and_consolidate(reg_weights)
         
         r={"n_epochs":self.cfg.n_samples,"training_time":time.time() - _training_start_time,"n_interactions":0}

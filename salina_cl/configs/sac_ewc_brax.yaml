@@ -79,7 +79,7 @@ model:
       output_dimension: nil
       start_steps: 0
       layer_norm: False
-      fisher_coeff: 1. # 0.01,1.,100,10000
+      fisher_coeff: 100. # 0.01,1.,100,10000
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics

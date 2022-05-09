@@ -19,7 +19,7 @@ model:
     evaluation:
       device: cpu
       seed: ${seed}
-      n_rollouts: 1
+      n_rollouts: 5
       evaluate_success: False
     reset_critic_on_task_change: False
     algorithm:
@@ -41,7 +41,7 @@ model:
           classname: torch.optim.Adam
           lr: 1e-3
     
-        control_every_n_epochs: 10
+        control_every_n_epochs: 100
         n_control_rollouts: 1
       
         n_processes: 0
@@ -72,7 +72,7 @@ model:
       input_dimension: nil
       output_dimension: nil
       start_steps: 10_000
-      layer_norm: False
+      layer_norm: True
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics

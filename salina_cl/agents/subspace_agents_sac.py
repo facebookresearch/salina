@@ -32,13 +32,13 @@ class SubspaceAgent(CRLAgent):
     def set_best_alpha(self,**kwargs):
         pass
 
-def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy),
+def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, keep_same_alpha):
+    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, keep_same_alpha),
                           SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
                           )
 
-def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy):
-    return SubspaceAgents(DualAlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy),
+def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, keep_same_alpha):
+    return SubspaceAgents(DualAlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, keep_same_alpha),
                           SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
                           )
 
@@ -60,7 +60,7 @@ def create_dist(dist_type,n_anchors):
     return dist
 
 class AlphaAgent(SubspaceAgent):
-    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True):
+    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, keep_same_alpha = True):
         super().__init__()
         self.n_anchors = n_initial_anchors
         self.dist_type = dist_type
@@ -71,11 +71,11 @@ class AlphaAgent(SubspaceAgent):
         self.id = nn.Parameter(torch.randn(1,1))
         self.resampling_q = resampling_q
         self.resampling_policy = resampling_policy
+        self.keep_same_alpha = keep_same_alpha
 
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, **args):
         device = self.id.device
         if (not self.training) and (not force_random):
-            print("--- eval !!!!")
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
             self.set(("alphas", t), alphas)
@@ -84,7 +84,7 @@ class AlphaAgent(SubspaceAgent):
             alphas =  self.dist.sample(torch.Size([B])).to(device)
             if isinstance(self.dist,Categorical):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
-            if t > 0:
+            if t > 0 and self.keep_same_alpha:
                 done = self.get(("env/done", t)).float().unsqueeze(-1)
                 if (done.sum() > 0) and (self.refresh_rate<1.):
                     cr = self.get(("env/cumulated_reward", t-1))
@@ -156,7 +156,7 @@ class AlphaAgent(SubspaceAgent):
             self.best_alpha = self.best_alphas[task_id]
 
 class DualAlphaAgent(SubspaceAgent):
-    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True):
+    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, keep_same_alpha = True):
         super().__init__()
         self.n_anchors = n_initial_anchors
         self.dist_type = dist_type
@@ -168,6 +168,7 @@ class DualAlphaAgent(SubspaceAgent):
         self.id = nn.Parameter(torch.randn(1,1))
         self.resampling_q = resampling_q
         self.resampling_policy = resampling_policy
+        self.keep_same_alpha = keep_same_alpha
 
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False,**args):
         device = self.id.device
@@ -181,10 +182,12 @@ class DualAlphaAgent(SubspaceAgent):
             # Sampling in the new subspace AND the former subspace
             alphas1 =  self.dist.sample(torch.Size([B // 2])).to(device)
             alphas2 =  self.dist2.sample(torch.Size([B - (B // 2)])).to(device)
-            alphas = torch.cat([alphas1,alphas2], dim = 1)
+            if alphas2.shape[-1] < alphas1.shape[-1]:
+                alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
+            alphas = torch.cat([alphas1,alphas2], dim = 0)
             if isinstance(self.dist,Categorical):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
-            if t > 0:
+            if t > 0 and self.keep_same_alpha:
                 done = self.get(("env/done", t)).float().unsqueeze(-1)
                 if (done.sum() > 0) and (self.refresh_rate<1.):
                     cr = self.get(("env/cumulated_reward", t-1))
@@ -199,8 +202,10 @@ class DualAlphaAgent(SubspaceAgent):
             if self.resampling_q:
                 T = self.workspace.time_size()
                 B = self.workspace.batch_size()
-                alphas1 =  self.dist.sample(torch.Size([B // 2])).to(device)
-                alphas2 =  self.dist2.sample(torch.Size([B // 2])).to(device)
+                alphas1 =  self.dist.sample(torch.Size([T, B // 2])).to(device)
+                alphas2 =  self.dist2.sample(torch.Size([T, B - (B // 2)])).to(device)
+                if alphas2.shape[-1] < alphas1.shape[-1]:
+                    alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
                 alphas = torch.cat([alphas1,alphas2], dim = 1)
                 if isinstance(self.dist,Categorical):
                     alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
