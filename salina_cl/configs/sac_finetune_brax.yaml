@@ -31,7 +31,6 @@ model:
         optimizer_policy:
           classname: torch.optim.Adam
           lr: 1e-3 # 1e-3, 
-          weight_decay: 1e-2
 
         optimizer_q:
           classname: torch.optim.Adam
@@ -59,7 +58,7 @@ model:
 
         clip_grad: 0.
         inner_epochs: ${scenario.n_train_envs}
-        grad_updates_per_step: 0.125
+        grad_updates_per_step: 0.5
         discount_factor: 0.99
         update_target_tau: 0.005
         buffer_time_size: 2

@@ -116,7 +116,7 @@ class Subspace(Model):
         infos = {}
         r0 = {"n_interactions":0}
         if task._task_id > 0:
-            r0, self.policy_agent, self.critic_agent, infos = self.k_shot.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed)
+            #r0, self.policy_agent, self.critic_agent, infos = self.k_shot.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed)
             self.policy_agent.add_anchor(logger = logger)
             self.critic_agent.add_anchor(n_anchors = self.policy_agent[0].n_anchors,logger = logger)
         r1, self.policy_agent, self.critic_agent, infos = self.train_algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions() - r0["n_interactions"], infos = infos)

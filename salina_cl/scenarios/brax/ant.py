@@ -40,7 +40,7 @@ def ant_benchmark3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Distraction (orthogonal task-ish): task0 / distraction / task0
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"])
 
 def ant_benchmark4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """

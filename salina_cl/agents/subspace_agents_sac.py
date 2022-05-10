@@ -210,6 +210,7 @@ class DualAlphaAgent(SubspaceAgent):
         elif (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
+            self.set(("alphas", t), alphas)
         elif not (t is None):
             B = self.workspace.batch_size()
             # Sampling in the new subspace AND the former subspace
