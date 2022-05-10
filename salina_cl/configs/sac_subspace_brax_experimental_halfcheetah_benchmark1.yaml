@@ -20,7 +20,7 @@ model:
       device: cuda:0
       n_evaluation_envs: ${scenario.n_evaluation_envs}
       seed: 1
-      n_rollouts: 1
+      n_rollouts: 5
       scale: 89 #For building the triangle 44 -> 1035 / 63 -> 2080 / 89 -> 4095
       steps: 4095
       evaluate_success: False

@@ -67,7 +67,7 @@ model:
         initial_buffer_size: 12_800
 
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.ActionAgent
+      classname: salina_cl.agents.single_agents_sac.MultiActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil

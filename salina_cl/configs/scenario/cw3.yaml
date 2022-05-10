@@ -1,5 +1,5 @@
 classname: salina_cl.scenarios.metaworld.continual_world.CW_scenarios
 name: CW3
-n_train_envs: 1
+n_train_envs: 2
 n_evaluation_envs: 1
 n_steps: 1e6
