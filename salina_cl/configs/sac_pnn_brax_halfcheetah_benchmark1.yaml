@@ -1,4 +1,4 @@
-name: sac_finetune
+name: sac_pnn
 seed: 0
 perf_path: results/test.dat
 save_model: False
@@ -6,7 +6,7 @@ final_evaluation: False
 
 defaults:
   - logger: logger
-  - scenario: halfcheetah_benchmark
+  - scenario: halfcheetah_debug
   - hydra: hydra
   - override hydra/launcher: submitit_slurm
 
@@ -14,7 +14,7 @@ model:
   classname: salina_cl.models.models.Baseline
   seed: ${seed}
   params:
-    checkpoint: False
+    checkpoint: True
     evaluation:
       device: cuda:0
       seed: ${seed}
@@ -30,8 +30,7 @@ model:
     
         optimizer_policy:
           classname: torch.optim.Adam
-          lr: 3e-4
-          weight_decay: 0.
+          lr: 1e-3
     
         optimizer_q:
           classname: torch.optim.Adam
@@ -55,7 +54,7 @@ model:
         batch_size: 256
 
         init_temperature: 2.
-        target_multiplier: 1.
+        target_multiplier: 2.
        
         clip_grad: 0.
         inner_epochs: ${scenario.n_train_envs}
@@ -67,7 +66,7 @@ model:
         initial_buffer_size: 12_800
 
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.MultiActionAgent
+      classname: salina_cl.agents.pnn_agents_sac.PNNActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil

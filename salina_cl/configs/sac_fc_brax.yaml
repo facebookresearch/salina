@@ -1,4 +1,4 @@
-name: sac_finetune
+name: sac_fc
 seed: 0
 perf_path: results/test.dat
 save_model: False
@@ -6,21 +6,21 @@ final_evaluation: False
 
 defaults:
   - logger: logger
-  - scenario: halfcheetah_benchmark
+  - scenario: halfcheetah_hard0
   - hydra: hydra
   - override hydra/launcher: submitit_slurm
 
 model:
-  classname: salina_cl.models.models.Baseline
+  classname: salina_cl.models.models.OneStep
   seed: ${seed}
   params:
     checkpoint: False
     evaluation:
       device: cuda:0
       seed: ${seed}
-      n_evaluation_envs: ${scenario.n_evaluation_envs}
-      n_rollouts: 10
+      n_rollouts: 1
       evaluate_success: False
+    reset_critic_on_task_change: False
     algorithm: 
       classname: salina_cl.algorithms.sac.sac
       params:
@@ -31,11 +31,10 @@ model:
         optimizer_policy:
           classname: torch.optim.Adam
           lr: 3e-4
-          weight_decay: 0.
     
         optimizer_q:
           classname: torch.optim.Adam
-          lr: 3e-4
+          lr: 6e-4
 
         optimizer_entropy:
           classname: torch.optim.Adam
@@ -46,7 +45,7 @@ model:
       
         n_processes: 0
   
-        reward_scaling: 1.
+        reward_scaling: 10.
         policy_update_delay: 2
         target_update_delay: 2
         time_limit: 0
@@ -54,12 +53,12 @@ model:
         n_timesteps: 2
         batch_size: 256
 
-        init_temperature: 2.
+        init_temperature: 1.
         target_multiplier: 1.
        
-        clip_grad: 0.
+        clip_grad: 50.
         inner_epochs: ${scenario.n_train_envs}
-        grad_updates_per_step: 0.5
+        grad_updates_per_step: 0.25
         discount_factor: 0.99
         update_target_tau: 0.005
         buffer_time_size: 2
@@ -69,6 +68,7 @@ model:
     policy_agent:
       classname: salina_cl.agents.single_agents_sac.MultiActionAgent
       hidden_size: 256
+      n_layers: 3
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
@@ -76,5 +76,6 @@ model:
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics
       hidden_size: 256
+      n_layers: 3
       obs_dimension: nil
       action_dimension: nil

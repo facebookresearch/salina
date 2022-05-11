@@ -103,16 +103,19 @@ def generate_memory_table_html(memory,normalizing = False):
     
     results.append("<tr><td> Nb_params </td>")
     for stage in range(n):
-        if normalizing:
-            r = str(round(memory_mean[stage],2))
-            rs = str(round(memory_std[stage],2))
-        else:
-            r = str(int(memory_mean[stage]))
-            rs = str(int(memory_std[stage]))
-        if rs != 0:
-            results.append("<td>"+r+" <small><i>± "+rs+"</i></small></td>")
-        else:
-            results.append("<td>"+r)
+        try:
+            if normalizing:
+                r = str(round(memory_mean[stage],2))
+                rs = str(round(memory_std[stage],2))
+            else:
+                r = str(int(memory_mean[stage]))
+                rs = str(int(memory_std[stage]))
+            if rs != 0:
+                results.append("<td>"+r+" <small><i>± "+rs+"</i></small></td>")
+            else:
+                results.append("<td>"+r)
+        except:
+            continue
     results.append("</tr>")
     results.append("</table>")
     return "".join(results)

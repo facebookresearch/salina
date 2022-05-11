@@ -16,10 +16,10 @@ import pickle
 
 @hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
 def main(cfg):
-    if not exists(cfg.perf_path):
-        os.makedirs(os.path.dirname(cfg.perf_path), exist_ok=True)
-        with open(cfg.perf_path, "wb") as f:
-            pickle.dump({},f)
+    #if not exists(cfg.perf_path):
+    #    os.makedirs(os.path.dirname(cfg.perf_path), exist_ok=True)
+    #    with open(cfg.perf_path, "wb") as f:
+    #        pickle.dump({},f)
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg, verbose =False)
     model = instantiate_class(cfg.model)
@@ -37,18 +37,18 @@ def main(cfg):
         for k,v in m_size.items():
             logger_evaluation.add_scalar("memory/"+k,v,stage)
         stage+=1
-    if cfg.save_model:
-        torch.save(model.policy_agent,os.getcwd()+"/policy.dat")
-    perf = np.mean([v['avg_reward'] for v in evaluation.values()])
-    d_perf = {os.getcwd():perf}
-    with open(cfg.perf_path, "rb") as f:
-        data = pickle.load(f)
-        data.update(d_perf)
-    with open(cfg.perf_path, "wb") as f:
-        pickle.dump(data,f)
     logger.close()
     print("....done !")
-    ds = {}
+    #if cfg.save_model:
+    #    torch.save(model.policy_agent,os.getcwd()+"/policy.dat")
+    #perf = np.mean([v['avg_reward'] for v in evaluation.values()])
+    #d_perf = {os.getcwd():perf}
+    #with open(cfg.perf_path, "rb") as f:
+    #    data = pickle.load(f)
+    #    data.update(d_perf)
+    #with open(cfg.perf_path, "wb") as f:
+    #    pickle.dump(data,f)
+    #ds = {}
     #if cfg.final_evaluation:
     #    print("Starting evaluation")
     #    eval = evaluator(cfg.evaluation)

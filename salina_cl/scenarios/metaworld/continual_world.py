@@ -138,14 +138,12 @@ def make_mt(name,seed,randomization="random_init_all"):
 
 class CW_scenarios(Scenario):
     def __init__(self,name,n_train_envs,n_evaluation_envs,n_steps,seed=0):
-        # ml10 = metaworld.MT10()
-        # MT50 = metaworld.MT50()
         task_list=TASK_SEQS[name]
         train_names=[n for n in task_list]
         
         
         
-        test_names=[n for n in TASK_SEQS["CW10"]]
+        test_names=[n for n in task_list]
         
         input_dimension = [12]
         output_dimension = [4]

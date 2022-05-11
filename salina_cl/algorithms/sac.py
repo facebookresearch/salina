@@ -38,7 +38,7 @@ class sac:
             acq_agent,acquisition_workspace = NRemoteAgent.create(acq_agent, num_processes=cfg.n_processes, time_size=cfg.n_timesteps, n_steps=1)
         acq_agent.seed(seed)
     
-        control_agent=TemporalAgent(Agents(copy.deepcopy(env_agent), EpisodesDone(), copy.deepcopy(action_agent))).to(cfg.acquisition_device)
+        control_agent = TemporalAgent(Agents(copy.deepcopy(env_agent), EpisodesDone(), copy.deepcopy(action_agent))).to(cfg.acquisition_device)
         control_agent.seed(seed)
         control_agent.eval()
     

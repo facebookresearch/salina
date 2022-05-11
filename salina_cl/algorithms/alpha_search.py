@@ -252,7 +252,6 @@ class dual_subspace_estimation_cw:
             # Validating best alpha through rollout
             logger.message("Evaluating the two best alphas...")  
             n_interactions = 0
-            B = self.cfg.n_rollouts
             task._env_agent_cfg["n_envs"] = 2
             env_agent = task.make()
             horizon = 201 if "-v1" in task._env_agent_cfg["make_env_args"]["name"] else 1001
@@ -267,7 +266,7 @@ class dual_subspace_estimation_cw:
                 w = Workspace()
             best_reward = []
             best_reward_before_training = []
-            for i in range(self.cfg.evaluation.n_rollouts):
+            for i in range(self.cfg.n_rollouts):
                 with torch.no_grad():
                     w.set_full("alphas",alphas)
                     acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
@@ -275,8 +274,8 @@ class dual_subspace_estimation_cw:
                 
                 n_interactions += length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
-                best_reward.append(w["env/cumulated_reward"][length, arange][0])
-                best_reward_before_training.append(w["env/cumulated_reward"][1])
+                best_reward.append(w["env/cumulated_reward"][length, arange][0].unsqueeze(0))
+                best_reward_before_training.append(w["env/cumulated_reward"][length, arange][1].unsqueeze(0))
             best_reward = torch.cat(best_reward).mean()
             best_reward_before_training = torch.cat(best_reward_before_training).mean()
 
