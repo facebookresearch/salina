@@ -42,6 +42,11 @@ def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, 
                           SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
                           )
 
+def ExperimentalSubspaceActionAgent_cw(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha, new_sub_dist):
+    return SubspaceAgents(DualAlphaAgent_cw(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha, new_sub_dist),
+                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
+                          )
+
 def TwinCritics(n_anchors, obs_dimension, action_dimension, hidden_size):
     return SubspaceAgents(Critic(n_anchors, obs_dimension, action_dimension, hidden_size, output_name = "q1"),
                           Critic(n_anchors, obs_dimension, action_dimension, hidden_size, output_name = "q2")
@@ -243,6 +248,128 @@ class DualAlphaAgent(SubspaceAgent):
                 if alphas2.shape[-1] < alphas1.shape[-1]:
                     alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
                 alphas = torch.cat([alphas1,alphas2], dim = 1)
+                if isinstance(self.dist,Categorical):
+                    alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
+                self.set("alphas_q_update", alphas)
+            else:
+                self.set("alphas_q_update", self.get("alphas"))
+        elif policy_update:
+            if self.resampling_policy:
+                T = self.workspace.time_size()
+                B = self.workspace.batch_size()
+                alphas =  self.dist.sample(torch.Size([T,B])).to(device)
+                if isinstance(self.dist,Categorical):
+                    alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
+                self.set("alphas_policy_update", alphas)
+            else:
+                self.set("alphas_policy_update", self.get("alphas"))
+
+    def set_best_alpha(self, alpha = None, logger = None,**kwargs):
+        device = self.id.device
+
+        if alpha is None:
+            alpha = torch.Tensor([0.] * (self.n_anchors - 1) + [1.]).to(device)
+        else:
+            alpha = alpha.to(device)
+        self.best_alphas = torch.cat([self.best_alphas.to(device),alpha.unsqueeze(0)],dim=0)
+
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            if alpha is None:
+                logger.message("Set best_alpha = None")
+            else:
+                logger.message("Set best_alpha = "+str(list(map(lambda x:round(x,2),alpha.tolist()))))
+            
+    def add_anchor(self, logger = None,**kwargs):
+        device = self.id.device
+        self.n_anchors += 1
+        self.best_alphas = torch.cat([self.best_alphas.to(device),torch.zeros(self.best_alphas.shape[0],1).to(device)],dim=-1)
+        self.dist = create_dist(self.dist_type,self.n_anchors)
+        self.dist2 = create_dist("flat",self.n_anchors - 1)
+        if not logger is None:
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Increasing alpha size to "+str(self.n_anchors))
+
+    def remove_anchor(self, logger = None,**kwargs):
+        self.n_anchors -= 1
+        self.best_alphas = self.best_alphas[:,:-1]
+        self.dist = create_dist(self.dist_type,self.n_anchors)
+        self.dist2 = create_dist("flat",self.n_anchors - 1)
+        if not logger is None:
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Decreasing alpha size to "+str(self.n_anchors))
+
+    def set_task(self,task_id):
+        if task_id >= self.best_alphas.shape[0]:
+            self.best_alpha = torch.ones(self.n_anchors) / self.n_anchors
+        else: 
+            self.best_alpha = self.best_alphas[task_id]
+
+class DualAlphaAgent_cw(SubspaceAgent):
+    def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, repeat_alpha = 1000, new_sub_dist =0.5):
+        super().__init__()
+        self.n_anchors = n_initial_anchors
+        self.dist_type = dist_type
+        self.refresh_rate = refresh_rate
+        self.dist = create_dist(self.dist_type,self.n_anchors)
+        self.dist2 = create_dist("flat",self.n_anchors - 1)
+        self.best_alpha = None
+        self.best_alphas = torch.Tensor([])
+        self.id = nn.Parameter(torch.randn(1,1))
+        self.resampling_q = resampling_q
+        self.resampling_policy = resampling_policy
+        self.repeat_alpha = repeat_alpha
+        self.new_sub_dist = new_sub_dist
+
+    #reward tracking
+    def track_reward(self,t = None):
+        if not t is None:
+            if t == 0:
+                r = self.get(("env/reward", t))
+                self.set(("tracking_reward",t),r)
+            elif t > 0:
+                r = self.get(("env/reward", t))
+                old_tracking_reward = self.get(("tracking_reward", t - 1))
+                refresh_timestep = ((self.get(("env/timestep", t - 1)) % self.repeat_alpha) == 0).float()
+                tracking_reward = r + old_tracking_reward * (1 - refresh_timestep)
+                self.set(("tracking_reward",t),tracking_reward)
+
+    def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False,**args):
+        device = self.id.device
+        if mute_alpha:
+            pass
+        elif (not self.training) and (not force_random):
+            B = self.workspace.batch_size()
+            alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
+            self.set(("alphas", t), alphas)
+        elif not (t is None):
+            B = self.workspace.batch_size()
+            # Sampling in the new subspace AND the former subspace
+            alphas1 =  self.dist.sample(torch.Size([B])).to(device)
+            alphas2 =  self.dist2.sample(torch.Size([B])).to(device)
+            subspace_selector = (torch.empty(B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).to(device)
+            if alphas2.shape[-1] < alphas1.shape[-1]:
+                alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
+            alphas = subspace_selector * alphas1 * (1 - subspace_selector) * alphas2
+            if isinstance(self.dist,Categorical):
+                alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
+            if t > 0 and self.repeat_alpha > 1:
+                done = self.get(("env/done", t)).float().unsqueeze(-1)
+                refresh_timestep = ((self.get(("env/timestep", t)) % self.repeat_alpha) == 0).float().unsqueeze(-1)
+                refresh = torch.max(done,refresh_timestep)
+                alphas_old = self.get(("alphas", t-1))
+                alphas =  alphas * refresh + alphas_old * (1 - refresh)
+            self.set(("alphas", t), alphas)
+        elif q_update:
+            if self.resampling_q:
+                T = self.workspace.time_size()
+                B = self.workspace.batch_size()
+                alphas1 =  self.dist.sample(torch.Size([T,B])).to(device)
+                alphas2 =  self.dist2.sample(torch.Size([T,B])).to(device)
+                subspace_selector = (torch.empty(T,B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).to(device)
+                if alphas2.shape[-1] < alphas1.shape[-1]:
+                    alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
+                alphas = subspace_selector * alphas1 * (1 - subspace_selector) * alphas2
                 if isinstance(self.dist,Categorical):
                     alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
                 self.set("alphas_q_update", alphas)

@@ -90,11 +90,12 @@ model:
         time_size: ${model.params.algorithm.params.buffer_time_size}
 
     policy_agent:
-      classname: salina_cl.agents.subspace_agents_sac.ExperimentalSubspaceActionAgent
+      classname: salina_cl.agents.subspace_agents_sac.ExperimentalSubspaceActionAgent_cw
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
+
 
       n_initial_anchors: 1
       dist_type: flat
@@ -102,6 +103,7 @@ model:
       resampling_q: False
       resampling_policy: True
       repeat_alpha: 25
+      new_sub_dist: 0.5
 
     critic_agent:
       classname: salina_cl.agents.subspace_agents_sac.TwinCritics
