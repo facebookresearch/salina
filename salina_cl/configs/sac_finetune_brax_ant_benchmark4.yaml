@@ -27,11 +27,12 @@ model:
     
         optimizer_policy:
           classname: torch.optim.Adam
-          lr: 1e-3
+          lr: 3e-4
+          weight_decay: 0.
     
         optimizer_q:
           classname: torch.optim.Adam
-          lr: 1e-3
+          lr: 3e-4
 
         optimizer_entropy:
           classname: torch.optim.Adam
@@ -43,7 +44,7 @@ model:
         n_processes: 0
   
         reward_scaling: 10.
-        policy_update_delay: 2
+        policy_update_delay: 4
         target_update_delay: 4
         time_limit: 0
         
@@ -51,7 +52,7 @@ model:
         batch_size: 256
 
         init_temperature: 2.
-        target_multiplier: 1.
+        target_multiplier: 2.
        
         clip_grad: 0.
         inner_epochs: ${scenario.n_train_envs}

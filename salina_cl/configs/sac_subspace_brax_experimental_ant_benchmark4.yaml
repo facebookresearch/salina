@@ -1,23 +1,28 @@
-name: sac_finetune
+name: sac_subspace
 seed: 0
 
-defaults:
+defaults: 
   - logger: logger
   - scenario: ant_benchmark
   - hydra: hydra
+  - evaluation: evaluation_subspace
   - override hydra/launcher: submitit_slurm
 
 model:
-  classname: salina_cl.models.models.Baseline
+  classname: salina_cl.models.subspace.Subspace
   seed: ${seed}
   params:
-    checkpoint: False
+    checkpoint: True
     evaluation:
       device: cuda:0
-      seed: ${seed}
       n_evaluation_envs: ${scenario.n_evaluation_envs}
-      n_rollouts: 10
+      seed: 1
+      n_rollouts: 5
+      scale: 89 #For building the triangle 44 -> 1035 / 63 -> 2080 / 89 -> 4095
+      steps: 4095
       evaluate_success: False
+
+    lr_scaling:  0. #scaling of the lr * nb_anchors
     algorithm: 
       classname: salina_cl.algorithms.sac.sac
       params:
@@ -27,11 +32,11 @@ model:
     
         optimizer_policy:
           classname: torch.optim.Adam
-          lr: 1e-3
+          lr: 3e-4
     
         optimizer_q:
           classname: torch.optim.Adam
-          lr: 1e-3
+          lr: 3e-4
 
         optimizer_entropy:
           classname: torch.optim.Adam
@@ -43,7 +48,7 @@ model:
         n_processes: 0
   
         reward_scaling: 10.
-        policy_update_delay: 2
+        policy_update_delay: 4
         target_update_delay: 4
         time_limit: 0
         
@@ -51,7 +56,7 @@ model:
         batch_size: 256
 
         init_temperature: 2.
-        target_multiplier: 1.
+        target_multiplier: 2.
        
         clip_grad: 0.
         inner_epochs: ${scenario.n_train_envs}
@@ -62,15 +67,45 @@ model:
         buffer_size: 1_280_000
         initial_buffer_size: 12_800
 
+    k_shot:
+      classname: salina_cl.algorithms.k_shot.k_shot
+      params:
+        device: cuda:0
+        n_envs: ${scenario.n_train_envs}
+        n_max_interactions: 0
+        n_processes: 0
+        time_size: ${model.params.algorithm.params.buffer_time_size}
+
+
+    alpha_search:
+      classname: salina_cl.algorithms.alpha_search.dual_subspace_estimation
+      params:
+        device: cuda:0
+        n_estimations: 1024
+        steps: 4096
+        scale: 89
+        n_processes: 0
+        n_rollouts: 10
+        improvement_threshold: 0.1
+        time_size: ${model.params.algorithm.params.buffer_time_size}
+
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.MultiActionAgent
+      classname: salina_cl.agents.subspace_agents_sac.ExperimentalSubspaceActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
 
+      n_initial_anchors: 1
+      dist_type: flat
+      refresh_rate: 1.
+      resampling_q: False
+      resampling_policy: True
+      repeat_alpha: 1000
+
     critic_agent:
-      classname: salina_cl.agents.single_agents_sac.TwinCritics
+      classname: salina_cl.agents.subspace_agents_sac.TwinCritics
       hidden_size: 256
       obs_dimension: nil
       action_dimension: nil
+      n_anchors:

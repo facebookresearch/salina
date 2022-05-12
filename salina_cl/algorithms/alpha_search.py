@@ -160,7 +160,7 @@ class dual_subspace_estimation:
             B = self.cfg.n_rollouts
             task._env_agent_cfg["n_envs"] = B
             env_agent = task.make()
-            horizon = 201 if "-v1" in task._env_agent_cfg["make_env_args"]["name"] else 1001
+            horizon = 1001
             alphas = torch.cat([torch.stack([best_alpha for _ in range(B // 2)],dim=0),torch.stack([best_alpha_before_training for _ in range(B - (B // 2))],dim=0)],dim = 0)
             alphas = torch.stack([alphas for _ in range(horizon)], dim=0)
             action_agent.eval()
@@ -254,7 +254,7 @@ class dual_subspace_estimation_cw:
             n_interactions = 0
             task._env_agent_cfg["n_envs"] = 2
             env_agent = task.make()
-            horizon = 201 if "-v1" in task._env_agent_cfg["make_env_args"]["name"] else 1001
+            horizon = 201 
             alphas = torch.cat([best_alpha.unsqueeze(0),best_alpha_before_training.unsqueeze(0)],dim = 0)
             alphas = torch.stack([alphas for _ in range(horizon)], dim=0)
             action_agent.eval()
