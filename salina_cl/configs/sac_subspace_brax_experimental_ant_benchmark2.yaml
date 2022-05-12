@@ -51,8 +51,8 @@ model:
         n_processes: 0
   
         reward_scaling: 1.
-        policy_update_delay: 4
-        target_update_delay: 4
+        policy_update_delay: 2
+        target_update_delay: 2
         time_limit: 0
         
         n_timesteps: 2

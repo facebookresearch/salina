@@ -1,8 +1,5 @@
 name: sac_subspace
 seed: 0
-perf_path: results/test.dat
-save_model: False
-final_evaluation: False
 
 defaults: 
   - logger: logger
@@ -26,6 +23,8 @@ model:
       evaluate_success: False
 
     lr_scaling:  0. #scaling of the lr * nb_anchors
+    algorithm: 
+      classname: salina_cl.algorithms.sac.sac
       params:
         learning_device: cuda:0
         acquisition_device: cuda:0
@@ -76,7 +75,6 @@ model:
         n_max_interactions: 0
         n_processes: 0
         time_size: ${model.params.algorithm.params.buffer_time_size}
-
 
     alpha_search:
       classname: salina_cl.algorithms.alpha_search.dual_subspace_estimation

@@ -30,11 +30,11 @@ model:
     
         optimizer_policy:
           classname: torch.optim.Adam
-          lr: 3e-4
+          lr: 1e-3
     
         optimizer_q:
           classname: torch.optim.Adam
-          lr: 3e-4
+          lr: 1e-3
 
         optimizer_entropy:
           classname: torch.optim.Adam
