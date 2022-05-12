@@ -1,4 +1,4 @@
-name: sac_ewc
+name: sac_l2
 seed: 0
 
 defaults:
@@ -27,11 +27,11 @@ model:
     
         optimizer_policy:
           classname: torch.optim.Adam
-          lr: 3e-4
+          lr: 1e-3
     
         optimizer_q:
           classname: torch.optim.Adam
-          lr: 3e-4
+          lr: 1e-3
 
         optimizer_entropy:
           classname: torch.optim.Adam
@@ -43,7 +43,7 @@ model:
         n_processes: 0
   
         reward_scaling: 1.
-        policy_update_delay: 2
+        policy_update_delay: 4
         target_update_delay: 2
         time_limit: 0
         
@@ -51,7 +51,7 @@ model:
         batch_size: 256
 
         init_temperature: 2.
-        target_multiplier: 1.
+        target_multiplier: 2.
        
         clip_grad: 0.
         inner_epochs: ${scenario.n_train_envs}
@@ -63,19 +63,18 @@ model:
         initial_buffer_size: 12_800
 
     algorithm2:
-      classname: salina_cl.algorithms.regularization.ewc
+      classname: salina_cl.algorithms.regularization.l2
       params:
         device: cuda:0
-        n_samples: 2048
         
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.EWCActionAgent
+      classname: salina_cl.agents.single_agents_sac.L2ActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
       layer_norm: False
-      fisher_coeff: 1. # 0.01,1.,100,10000
+      l2_coeff: 1. # 0.01,1.,100,10000
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics

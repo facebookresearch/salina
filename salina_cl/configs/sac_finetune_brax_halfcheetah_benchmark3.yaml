@@ -31,7 +31,6 @@ model:
         optimizer_policy:
           classname: torch.optim.Adam
           lr: 1e-3
-          weight_decay: 0.
     
         optimizer_q:
           classname: torch.optim.Adam

@@ -1,4 +1,4 @@
-name: sac_ewc
+name: sac_l2
 seed: 0
 
 defaults:
@@ -63,19 +63,18 @@ model:
         initial_buffer_size: 12_800
 
     algorithm2:
-      classname: salina_cl.algorithms.regularization.ewc
+      classname: salina_cl.algorithms.regularization.l2
       params:
         device: cuda:0
-        n_samples: 2048
         
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.EWCActionAgent
+      classname: salina_cl.agents.single_agents_sac.L2ActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
       layer_norm: False
-      fisher_coeff: 1. # 0.01,1.,100,10000
+      l2_coeff: 1. # 0.01,1.,100,10000
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics

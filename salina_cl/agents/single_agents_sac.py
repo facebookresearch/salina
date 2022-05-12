@@ -35,6 +35,12 @@ def EWCActionAgent(input_dimension,output_dimension, hidden_size, fisher_coeff, 
     """
     return CRLAgents(EWCAction(input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
+def L2ActionAgent(input_dimension,output_dimension, hidden_size, l2_coeff, start_steps, layer_norm = False):
+    """
+    L2 regularizer added on the baseline model.
+    """
+    return CRLAgents(L2Action(input_dimension,output_dimension, hidden_size, l2_coeff, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
+
 def TwinCritics(obs_dimension, action_dimension, hidden_size):
     """
     Twin q value functions for SAC algorithm.
@@ -142,6 +148,29 @@ class EWCAction(Action):
            
           
             return (self.fisher_coeff)*sum(losses).view(1).to(list(self.parameters())[0].device)
+        else:
+            return torch.Tensor([0.]).to(list(self.parameters())[0].device)
+
+class L2Action(Action):
+    def __init__(self, input_dimension,output_dimension, hidden_size, l2_coeff, start_steps = 0, input_name = "env/env_obs", layer_norm = False):
+        super().__init__(input_dimension,output_dimension, hidden_size, start_steps, input_name,layer_norm)
+        self.l2_coeff = l2_coeff
+        self.regularize = False
+
+    def register_and_consolidate(self):
+        for name, param in self.model.named_parameters():
+            name = name.replace('.', '_')
+            self.model.register_buffer(f"{name}_mean", param.data.clone())
+        self.regularize = True
+    
+    def add_regularizer(self):
+        if self.regularize:
+            losses = []
+            for name, param in self.model.named_parameters():
+                name = name.replace('.', '_')
+                mean = getattr(self.model, f"{name}_mean")
+                losses.append(((param - mean.detach())**2).sum())
+            return (self.l2_coeff)*sum(losses).view(1).to(list(self.parameters())[0].device)
         else:
             return torch.Tensor([0.]).to(list(self.parameters())[0].device)
 

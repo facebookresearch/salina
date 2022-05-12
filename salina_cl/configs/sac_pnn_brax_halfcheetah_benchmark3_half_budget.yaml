@@ -1,5 +1,8 @@
-name: sac_ewc
+name: sac_pnn
 seed: 0
+perf_path: results/test.dat
+save_model: False
+final_evaluation: False
 
 defaults:
   - logger: logger
@@ -8,17 +11,17 @@ defaults:
   - override hydra/launcher: submitit_slurm
 
 model:
-  classname: salina_cl.models.models.TwoSteps
+  classname: salina_cl.models.models.Baseline
   seed: ${seed}
   params:
-    checkpoint: False
+    checkpoint: True
     evaluation:
       device: cuda:0
       seed: ${seed}
       n_evaluation_envs: ${scenario.n_evaluation_envs}
       n_rollouts: 10
       evaluate_success: False
-    algorithm1: 
+    algorithm: 
       classname: salina_cl.algorithms.sac.sac
       params:
         learning_device: cuda:0
@@ -27,7 +30,7 @@ model:
     
         optimizer_policy:
           classname: torch.optim.Adam
-          lr: 3e-4
+          lr: 1e-3
     
         optimizer_q:
           classname: torch.optim.Adam
@@ -43,8 +46,8 @@ model:
         n_processes: 0
   
         reward_scaling: 1.
-        policy_update_delay: 2
-        target_update_delay: 2
+        policy_update_delay: 4
+        target_update_delay: 4
         time_limit: 0
         
         n_timesteps: 2
@@ -62,20 +65,12 @@ model:
         buffer_size: 1_280_000
         initial_buffer_size: 12_800
 
-    algorithm2:
-      classname: salina_cl.algorithms.regularization.ewc
-      params:
-        device: cuda:0
-        n_samples: 2048
-        
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.EWCActionAgent
+      classname: salina_cl.agents.pnn_agents_sac.PNNActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
-      layer_norm: False
-      fisher_coeff: 1. # 0.01,1.,100,10000
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics
