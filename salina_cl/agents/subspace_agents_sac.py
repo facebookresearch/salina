@@ -321,19 +321,6 @@ class DualAlphaAgent_cw(SubspaceAgent):
         self.repeat_alpha = repeat_alpha
         self.new_sub_dist = new_sub_dist
 
-    #reward tracking
-    def track_reward(self,t = None):
-        if not t is None:
-            if t == 0:
-                r = self.get(("env/reward", t))
-                self.set(("tracking_reward",t),r)
-            elif t > 0:
-                r = self.get(("env/reward", t))
-                old_tracking_reward = self.get(("tracking_reward", t - 1))
-                refresh_timestep = ((self.get(("env/timestep", t - 1)) % self.repeat_alpha) == 0).float()
-                tracking_reward = r + old_tracking_reward * (1 - refresh_timestep)
-                self.set(("tracking_reward",t),tracking_reward)
-
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False,**args):
         device = self.id.device
         if mute_alpha:
@@ -347,9 +334,9 @@ class DualAlphaAgent_cw(SubspaceAgent):
             # Sampling in the new subspace AND the former subspace
             alphas1 =  self.dist.sample(torch.Size([B])).to(device)
             alphas2 =  self.dist2.sample(torch.Size([B])).to(device)
-            subspace_selector = (torch.empty(B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).to(device)
             if alphas2.shape[-1] < alphas1.shape[-1]:
                 alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
+            subspace_selector = (torch.empty(B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).repeat(1,self.n_anchors).to(device)
             alphas = subspace_selector * alphas1 * (1 - subspace_selector) * alphas2
             if isinstance(self.dist,Categorical):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
@@ -366,9 +353,9 @@ class DualAlphaAgent_cw(SubspaceAgent):
                 B = self.workspace.batch_size()
                 alphas1 =  self.dist.sample(torch.Size([T,B])).to(device)
                 alphas2 =  self.dist2.sample(torch.Size([T,B])).to(device)
-                subspace_selector = (torch.empty(T,B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).to(device)
                 if alphas2.shape[-1] < alphas1.shape[-1]:
                     alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
+                subspace_selector = (torch.empty(T,B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).repeat(1,1,self.n_anchors).to(device)
                 alphas = subspace_selector * alphas1 * (1 - subspace_selector) * alphas2
                 if isinstance(self.dist,Categorical):
                     alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()

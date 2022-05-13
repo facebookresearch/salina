@@ -12,7 +12,7 @@ model:
   classname: salina_cl.models.subspace.Subspace
   seed: ${seed}
   params:
-    checkpoint: True
+    checkpoint: False
     evaluation:
       device: cuda:0
       n_evaluation_envs: ${scenario.n_evaluation_envs}
