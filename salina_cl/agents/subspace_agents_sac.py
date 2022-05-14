@@ -94,8 +94,8 @@ class AlphaAgent(SubspaceAgent):
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False, **args):
         device = self.id.device
         self.track_reward(t)
-        if mute_alpha:
-            pass
+        if mute_alpha and t>0:
+            self.set(("alphas", t), self.get(("alphas", t-1)))
         elif (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
@@ -211,7 +211,7 @@ class DualAlphaAgent(SubspaceAgent):
         device = self.id.device
         self.track_reward(t)
         if mute_alpha:
-            pass
+            self.set(("alphas", t), self.get(("alphas", max(t-1,0))))
         elif (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
@@ -323,8 +323,8 @@ class DualAlphaAgent_cw(SubspaceAgent):
 
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False,**args):
         device = self.id.device
-        if mute_alpha:
-            pass
+        if mute_alpha and t>0:
+            self.set(("alphas", t), self.get(("alphas", t-1)))
         elif (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)
@@ -337,7 +337,7 @@ class DualAlphaAgent_cw(SubspaceAgent):
             if alphas2.shape[-1] < alphas1.shape[-1]:
                 alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
             subspace_selector = (torch.empty(B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).repeat(1,self.n_anchors).to(device)
-            alphas = subspace_selector * alphas1 * (1 - subspace_selector) * alphas2
+            alphas = subspace_selector * alphas1 + (1 - subspace_selector) * alphas2
             if isinstance(self.dist,Categorical):
                 alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
             if t > 0 and self.repeat_alpha > 1:
@@ -356,7 +356,7 @@ class DualAlphaAgent_cw(SubspaceAgent):
                 if alphas2.shape[-1] < alphas1.shape[-1]:
                     alphas2 = torch.cat([alphas2,torch.zeros(*alphas2.shape[:-1],1).to(device)],dim=-1)
                 subspace_selector = (torch.empty(T,B).uniform_(0, 1) <= self.new_sub_dist).float().unsqueeze(-1).repeat(1,1,self.n_anchors).to(device)
-                alphas = subspace_selector * alphas1 * (1 - subspace_selector) * alphas2
+                alphas = subspace_selector * alphas1 + (1 - subspace_selector) * alphas2
                 if isinstance(self.dist,Categorical):
                     alphas = F.one_hot(alphas,num_classes = self.n_anchors).float()
                 self.set("alphas_q_update", alphas)

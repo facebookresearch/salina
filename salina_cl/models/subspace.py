@@ -164,7 +164,7 @@ class Subspace(Model):
     def _evaluate_single_task(self,task,logger):
         metrics={}
         env_agent = task.make()
-        policy_agent, critic_agent =self.get_evaluation_agent(task.task_id())
+        policy_agent, _ =self.get_evaluation_agent(task.task_id())
 #
         #best_alpha = policy_agent[0].best_alpha.to(self.cfg.evaluation.device)
         #logger.message("Best alpha for task "+str(task._task_id)+":"+str(best_alpha.tolist()))
@@ -204,31 +204,30 @@ class Subspace(Model):
         best_alpha_train = policy_agent[0].best_alpha.to(self.cfg.evaluation.device)
         best_alpha_train = torch.cat([best_alpha_train,torch.zeros(alphas.shape[-1] - best_alpha_train.shape[-1]).to(self.cfg.evaluation.device)], dim = 0)
         alphas = torch.cat([best_alpha_train.unsqueeze(0),alphas],dim = 0)
-        policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
         policy_agent.eval()
         oracle_task = copy.deepcopy(task)
         oracle_task._env_agent_cfg["n_envs"] = alphas.shape[0]
         env_agent = oracle_task.make()
         no_autoreset = EpisodesDone()
         acquisition_agent = TemporalAgent(Agents(env_agent, no_autoreset, policy_agent)).to(self.cfg.evaluation.device)
-        critic_agent.eval().to(self.cfg.evaluation.device)
+        #critic_agent.eval().to(self.cfg.evaluation.device)
         acquisition_agent.seed(self.seed*13+self._stage*100)
         rewards = []
-        values = []
+        #values = []
         w = Workspace()
-        w.set_full("alphas",torch.stack([alphas for _ in range(1001)],dim=0))
+        w.set("alphas",0,alphas)
         for i in range(self.cfg.evaluation.n_rollouts):
             with torch.no_grad():
-                acquisition_agent(w, t = 0, stop_variable = "env/done")
-                critic_agent(w)
+                acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
+                #critic_agent(w)
             ep_lengths= w["env/done"].max(0)[1]+1
             B = ep_lengths.size()[0]
             arange = torch.arange(B).to(ep_lengths.device)
             cr = w["env/cumulated_reward"][ep_lengths-1,arange]
             rewards.append(cr)
-            values.append(w["q1"].mean(0))
+            #values.append(w["q1"].mean(0))
         rewards = torch.stack(rewards, dim = 0).mean(0)
-        values = torch.stack(values, dim = 0).mean(0)
+        #values = torch.stack(values, dim = 0).mean(0)
         #if alphas.shape[-1] == 2:
         #    logger_images = logger.get_logger("")
         #    logger_images.prefix = "stage_"+str(policy_agent[0].n_anchors - 1)+"/task_"+str(task.task_id())
@@ -246,7 +245,7 @@ class Subspace(Model):
         metrics["best_alpha/avg_reward"] = rewards[0].item()
         metrics["avg_reward"] = rewards.mean().item()
         metrics["oracle/avg_reward"] = rewards.max().item()
-        metrics["value/avg_reward"] = rewards[values.argmax()].item()
+        #metrics["value/avg_reward"] = rewards[values.argmax()].item()
         metrics["midpoint/avg_reward"] = rewards[1].item()
         metrics["last_anchor/avg_reward"] = rewards[-1].item()
         del w

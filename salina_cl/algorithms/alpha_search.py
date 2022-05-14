@@ -160,9 +160,7 @@ class dual_subspace_estimation:
             B = self.cfg.n_rollouts
             task._env_agent_cfg["n_envs"] = B
             env_agent = task.make()
-            horizon = 1001
             alphas = torch.cat([torch.stack([best_alpha for _ in range(B // 2)],dim=0),torch.stack([best_alpha_before_training for _ in range(B - (B // 2))],dim=0)],dim = 0)
-            alphas = torch.stack([alphas for _ in range(horizon)], dim=0)
             action_agent.eval()
             acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
@@ -171,7 +169,7 @@ class dual_subspace_estimation:
             else:
                 w = Workspace()
             with torch.no_grad():
-                w.set_full("alphas",alphas)
+                w.set("alphas",0,alphas)
                 acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
             length = w["env/done"].max(0)[1]
             
@@ -254,21 +252,19 @@ class dual_subspace_estimation_cw:
             n_interactions = 0
             task._env_agent_cfg["n_envs"] = 2
             env_agent = task.make()
-            horizon = 201 
             alphas = torch.cat([best_alpha.unsqueeze(0),best_alpha_before_training.unsqueeze(0)],dim = 0)
-            alphas = torch.stack([alphas for _ in range(horizon)], dim=0)
             action_agent.eval()
             acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
             if self.cfg.n_processes > 1:
-                acquisition_agent, w = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size = horizon, n_steps = horizon )
+                acquisition_agent, w = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size = 201, n_steps = 201 )
             else:
                 w = Workspace()
             best_reward = []
             best_reward_before_training = []
             for i in range(self.cfg.n_rollouts):
                 with torch.no_grad():
-                    w.set_full("alphas",alphas)
+                    w.set("alphas",0,alphas)
                     acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
                 length = w["env/done"].max(0)[1]
                 
