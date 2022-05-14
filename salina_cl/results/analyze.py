@@ -175,10 +175,9 @@ def extract_metrics(logs, keyword = ""):
         for task in range(n_tasks):
             for stage in range(n_tasks):
                 r_name ="evaluation/"+str(task)+keyword+"/avg_reward"
-                
                 d = df[(df["iteration"] == stage) & (df["seed"] == seed)]
                 try:
-                    memory[seed,stage] = d["evaluation/memory/n_parameters"]
+                    memory[seed,stage] = d["evaluation/memory/n_parameters"] / 140812.
                 except:
                     memory[seed,stage] = 0
                 try:

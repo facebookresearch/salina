@@ -1,8 +1,5 @@
 name: sac_finetune
 seed: 0
-perf_path: results/test.dat
-save_model: False
-final_evaluation: False
 
 defaults:
   - logger: logger

@@ -55,20 +55,23 @@ class Action(CRLAgent):
         self.iname = input_name
         self.task_id = 0
         self.output_dimension = output_dimension[0]
-        hs = hidden_size
+        self.hs = hidden_size
         self.input_size = input_dimension[0]
+        self.layer_norm = layer_norm
         
-        self.model = nn.Sequential(
-            nn.Linear(self.input_size,hs),
-            nn.LayerNorm(hs) if layer_norm else nn.Identity(),
-            nn.Tanh(),
-            nn.Linear(hs,hs),
-            nn.LeakyReLU(negative_slope=0.2),
-            nn.Linear(hs,hs),
-            nn.LeakyReLU(negative_slope=0.2),
-            nn.Linear(hs,self.output_dimension * 2),
-        )
-        self.model = nn.ModuleList([self.model])
+        self.model = nn.ModuleList([self.make_model()])
+
+    def make_model(self):
+        return nn.Sequential(
+        nn.Linear(self.input_size,self.hs),
+        nn.LayerNorm(self.hs) if self.layer_norm else nn.Identity(),
+        nn.Tanh(),
+        nn.Linear(self.hs,self.hs),
+        nn.LeakyReLU(negative_slope=0.2),
+        nn.Linear(self.hs,self.hs),
+        nn.LeakyReLU(negative_slope=0.2),
+        nn.Linear(self.hs,self.output_dimension * 2),
+    )
 
     def forward(self, t = None, **kwargs):
         model_id = min(self.task_id,len(self.model) - 1)
@@ -112,7 +115,7 @@ class MultiAction(Action):
 class FromscratchAction(Action):
     def set_task(self,task_id = None):
         if task_id is None:
-            self.model.append(copy.deepcopy(self.model[-1]).__init__())
+            self.model.append(self.make_model())
             self.task_id = len(self.model) - 1
         else:
             self.task_id = task_id
