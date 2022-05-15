@@ -3,7 +3,7 @@ seed: 0
 
 defaults: 
   - logger: logger
-  - scenario: cw3
+  - scenario: cw10
   - hydra: hydra
   - evaluation: evaluation_subspace
   - override hydra/launcher: submitit_slurm

@@ -120,7 +120,7 @@ def generate_memory_table_html(memory,normalizing = False):
     results.append("</table>")
     return "".join(results)
 
-def generate_key_metrics_html(rewards,normalizing = False):
+def generate_key_metrics_html(rewards, ref_data, normalizing = False):
     
     results=["<h3>Key metrics</h3>"]
     results.append("<ul>")
@@ -129,11 +129,12 @@ def generate_key_metrics_html(rewards,normalizing = False):
     final_avg_perf_std = round(rewards[:,:,-1].mean(-1).std(),0)
     results.append("<li><b>Final average perf</b> ="+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></li>")
 
-    forward = np.zeros((rewards.shape[0],))
-    for i,r in enumerate(rewards):
-        forward[i] = round(r.T[np.triu_indices(r.shape[0], k = 1)].mean(),0)
-    forward_mean = round(forward.mean(),2)
-    forward_std = round(forward.std(),2)
+    if normalizing:
+        forward = np.zeros((rewards.shape[0],))
+        for i,r in enumerate(rewards):
+            forward[i] = round(((r.diagonal() - ref_data) / ref_data).mean(),2) if normalizing else round((r.diagonal() - ref_data).mean(),1)
+        forward_mean = round(forward.mean(),2)
+        forward_std = round(forward.std(),2)
     results.append("<li><b>Forward Transfer</b> ="+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></li>")
     backward = np.zeros((rewards.shape[0],))
     for i,r in enumerate(rewards):

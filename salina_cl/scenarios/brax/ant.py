@@ -19,7 +19,7 @@ def ant_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     For debugging
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","tinyfoot_rainfall","hugetorso"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","tinyfoot_rainfall","hugetorso","normal"])
 
 ######################################################################################################
 ################################### Pathological scenarios ###########################################
@@ -47,6 +47,31 @@ def ant_benchmark4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     Skills Combination: task0 / task1 / distraction / task0 + task1
     """
     return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["disabled_hard1","disabled_hard2","disabled_forefeet","disabled_backfeet"])
+
+
+def ant_benchmark5(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    ant_benchmark1 x 2
+    """
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["damping","hugefoot","spring_rainfall","moon"] * 2)
+
+def ant_benchmark6(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    ant_benchmark2 x 2
+    """
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["disabled_first_diagonal","disabled_second_diagonal","disabled_forefeet","disabled_backfeet"] * 2)
+
+def ant_benchmark7(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    ant_benchmark3 x 2
+    """
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"] * 2)
+
+def ant_benchmark8(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+    """
+    ant_benchmark4 x 2
+    """
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["disabled_hard1","disabled_hard2","disabled_forefeet","disabled_backfeet"] * 2)
 
 ######################################################################################################
 ######################################################################################################
