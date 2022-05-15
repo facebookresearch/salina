@@ -129,12 +129,11 @@ def generate_key_metrics_html(rewards, ref_data, normalizing = False):
     final_avg_perf_std = round(rewards[:,:,-1].mean(-1).std(),0)
     results.append("<li><b>Final average perf</b> ="+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></li>")
 
-    if normalizing:
-        forward = np.zeros((rewards.shape[0],))
-        for i,r in enumerate(rewards):
-            forward[i] = round(((r.diagonal() - ref_data) / ref_data).mean(),2) if normalizing else round((r.diagonal() - ref_data).mean(),1)
-        forward_mean = round(forward.mean(),2)
-        forward_std = round(forward.std(),2)
+    forward = np.zeros((rewards.shape[0],))
+    for i,r in enumerate(rewards):
+        forward[i] = round(((r.diagonal() - ref_data.diagonal()) / ref_data.diagonal()).mean(),2) if not normalizing else round((r.diagonal() - 1.).mean(),1)
+    forward_mean = round(forward.mean(),2)
+    forward_std = round(forward.std(),2)
     results.append("<li><b>Forward Transfer</b> ="+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></li>")
     backward = np.zeros((rewards.shape[0],))
     for i,r in enumerate(rewards):
@@ -320,22 +319,27 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     normalizing = not (normalize_data is None)
     display(HTML("<h2>"+("_"*100)+"</h2>"))
     for i,best_id in enumerate(best_ids[:top_k]):
-        rewards, memory,hps = extract_metrics(d_logs[best_id], keyword)
-        #Generate HTML
-        display(HTML("<h2>#"+str(i+1)+"</h2>"))
-        h = generate_key_metrics_html(rewards)
-        display(HTML(h))
-        h = generate_reward_table_html(rewards)
-        display(HTML(h))
         if normalizing:
             with open(normalize_data, "rb") as f:
                 d = pickle.load(f)
-            n_seeds = rewards.shape[0]
-            random_rewards = np.stack([d["random_rewards"] for _ in range(n_seeds)])
-            baseline_rewards = np.stack([d["baseline_rewards"] for _ in range(n_seeds)])
-            normalized_rewards = (rewards - random_rewards) / (baseline_rewards - random_rewards)
-            h = generate_reward_table_html(normalized_rewards,normalizing)
-            display(HTML(h))
+        else:
+            with open("halfcheetah_benchmark1.pkl", "rb") as f:
+                d = pickle.load(f)
+        rewards, memory,hps = extract_metrics(d_logs[best_id], keyword)
+        #Generate HTML
+        display(HTML("<h2>#"+str(i+1)+"</h2>"))
+        h = generate_key_metrics_html(rewards,d["baseline_rewards"])
+        display(HTML(h))
+        h = generate_reward_table_html(rewards)
+        display(HTML(h))
+        n_seeds = rewards.shape[0]
+        random_rewards = np.stack([d["random_rewards"] for _ in range(n_seeds)])
+        baseline_rewards = np.stack([d["baseline_rewards"] for _ in range(n_seeds)])
+        normalized_rewards = (rewards - random_rewards) / (baseline_rewards - random_rewards)
+        h = generate_key_metrics_html(normalized_rewards,d["baseline_rewards"],normalizing = True)
+        display(HTML(h))
+        h = generate_reward_table_html(normalized_rewards,normalizing)
+        display(HTML(h))
         h = generate_memory_table_html(memory,False)
         display(HTML(h))
         h = generate_hps_html(hps)

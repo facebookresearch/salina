@@ -101,7 +101,7 @@ class sac:
                         logger.add_scalar("validation/success_rate", success_rate, epoch)
                     if "env/goalDist" in w.variables:
                         goalDist = w["env/goalDist"][length, arange].mean().item()
-                        logger.add_scalar("monitor/goalDist", goalDist, epoch)
+                        logger.add_scalar("validation/goalDist", goalDist, epoch)
     
                 mean_reward=np.mean(rewards)
                 logger.add_scalar("validation/reward", mean_reward, epoch)
@@ -124,9 +124,9 @@ class sac:
                 if "env/success" in acquisition_workspace.variables:
                     success_rate = acquisition_workspace["env/success"][done].mean().item()
                     logger.add_scalar("monitor/success_rate", success_rate, epoch)
-                if "env/goalDist" in acquisition_workspace.variables:
-                    goalDist = acquisition_workspace["env/goalDist"][done].mean().item()
-                    logger.add_scalar("monitor/goalDist", goalDist, epoch)
+                #if "env/goalDist" in acquisition_workspace.variables:
+                #    goalDist = acquisition_workspace["env/goalDist"][done].mean().item()
+                #    logger.add_scalar("monitor/goalDist", goalDist, epoch)
             #logger.add_scalar("monitor/replay_buffer_size", replay_buffer.size(), epoch)
     
             n_interactions += (acquisition_workspace.time_size() - 1) * acquisition_workspace.batch_size()
@@ -205,15 +205,15 @@ class sac:
             #logger.add_scalar("monitor/epoch_time", _et_inner_epoch - _st_inner_epoch,epoch)
             epoch += 1
 
-            if isinstance(action_agent,SubspaceAgents):
-                L2_norms = action_agent[-1].L2_norms()
-                cosine_similarities = action_agent[-1].cosine_similarities()
-                for layer in L2_norms:
-                    for penalty in L2_norms[layer]:
-                        logger.add_scalar("L2_norm/"+layer+"/"+penalty,L2_norms[layer][penalty],epoch)
-                for layer in cosine_similarities:
-                    for penalty in cosine_similarities[layer]:
-                        logger.add_scalar("Cos_sim/"+layer+"/"+penalty,cosine_similarities[layer][penalty],epoch)
+            #if isinstance(action_agent,SubspaceAgents):
+            #    L2_norms = action_agent[-1].L2_norms()
+            #    cosine_similarities = action_agent[-1].cosine_similarities()
+            #    for layer in L2_norms:
+            #        for penalty in L2_norms[layer]:
+            #            logger.add_scalar("L2_norm/"+layer+"/"+penalty,L2_norms[layer][penalty],epoch)
+            #    for layer in cosine_similarities:
+            #        for penalty in cosine_similarities[layer]:
+            #            logger.add_scalar("Cos_sim/"+layer+"/"+penalty,cosine_similarities[layer][penalty],epoch)
 
             if n_interactions > n_max_interactions:
                 logger.message("== Maximum interactions reached")

@@ -323,8 +323,8 @@ class DualAlphaAgent_cw(SubspaceAgent):
 
     def forward(self, t = None, force_random = False, q_update = False, policy_update = False, mute_alpha = False,**args):
         device = self.id.device
-        if mute_alpha and t>0:
-            self.set(("alphas", t), self.get(("alphas", t-1)))
+        if mute_alpha:
+            self.set(("alphas", t), self.get(("alphas", max(t-1,0))))
         elif (not self.training) and (not force_random):
             B = self.workspace.batch_size()
             alphas = self.best_alpha.unsqueeze(0).repeat(B,1).to(device)

@@ -9,6 +9,7 @@ import torch
 from salina_cl.agents.tools import LinearSubspace
 from torch.distributions.dirichlet import Dirichlet
 from salina.agents import Agents, TemporalAgent
+from salina.agents.brax import EpisodesDone
 from salina import Workspace
 from salina.agents.remote import NRemoteAgent
 from ternary.helpers import simplex_iterator
@@ -155,14 +156,15 @@ class dual_subspace_estimation:
             
 
             # Validating best alpha through rollout
-            logger.message("Evaluating the two best alphas...")  
+            logger.message("Evaluating the two best alphas...")
             n_interactions = 0
             B = self.cfg.n_rollouts
             task._env_agent_cfg["n_envs"] = B
             env_agent = task.make()
+            no_autoreset = EpisodesDone()
             alphas = torch.cat([torch.stack([best_alpha for _ in range(B // 2)],dim=0),torch.stack([best_alpha_before_training for _ in range(B - (B // 2))],dim=0)],dim = 0)
             action_agent.eval()
-            acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
+            acquisition_agent = TemporalAgent(Agents(env_agent, no_autoreset, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
             if self.cfg.n_processes > 1:
                 acquisition_agent, w = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size=self.cfg.n_timesteps, n_steps=1)
@@ -171,7 +173,9 @@ class dual_subspace_estimation:
             with torch.no_grad():
                 w.set("alphas",0,alphas)
                 acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
+            logger.message("Acquisition ended") 
             length = w["env/done"].max(0)[1]
+            print("---length:\n",length)
             
             n_interactions += length.sum().item()
             arange = torch.arange(length.size()[0], device=length.device)
@@ -252,9 +256,10 @@ class dual_subspace_estimation_cw:
             n_interactions = 0
             task._env_agent_cfg["n_envs"] = 2
             env_agent = task.make()
+            no_autoreset = EpisodesDone()
             alphas = torch.cat([best_alpha.unsqueeze(0),best_alpha_before_training.unsqueeze(0)],dim = 0)
             action_agent.eval()
-            acquisition_agent = TemporalAgent(Agents(env_agent, action_agent)).to(self.cfg.device)
+            acquisition_agent = TemporalAgent(Agents(env_agent, no_autoreset, action_agent)).to(self.cfg.device)
             acquisition_agent.seed(seed)
             if self.cfg.n_processes > 1:
                 acquisition_agent, w = NRemoteAgent.create(acquisition_agent, num_processes=self.cfg.n_processes, time_size = 201, n_steps = 201 )
@@ -266,6 +271,7 @@ class dual_subspace_estimation_cw:
                 with torch.no_grad():
                     w.set("alphas",0,alphas)
                     acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
+                logger.message("Acquisition ended")
                 length = w["env/done"].max(0)[1]
                 
                 n_interactions += length.sum().item()
