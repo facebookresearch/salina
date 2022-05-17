@@ -1,12 +1,9 @@
 name: sac_finetune
 seed: 0
-perf_path: results/test.dat
-save_model: False
-final_evaluation: False
 
 defaults:
   - logger: logger
-  - scenario: cw3
+  - scenario: cw10
   - hydra: hydra
   - evaluation: evaluation_subspace
   - override hydra/launcher: submitit_slurm
@@ -15,11 +12,11 @@ model:
   classname: salina_cl.models.models.Baseline
   seed: ${seed}
   params:
-    checkpoint: True
+    checkpoint: False
     evaluation:
       device: cpu
       seed: ${seed}
-      n_rollouts: 5
+      n_rollouts: 20
       evaluate_success: False
     reset_critic_on_task_change: False
     algorithm:
