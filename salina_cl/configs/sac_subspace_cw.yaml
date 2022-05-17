@@ -52,7 +52,7 @@ model:
         target_update_delay: 2
         time_limit: 0
         
-        n_timesteps: 25  ## burning timesteps
+        n_timesteps: 50  ## burning timesteps
         batch_size: 128   ## 128 ,256,512
 
         init_temperature: 2.7

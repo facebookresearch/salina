@@ -51,7 +51,7 @@ model:
         target_update_delay: 2
         time_limit: 0
         
-        n_timesteps: 50  ## burning timesteps
+        n_timesteps: 25  ## burning timesteps
         batch_size: 128   ## 128 ,256,512
 
         init_temperature: 2.7
@@ -67,7 +67,7 @@ model:
         initial_buffer_size: 1_000
 
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.ActionAgent
+      classname: salina_cl.agents.single_agents_sac.MultiActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
