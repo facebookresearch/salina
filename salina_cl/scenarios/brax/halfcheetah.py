@@ -74,6 +74,31 @@ def halfcheetah_benchmark8(n_train_envs,n_evaluation_envs,n_steps, repeat_scenar
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * 2)
 
+
+def halfcheetah_benchmark9(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
+    """
+    Benchmark 1 repeated 3 times
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"] * 3)
+
+def halfcheetah_benchmark10(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
+    """
+    Benchmark 2 repeated 3 times
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"] * 3)
+
+def halfcheetah_benchmark11(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
+    """
+    Benchmark 3 repeated 3 times
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"] * 3)
+
+def halfcheetah_benchmark12(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
+    """
+    Benchmark 4 repeated 3 times
+    """
+    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * 3)
+
 ######################################################################################################
 ######################################################################################################
 

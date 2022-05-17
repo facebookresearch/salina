@@ -85,6 +85,8 @@ def stylify(r,normalizing = False):
 
 def generate_memory_table_html(memory,normalizing = False):
     
+    if normalizing:
+        memory /= 140812. #number of parameters for a single policy
     n = memory.shape[-1]
     if n > 1:
         memory_mean = memory.mean(0)
@@ -125,23 +127,58 @@ def generate_key_metrics_html(rewards, ref_data, normalizing = False):
     results=["<h3>Key metrics</h3>"]
     results.append("<ul>")
 
-    final_avg_perf_mean = round(rewards[:,:,-1].mean(),0)
-    final_avg_perf_std = round(rewards[:,:,-1].mean(-1).std(),0)
+    final_avg_perf_mean = int(rewards[:,:,-1].mean()) if not normalizing else round(rewards[:,:,-1].mean(),2)
+    final_avg_perf_std = int(rewards[:,:,-1].mean(-1).std()) if not normalizing else round(rewards[:,:,-1].mean(-1).std(),2)
     results.append("<li><b>Final average perf</b> ="+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></li>")
 
     forward = np.zeros((rewards.shape[0],))
     for i,r in enumerate(rewards):
-        forward[i] = round(((r.diagonal() - ref_data.diagonal()) / ref_data.diagonal()).mean(),2) if not normalizing else round((r.diagonal() - 1.).mean(),1)
-    forward_mean = round(forward.mean(),2)
-    forward_std = round(forward.std(),2)
+        forward[i] = round(((r.diagonal() - ref_data.diagonal())).mean(),2) if not normalizing else round((r.diagonal() - 1.).mean(),2)
+    forward_mean = int(forward.mean()) if not normalizing else round(forward.mean(),2)
+    forward_std = int(forward.std()) if not normalizing else round(forward.std(),2)
     results.append("<li><b>Forward Transfer</b> ="+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></li>")
     backward = np.zeros((rewards.shape[0],))
     for i,r in enumerate(rewards):
         backward[i] = round((r[:,-1] - r.diagonal()).mean(),2)
-    backward_mean = round(backward.mean(),2)
-    backward_std = round(backward.std(),2)
+    backward_mean = int(backward.mean()) if not normalizing else round(backward.mean(),2)
+    backward_std = int(backward.std()) if not normalizing else round(backward.std(),2)
     results.append("<li><b>Forgetting</b> ="+str(backward_mean)+" <small><i>± "+str(backward_std)+"</i></small></li>")
+    results.append("<li><b>Perf per seed:</b></li>")
+    results.append("<table>")
+    results.append("<tr>")
+    for r in rewards:
+        results.append("<td>"+str(round(r[:,-1].mean(),2))+"</td>")
     results.append("</ul>")
+    results.append("</tr>")
+    #results.append("<table>")
+    #n,_=reward_mean.shape
+    #
+    #results.append("<tr><td>Task \\ Stage </td>")
+    #for stage in range(n): results.append("<td><b>"+str(stage)+"</b></td>")
+    #results.append("</tr>")
+    #    
+    #for task in range(n):
+    #    results.append("<tr><td><b>"+str(task)+"</b></td>")
+    #    for stage in range(n): 
+    #        r = stylify(reward_mean[task][stage],normalizing)
+    #        rs = str(round(reward_std[task][stage],normalizing))
+    #        if rs != 0:
+    #            results.append("<td>"+r+" <small><i>± "+rs+"</i></small></td>")
+    #        else:
+    #            results.append("<td>"+r)
+    #    results.append("</tr>")
+    #results.append("</table>")
+    #return "".join(results)
+    results.append("<table>")
+    results.append("<tr>")
+    results.append("<td>"+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></td>")
+    results.append("<td>"+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></td>")
+    results.append("<td>"+str(backward_mean)+" <small><i>± "+str(backward_std)+"</i></small></td>")
+    results.append("</tr>")
+
+    results.append("</table>")
+
+
     return "".join(results)
 
 
@@ -177,7 +214,7 @@ def extract_metrics(logs, keyword = ""):
                 r_name ="evaluation/"+str(task)+keyword+"/avg_reward"
                 d = df[(df["iteration"] == stage) & (df["seed"] == seed)]
                 try:
-                    memory[seed,stage] = d["evaluation/memory/n_parameters"] / 140812.
+                    memory[seed,stage] = d["evaluation/memory/n_parameters"]
                 except:
                     memory[seed,stage] = 0
                 try:
@@ -328,9 +365,12 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
         rewards, memory,hps = extract_metrics(d_logs[best_id], keyword)
         #Generate HTML
         display(HTML("<h2>#"+str(i+1)+"</h2>"))
+        display(HTML("<h4>id:"+str(best_id)+"</h4>"))
         h = generate_key_metrics_html(rewards,d["baseline_rewards"])
         display(HTML(h))
         h = generate_reward_table_html(rewards)
+        display(HTML(h))
+        h = generate_memory_table_html(memory,False)
         display(HTML(h))
         n_seeds = rewards.shape[0]
         random_rewards = np.stack([d["random_rewards"] for _ in range(n_seeds)])
@@ -340,7 +380,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
         display(HTML(h))
         h = generate_reward_table_html(normalized_rewards,normalizing)
         display(HTML(h))
-        h = generate_memory_table_html(memory,False)
+        h = generate_memory_table_html(memory,True)
         display(HTML(h))
         h = generate_hps_html(hps)
         display(HTML(h))

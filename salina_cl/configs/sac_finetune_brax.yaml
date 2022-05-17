@@ -66,12 +66,11 @@ model:
         initial_buffer_size: 12_800
 
     policy_agent:
-      classname: salina_cl.agents.single_agents_sac.MultiActionAgent
+      classname: salina_cl.agents.single_agents_sac.FromscratchActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
-      layer_norm: False
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics

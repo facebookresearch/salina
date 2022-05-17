@@ -276,14 +276,14 @@ class dual_subspace_estimation_cw:
                 
                 n_interactions += length.sum().item()
                 arange = torch.arange(length.size()[0], device=length.device)
-                best_reward.append(w["env/cumulated_reward"][length, arange][0].unsqueeze(0))
-                best_reward_before_training.append(w["env/cumulated_reward"][length, arange][1].unsqueeze(0))
+                best_reward.append(w["env/success"][length, arange][0].unsqueeze(0))
+                best_reward_before_training.append(w["env/success"][length, arange][1].unsqueeze(0))
             best_reward = torch.cat(best_reward).mean()
             best_reward_before_training = torch.cat(best_reward_before_training).mean()
 
             # Deciding to keep the anchor or not
-            logger.message("best_reward = "+str(round(best_reward.item(),0))) 
-            logger.message("best_reward_before_training = "+str(round(best_reward_before_training.item(),0))) 
+            logger.message("best_success = "+str(round(best_reward.item(),0))) 
+            logger.message("best_success_before_training = "+str(round(best_reward_before_training.item(),0))) 
             logger.message("threshold = "+str(round(best_reward_before_training.item() * (1 + self.cfg.improvement_threshold),0)))
             if best_reward < best_reward_before_training * (1 + self.cfg.improvement_threshold):
                 action_agent.set_best_alpha(alpha = best_alpha_before_training, logger=logger)

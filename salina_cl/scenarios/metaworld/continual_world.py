@@ -43,6 +43,46 @@ TASK_SEQS = {
         "window-close-v1",
         "peg-unplug-side-v1",
     ],
+    "T1": [
+        "push-v1",
+        "window-close-v1",
+        "hammer-v1",
+    ],
+    "T2": [
+        "hammer-v1",
+        "window-close-v1",
+        "faucet-close-v1",
+    ],
+    "T3": [
+        "stick-pull-v1",
+        "push-back-v1",
+        "push-wall-v1",
+    ],
+    "T4": [
+        "push-wall-v1",
+        "shelf-place-v1",
+        "push-back-v1",
+    ],
+    "T5": [
+        "faucet-close-v1",
+        "shelf-place-v1",
+        "push-back-v1",
+    ],
+    "T6": [
+        "stick-pull-v1",
+        "peg-unplug-side-v1",
+        "stick-pull-v1",
+    ],
+    "T7": [
+        "window-close-v1",
+        "handle-press-side-v1",
+        "peg-unplug-side-v1",
+    ],
+    "T8": [
+        "faucet-close-v1",
+        "shelf-place-v1",
+        "peg-unplug-side-v1",
+    ],
 }
 TASK_SEQS["CW20"] = TASK_SEQS["CW10"] + TASK_SEQS["CW10"]
 META_WORLD_TIME_HORIZON = 200
