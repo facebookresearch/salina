@@ -175,7 +175,6 @@ class dual_subspace_estimation:
                 acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
             logger.message("Acquisition ended") 
             length = w["env/done"].max(0)[1]
-            print("---length:\n",length)
             
             n_interactions += length.sum().item()
             arange = torch.arange(length.size()[0], device=length.device)

@@ -17,7 +17,7 @@ model:
       device: cpu
       n_evaluation_envs: ${scenario.n_evaluation_envs}
       seed: 1
-      n_rollouts: 5
+      n_rollouts: 20
       scale: 1 #89 #For building the triangle 44 -> 1035 / 63 -> 2080 / 89 -> 4095
       steps: 1 #4095
       evaluate_success: True
@@ -85,7 +85,7 @@ model:
         steps: 4096
         scale: 89
         n_processes: 1
-        n_rollouts: 5
+        n_rollouts: 20
         improvement_threshold: 0.1
         time_size: ${model.params.algorithm.params.buffer_time_size}
 
