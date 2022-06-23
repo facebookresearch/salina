@@ -86,7 +86,7 @@ def stylify(r,normalizing = False):
 def generate_memory_table_html(memory,normalizing = False):
     
     if normalizing:
-        memory /= 140812. #number of parameters for a single policy
+        memory /= 142864# 140812. Halfcheetah / 142864. Ant #number of parameters for a single policy
     n = memory.shape[-1]
     if n > 1:
         memory_mean = memory.mean(0)
@@ -118,8 +118,14 @@ def generate_memory_table_html(memory,normalizing = False):
                 results.append("<td>"+r)
         except:
             continue
-    results.append("</tr>")
-    results.append("</table>")
+    if normalizing:
+        results.append("<table>")
+        results.append("<tr>")
+        for m in memory:
+            results.append("<td>"+str(round(m[-1],2))+"</td>")
+
+        results.append("</tr>")
+        results.append("</table>")
     return "".join(results)
 
 def generate_key_metrics_html(rewards, ref_data, normalizing = False):
@@ -127,29 +133,44 @@ def generate_key_metrics_html(rewards, ref_data, normalizing = False):
     results=["<h3>Key metrics</h3>"]
     results.append("<ul>")
 
-    final_avg_perf_mean = int(rewards[:,:,-1].mean()) if not normalizing else round(rewards[:,:,-1].mean(),2)
-    final_avg_perf_std = int(rewards[:,:,-1].mean(-1).std()) if not normalizing else round(rewards[:,:,-1].mean(-1).std(),2)
+    final_avg_perf_mean = rewards[:,:,-1].mean()
+    final_avg_perf_mean = int(final_avg_perf_mean) if abs(final_avg_perf_mean) > 10 else round(final_avg_perf_mean,2)
+    final_avg_perf_std = rewards[:,:,-1].mean(-1).std()
+    final_avg_perf_std = int(final_avg_perf_std) if abs(final_avg_perf_std) > 10 else round(final_avg_perf_std,2)
     results.append("<li><b>Final average perf</b> ="+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></li>")
 
     forward = np.zeros((rewards.shape[0],))
     for i,r in enumerate(rewards):
         forward[i] = round(((r.diagonal() - ref_data.diagonal())).mean(),2) if not normalizing else round((r.diagonal() - 1.).mean(),2)
-    forward_mean = int(forward.mean()) if not normalizing else round(forward.mean(),2)
-    forward_std = int(forward.std()) if not normalizing else round(forward.std(),2)
+    forward_mean = forward.mean()
+    forward_mean = int(forward_mean) if abs(forward_mean) > 10 else round(forward_mean,2)
+    forward_std = forward.std()
+    forward_std = int(forward_std) if abs(forward_std) > 10 else round(forward_std,2)
     results.append("<li><b>Forward Transfer</b> ="+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></li>")
     backward = np.zeros((rewards.shape[0],))
     for i,r in enumerate(rewards):
         backward[i] = round((r[:,-1] - r.diagonal()).mean(),2)
-    backward_mean = int(backward.mean()) if not normalizing else round(backward.mean(),2)
-    backward_std = int(backward.std()) if not normalizing else round(backward.std(),2)
+    backward_mean = backward.mean()
+    backward_mean = int(backward_mean) if abs(backward_mean) > 10 else round(backward_mean,2)
+    backward_mean = backward.mean()
+    backward_std = backward.std()
+    backward_std = int(backward_std) if abs(backward_std) > 10 else round(backward_std,2)
     results.append("<li><b>Forgetting</b> ="+str(backward_mean)+" <small><i>± "+str(backward_std)+"</i></small></li>")
+    results.append("<table>")
+    results.append("<tr>")
+    results.append("<td>"+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></td>")
+    results.append("<td>"+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></td>")
+    results.append("<td>"+str(backward_mean)+" <small><i>± "+str(backward_std)+"</i></small></td>")
+    results.append("</tr>")
+    results.append("</table>")
     results.append("<li><b>Perf per seed:</b></li>")
     results.append("<table>")
     results.append("<tr>")
     for r in rewards:
         results.append("<td>"+str(round(r[:,-1].mean(),2))+"</td>")
-    results.append("</ul>")
     results.append("</tr>")
+    results.append("</table>")
+    results.append("</ul>")
     #results.append("<table>")
     #n,_=reward_mean.shape
     #
@@ -169,14 +190,7 @@ def generate_key_metrics_html(rewards, ref_data, normalizing = False):
     #    results.append("</tr>")
     #results.append("</table>")
     #return "".join(results)
-    results.append("<table>")
-    results.append("<tr>")
-    results.append("<td>"+str(final_avg_perf_mean)+" <small><i>± "+str(final_avg_perf_std)+"</i></small></td>")
-    results.append("<td>"+str(forward_mean)+" <small><i>± "+str(forward_std)+"</i></small></td>")
-    results.append("<td>"+str(backward_mean)+" <small><i>± "+str(backward_std)+"</i></small></td>")
-    results.append("</tr>")
 
-    results.append("</table>")
 
 
     return "".join(results)
@@ -190,7 +204,7 @@ def extract_hps(log):
             values[k]=v
     return values
 
-def extract_metrics(logs, keyword = ""):
+def extract_metrics(logs, keyword = "",measure="avg_reward"):
     keyword = keyword if len(keyword) == 0 else "/"+keyword
     print("Analyzing ",len(logs)," logs")
     hps = extract_hps(logs[0])
@@ -211,7 +225,7 @@ def extract_metrics(logs, keyword = ""):
     for seed in range(n_seeds):
         for task in range(n_tasks):
             for stage in range(n_tasks):
-                r_name ="evaluation/"+str(task)+keyword+"/avg_reward"
+                r_name ="evaluation/"+str(task)+keyword+"/"+measure
                 d = df[(df["iteration"] == stage) & (df["seed"] == seed)]
                 try:
                     memory[seed,stage] = d["evaluation/memory/n_parameters"]
@@ -224,7 +238,7 @@ def extract_metrics(logs, keyword = ""):
     return rewards,memory,hps
 
 
-def analyze_runs(logs):
+def analyze_runs(logs,measure="avg_reward"):
     print("Analyzing ",len(logs)," logs")
     hps = extract_hps(logs[0])
     dfs = []
@@ -248,7 +262,7 @@ def analyze_runs(logs):
     memory_std=np.zeros((n_tasks,))
     for task in range(n_tasks):
         for stage in range(n_tasks):
-            n="evaluation/"+str(task)+"/avg_reward"
+            n="evaluation/"+str(task)+"/"+measure
             d=df_mean[df_mean["iteration"]==stage]
             
             reward_mean=d.iloc[0][n]
@@ -293,7 +307,7 @@ def analyze_scenario(logs,scenario):
         display(HTML(h))
         display(HTML("<h2>"+("_"*10)+"</h2>"))
 
-def agregate_experiments(path, keyword = ""):
+def agregate_experiments(path, keyword = "", measure = "avg_reward"):
     logs = salina.logger.read_directory(path,use_bz2=True)
     dfs = []
     d_id = {}
@@ -308,7 +322,7 @@ def agregate_experiments(path, keyword = ""):
                     df = log.to_dataframe()
                     _cols = [c for c in df.columns if (c.startswith("evaluation/") or c.startswith("model/")) and (not "distribution" in c)]+["iteration"]
                     df = df[_cols]
-                    n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x) and (keyword in x)])
+                    n_tasks = 1+max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and (measure in x) and (keyword in x)])
                     df = df[df["iteration"] < n_tasks]
                     hp = extract_hps(log)
                     hp_key = str({k:v for k,v in hp.items() if not "seed" in k})
@@ -325,14 +339,14 @@ def agregate_experiments(path, keyword = ""):
     dfs = pd.concat(dfs)
     return dfs,d_logs
 
-def sort_best_experiments(df, keyword = ""):
-    nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and ("avg_reward" in x) and (keyword in x)])
+def sort_best_experiments(df, keyword = "", measure = "avg_reward"):
+    nb_tasks = max([int(re.findall("/([0-9]+)/",x)[0]) for x in df.columns if ("evaluation/" in x) and (measure in x) and (keyword in x)])
     df = df[df["iteration"] == nb_tasks]
-    df["evaluation/global_avg_reward"] = df[[c for c in df.columns if c.startswith("evaluation/") and (keyword in c)]].mean(axis=1)
-    df = df[["id","evaluation/global_avg_reward"]].groupby("id").mean().sort_values(by="evaluation/global_avg_reward",ascending=False)
+    df["evaluation/global_"+measure] = df[[c for c in df.columns if c.startswith("evaluation/") and (keyword in c)]].mean(axis=1)
+    df = df[["id","evaluation/global_"+measure]].groupby("id").mean().sort_values(by="evaluation/global_"+measure,ascending=False)
     return df.index
 
-def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False, save_path = None, keyword = ""):
+def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = False, force_loading = False, save_path = None, keyword = "", measure = "avg_reward"):
     if save_path is None:
         save_path = PATH+"/experiment.dat"
     if os.path.exists(save_path) and (not force_loading):
@@ -345,13 +359,13 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
     else:
         print("no ",save_path)
         print("Agregating experiments...")
-        dfs,d_logs = agregate_experiments(PATH, keyword)
-        best_ids = sort_best_experiments(dfs, keyword)
+        dfs,d_logs = agregate_experiments(PATH, keyword, measure)
+        best_ids = sort_best_experiments(dfs, keyword, measure)
         data = {"dfs":dfs,
                 "d_logs":d_logs,
                 "best_ids":best_ids}
-        with open(save_path, "wb") as f:
-            pickle.dump(data, f)
+        #with open(save_path, "wb") as f:
+        #    pickle.dump(data, f)
 
     normalizing = not (normalize_data is None)
     display(HTML("<h2>"+("_"*100)+"</h2>"))
@@ -362,7 +376,7 @@ def display_best_experiments(PATH,top_k=1, normalize_data = None, return_logs = 
         else:
             with open("halfcheetah_benchmark1.pkl", "rb") as f:
                 d = pickle.load(f)
-        rewards, memory,hps = extract_metrics(d_logs[best_id], keyword)
+        rewards, memory,hps = extract_metrics(d_logs[best_id], keyword,measure)
         #Generate HTML
         display(HTML("<h2>#"+str(i+1)+"</h2>"))
         display(HTML("<h4>id:"+str(best_id)+"</h4>"))

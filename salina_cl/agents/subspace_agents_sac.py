@@ -9,9 +9,36 @@ import numpy as np
 from torch import nn
 from salina_cl.core import CRLAgent, CRLAgents
 import torch.nn.functional as F
-from salina_cl.agents.tools import LinearSubspace, LayerNormSubspace, Sequential
-from torch.distributions.dirichlet import Dirichlet
+from salina_cl.agents.tools import LinearSubspace, Sequential, create_dist
 from torch.distributions.categorical import Categorical
+
+def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha):
+    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha),
+                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
+                          )
+
+def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha):
+    return SubspaceAgents(DualAlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha),
+                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
+                          )
+
+def SubspaceActionAgent_cw(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha, new_sub_dist):
+    return SubspaceAgents(DualAlphaAgent_cw(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha, new_sub_dist),
+                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
+                          )
+
+def SubspaceActionAgent_head_cw(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha, new_sub_dist):
+    return SubspaceAgents(DualAlphaAgent_cw(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha, new_sub_dist),
+                          SubspaceAction_head(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
+                          )
+
+def TwinCritics(n_anchors, obs_dimension, action_dimension, hidden_size):
+    """
+    Twin critics model used for SAC. In addition to the (obs,actions), they also take the convex combination alpha as as input.
+    """
+    return SubspaceAgents(Critic(n_anchors, obs_dimension, action_dimension, hidden_size, output_name = "q1"),
+                          Critic(n_anchors, obs_dimension, action_dimension, hidden_size, output_name = "q2")
+                          )
 
 class SubspaceAgents(CRLAgents):
     def add_anchor(self, **kwargs):
@@ -25,44 +52,12 @@ class SubspaceAgents(CRLAgents):
             agent.set_best_alpha(**kwargs)
 
 class SubspaceAgent(CRLAgent):
-    def add_anchor(self,**kwargs):
+    def add_anchor(self, **kwargs):
         pass
-    def remove_anchor(self,**kwargs):
+    def remove_anchor(self, **kwargs):
         pass
-    def set_best_alpha(self,**kwargs):
+    def set_best_alpha(self, **kwargs):
         pass
-
-def SubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha):
-    return SubspaceAgents(AlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha),
-                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
-                          )
-
-def ExperimentalSubspaceActionAgent(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha):
-    return SubspaceAgents(DualAlphaAgent(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha),
-                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
-                          )
-
-def ExperimentalSubspaceActionAgent_cw(n_initial_anchors, dist_type, refresh_rate, input_dimension,output_dimension, hidden_size, start_steps, resampling_q, resampling_policy, repeat_alpha, new_sub_dist):
-    return SubspaceAgents(DualAlphaAgent_cw(n_initial_anchors, dist_type, refresh_rate, resampling_q, resampling_policy, repeat_alpha, new_sub_dist),
-                          SubspaceAction(n_initial_anchors,input_dimension,output_dimension, hidden_size, start_steps)
-                          )
-
-def TwinCritics(n_anchors, obs_dimension, action_dimension, hidden_size):
-    return SubspaceAgents(Critic(n_anchors, obs_dimension, action_dimension, hidden_size, output_name = "q1"),
-                          Critic(n_anchors, obs_dimension, action_dimension, hidden_size, output_name = "q2")
-                          )
-def create_dist(dist_type,n_anchors):
-    n_anchors = max(1,n_anchors)
-    if dist_type == "flat":
-        dist = Dirichlet(torch.ones(n_anchors))
-    if dist_type == "peaked":
-        dist = Dirichlet(torch.Tensor([1.] * (n_anchors-1) + [n_anchors ** 2]))
-    elif dist_type == "categorical":
-        dist = Categorical(torch.ones(n_anchors))
-    elif dist_type == "last_anchor":
-        dist = Categorical(torch.Tensor([0] * (n_anchors-1) + [1]))
-
-    return dist
 
 class AlphaAgent(SubspaceAgent):
     def __init__(self, n_initial_anchors, dist_type = "flat", refresh_rate = 1., resampling_q = True, resampling_policy = True, repeat_alpha = 1000):
@@ -428,13 +423,12 @@ class SubspaceAction(SubspaceAgent):
         
         self.model = Sequential(
             LinearSubspace(self.n_anchors, self.input_size, self.hidden_size),
-            #LayerNormSubspace(self.n_anchors, self.hidden_size),
-            nn.Tanh(),
-            LinearSubspace(self.n_anchors, self.hidden_size, self.hidden_size),
             nn.LeakyReLU(negative_slope=0.2),
             LinearSubspace(self.n_anchors, self.hidden_size, self.hidden_size),
             nn.LeakyReLU(negative_slope=0.2),
-            LinearSubspace(self.n_anchors, self.hidden_size,self.output_dimension * 2),
+            LinearSubspace(self.n_anchors, self.hidden_size, self.hidden_size),
+            nn.LeakyReLU(negative_slope=0.2),
+            LinearSubspace(self.n_anchors, self.hidden_size, self.output_dimension * 2),
         )
 
     def forward(self, t = None, q_update = False, policy_update = False, **kwargs):
@@ -521,6 +515,114 @@ class SubspaceAction(SubspaceAgent):
                 cosine_similarities["layer_"+str(i)] = module.cosine_similarities()
                 i += 1
         return cosine_similarities
+
+class SubspaceAction_head(SubspaceAgent):
+    def __init__(self, n_initial_anchors, input_dimension, output_dimension, hidden_size, start_steps = 0, input_name = "env/env_obs", layer_norm = True):
+        super().__init__()
+        self.start_steps = start_steps
+        self.counter = 0
+        self.iname = input_name
+        self.task_id = 0
+        self.n_anchors = n_initial_anchors
+        self.input_size = input_dimension[0]
+        self.output_dimension = output_dimension[0]
+        self.hidden_size = hidden_size
+        self.layer_norm = layer_norm
+
+        self.backbone = nn.ModuleList([self.make_backbone()])
+
+        self.model = Sequential(
+            LinearSubspace(self.n_anchors, self.hidden_size,self.output_dimension * 2),
+        )
+
+    def make_backbone(self):
+        return nn.Sequential(
+        nn.Linear(self.input_size,self.hidden_size),
+        nn.LayerNorm(self.hidden_size) if self.layer_norm else nn.Identity(),
+        nn.Tanh(),
+        nn.Linear(self.hidden_size, self.hidden_size),
+        nn.LeakyReLU(negative_slope=0.2),
+        nn.Linear(self.hidden_size, self.hidden_size),
+        nn.LeakyReLU(negative_slope=0.2))
+        
+
+
+    def forward(self, t = None, q_update = False, policy_update = False, **kwargs):
+        backbone_id = min(self.task_id,len(self.backbone) - 1)
+        if not self.training:
+            x = self.get((self.iname, t))
+            x = self.backbone[backbone_id](x)
+            alphas = self.get(("alphas",t))
+            mu, _ = self.model(x,alphas).chunk(2, dim=-1)
+            action = torch.tanh(mu)
+            self.set(("action", t), action)
+        elif not (t is None):
+            x = self.get((self.iname, t)).detach()
+            alphas = self.get(("alphas",t))
+            if self.counter <= self.start_steps:
+                action = torch.rand(x.shape[0],self.output_dimension).to(x.device) * 2 - 1
+            else:
+                x = self.backbone[backbone_id](x)
+                mu, log_std = self.model(x,alphas).chunk(2, dim=-1)
+                log_std = torch.clip(log_std, min=-20., max=2.)
+                std = log_std.exp()
+                action = mu + torch.randn(*mu.shape).to(mu.device) * std
+                action = torch.tanh(action)
+            self.set(("action", t), action)
+            self.counter += 1
+        else:
+            input = self.get(self.iname).detach()
+            if q_update:
+                alphas = self.get("alphas_q_update")
+            elif policy_update:
+                alphas = self.get("alphas_policy_update")
+            else:
+                alphas = self.get("alphas")
+            input = self.backbone[backbone_id](input)
+            mu, log_std = self.model(input,alphas).chunk(2, dim=-1)
+            log_std = torch.clip(log_std, min=-20., max=2.)
+            std = log_std.exp()
+            action = mu + torch.randn(*mu.shape).to(mu.device) * std
+            log_prob = (-0.5 * (((action - mu) / (std + 1e-8)) ** 2 + 2 * log_std + np.log(2 * np.pi))).sum(-1, keepdim=True)
+            log_prob -= (2 * np.log(2) - action - F.softplus( - 2 * action)).sum(-1, keepdim=True)
+            action = torch.tanh(action)
+            self.set("action", action)
+            self.set("action_logprobs", log_prob)
+
+    def set_task(self,task_id = None):
+        if task_id is None:
+            self.task_id = len(self.backbone) - 1
+        else:
+            self.task_id = task_id
+
+    def add_anchor(self,alpha = None, logger = None, **kwargs):
+        i = 0
+        alphas = [alpha] * (self.hidden_size + 2)
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            if alpha is None:
+                logger.message("Adding one anchor with alpha = None")
+            else:
+                logger.message("Adding one anchor with alpha = "+str(list(map(lambda x:round(x,2),alpha.tolist()))))
+        for module in self.model:
+            if isinstance(module,LinearSubspace):
+                module.add_anchor(alphas[i])
+                ### Sanity check
+                #if i == 0:
+                #    for j,anchor in enumerate(module.anchors):
+                #        print("--- anchor",j,":",anchor.weight[0].data[:4])
+                i+=1
+        self.n_anchors += 1
+
+    def remove_anchor(self, logger = None, **kwargs):
+        if not (logger is None):
+            logger = logger.get_logger(type(self).__name__+str("/"))
+            logger.message("Removing last anchor")
+        for module in self.model:
+            if isinstance(module,LinearSubspace):
+                module.anchors = module.anchors[:-1]
+                module.n_anchors -= 1
+        self.n_anchors -= 1
                 
 
 

@@ -17,14 +17,11 @@ import numpy as np
 from omegaconf.listconfig import ListConfig
 from brax.envs import env as _env
 
-def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
+def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps = 1e5,**kwargs):
     """
     For debugging
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","moon"])
-
-######################################################################################################
-################################### Pathological scenarios ###########################################
 
 def halfcheetah_benchmark1(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
     """
@@ -99,142 +96,50 @@ def halfcheetah_benchmark12(n_train_envs,n_evaluation_envs,n_steps, repeat_scena
     """
     return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * 3)
 
-######################################################################################################
-######################################################################################################
-
-def halfcheetah_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**kwargs):
-    """
-    halfcheetah with one task for benchmarking
-    """
-    return OneHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task])
-
-def halfcheetah_2tasks(n_train_envs,n_evaluation_envs,n_steps,task0 = "normal",task1 = "inverted_actions",**kwargs):
-    """
-    halfcheetah with two tasks for benchmarking
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,[task0,task1])
-
-def halfcheetah_hard0(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    A sequence of 5 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal"])
-
-def halfcheetah_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    A sequence of 5 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","defective_module","moon","rainfall","overweight"])
-
-def halfcheetah_hard2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    Different ordering
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","overweight","defective_module","normal","moon"])
-
-def halfcheetah_hard3(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    Different ordering
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["rainfall","defective_module","normal","moon","overweight"])
-
-def halfcheetah_hard4(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    New scenario
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["jumpcheetah","normal","moon","carry_stuff","defective_module"])
-
-def halfcheetah_hard5(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    New scenario
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","moon","carry_stuff","defective_module","jumpcheetah"])
-
 
 env_cfgs = {
     "normal":{},
     "jumpcheetah":{},
     
-     ## agent_physics   ############################################################ ############################################################
-    "disproportionate_feet":{
-      "torso": 0.75,
-      "thigh": 0.75,
-      "shin": 0.75,
-      "foot": 1.25
-      },
-     
-     "tinythigh":{"thigh":0.5},
-     "hugethigh":{"thigh":1.5},
-     "tinyshin":{"shin":0.5},
-     "hugeshin":{"shin":1.5},
-     "tinytorso":{"torso":0.5},
-     "hugetorso":{"torso":1.5},
-     
-     "overweight":{
-      "torso": 1.5,
-      "thigh": 1.5,
-      "shin": 1.5,
-      "foot": 1.5
-      },
-
-     "underweight":{
-      "torso": 0.75,
-      "thigh": 0.75,
-      "shin": 0.75,
-      "foot": 0.75
-      },
-     ## TO BE CONSIDERED TOTAL OF 22 TASKS (MATRIX OF 22 x 22)
-     #################################################################################################"
-     #################################################################################################"
-     "carry_stuff":{
-      "torso": 4.,
-      "thigh": 1.,
-      "shin": 1.,
-      "foot": 1.
-      },
-      "defective_module":{"obs_mask":0.5},
-      "tinyfoot":{"foot":0.5},
-     "hugefoot":{"foot":1.5},
+    # Morphological changes
+    "disproportionate_feet":{"torso": 0.75,"thigh": 0.75,"shin": 0.75,"foot": 1.25},
+    "tinythigh":{"thigh":0.5},
+    "hugethigh":{"thigh":1.5},
+    "tinyshin":{"shin":0.5},
+    "hugeshin":{"shin":1.5},
+    "tinytorso":{"torso":0.5},
+    "hugetorso":{"torso":1.5},
+    "overweight":{"torso": 1.5,"thigh": 1.5,"shin": 1.5,"foot": 1.5},
+    "underweight":{"torso": 0.75,"thigh": 0.75,"shin": 0.75,"foot": 0.75},
+    "carry_stuff":{"torso": 4.,"thigh": 1.,"shin": 1.,"foot": 1.},
+    "defective_module":{"obs_mask":0.5},
+    "tinyfoot":{"foot":0.5},
+    "hugefoot":{"foot":1.5},
       
-      ## environment physics  ############################################################
-      "modified_physics":{
-      "gravity": 1.5,
-      "friction": 1.25,
-      },
-       "tinygravity":{"gravity":0.5},
-     "hugegravity":{"gravity":1.5},
-     "tinyfriction":{"friction":0.5},
-     "hugefriction":{"friction":1.5},
-     "rainfall":{"friction":0.4},
-     "moon":{"gravity":0.15},
+    # Environment changes
+    "modified_physics":{"gravity": 1.5,"friction": 1.25},
+    "tinygravity":{"gravity":0.5},
+    "hugegravity":{"gravity":1.5},
+    "tinyfriction":{"friction":0.5},
+    "hugefriction":{"friction":1.5},
+    "rainfall":{"friction":0.4},
+    "moon":{"gravity":0.15},
      
-     ##### Combination  ############################
-     'tinyfoot_moon': {'foot': 0.5, 'gravity': 0.15},
-    'hugefoot_moon': {'foot': 1.5, 'gravity': 0.15},
-    'tinyfoot_rainfall': {'foot': 0.5, 'friction': 0.4},
-    'hugefoot_rainfall': {'foot': 1.5, 'friction': 0.4},
-    'tinyfoot_hugegravity': {'foot': 0.5, 'gravity': 1.5},
-    'hugefoot_hugegravity': {'foot': 1.5, 'gravity': 1.5},
-    'carry_stuff_moon': {'torso': 4.0,
-                        'thigh': 1.0,
-                        'shin': 1.0,
-                        'foot': 1.0,
-     'gravity': 0.15},
-    'carry_stuff_rainfall': {'torso': 4.0,
-                            'thigh': 1.0,
-                            'shin': 1.0,
-                            'foot': 1.0,
-                            'friction': 0.4},
- 'carry_stuff_hugegravity': {'torso': 4.0,
-                          'thigh': 1.0,
-                          'shin': 1.0,
-                          'foot': 1.0,
-                          'gravity': 1.5},
- "defective_module_moon":{"obs_mask":0.5,'gravity': 0.15},
- "defective_module_rainfall":{"obs_mask":0.5,"friction":0.4},
- "crippled_backlegs":{"action_mask":[0,1,2]},
- "crippled_forelegs":{"action_mask":[3,4,5]},
- "inverted_actions":{"action_swap":[0,1,2,3,4,5]},
+    # Combination
+    "tinyfoot_moon": {'foot': 0.5, 'gravity': 0.15},
+    "hugefoot_moon": {'foot': 1.5, 'gravity': 0.15},
+    "tinyfoot_rainfall": {'foot': 0.5, 'friction': 0.4},
+    "hugefoot_rainfall": {'foot': 1.5, 'friction': 0.4},
+    "tinyfoot_hugegravity'": {'foot': 0.5, 'gravity': 1.5},
+    "hugefoot_hugegravity": {'foot': 1.5, 'gravity': 1.5},
+    "carry_stuff_moon": {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'gravity': 0.15},
+    'carry_stuff_rainfall': {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'friction': 0.4},
+    'carry_stuff_hugegravity': {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'gravity': 1.5},
+    "defective_module_moon":{"obs_mask":0.5,'gravity': 0.15},
+    "defective_module_rainfall":{"obs_mask":0.5,"friction":0.4},
+    "crippled_backlegs":{"action_mask":[0,1,2]},
+    "crippled_forelegs":{"action_mask":[3,4,5]},
+    "inverted_actions":{"action_swap":[0,1,2,3,4,5]},
 }
 env_gravity_cfgs = {"gravity_"+str(2*x/10):{"gravity":2*x/10} for x in range(1,11)}
 env_cfgs = dict(**env_cfgs,**env_gravity_cfgs)
@@ -352,51 +257,13 @@ class MultiHalfcheetah(Scenario):
             agent_cfg={
                 "classname":"salina.agents.brax.AutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,
-                "make_env_args":{
-                                "max_episode_steps":1000,
-                                 "env_cfg":cfg},
+                "make_env_args":{"max_episode_steps":1000, "env_cfg":cfg},
                 "n_envs":n_train_envs
             }
             self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps[k]))
 
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):
-            agent_cfg={
-                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
-                "make_env_fn":make_halfcheetah,
-                "make_env_args":{"max_episode_steps":1000,
-                                 "env_cfg":cfg},
-                "n_envs":n_evaluation_envs
-            }
-            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k))
-
-    def train_tasks(self):
-        return self._train_tasks
-
-    def test_tasks(self):
-        return self._test_tasks
-
-class OneHalfcheetah(Scenario):
-    def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):
-        print("Scenario is ",cfgs)
-        env = make_halfcheetah(10)
-        input_dimension = [env.observation_space.shape[0]]
-        output_dimension = [env.action_space.shape[0]]
-
-        self._train_tasks=[]
-        for k,cfg in enumerate(cfgs):
-            agent_cfg={
-                "classname":"salina.agents.brax.AutoResetBraxAgent",
-                "make_env_fn":make_halfcheetah,
-                "make_env_args":{
-                                "max_episode_steps":1000,
-                                 "env_cfg":cfg},
-                "n_envs":n_train_envs
-            }
-            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
-
-        self._test_tasks=[]
-        for k,cfg in enumerate(["normal","moon","carry_stuff","defective_module","jumpcheetah"]):
             agent_cfg={
                 "classname":"salina.agents.brax.NoAutoResetBraxAgent",
                 "make_env_fn":make_halfcheetah,

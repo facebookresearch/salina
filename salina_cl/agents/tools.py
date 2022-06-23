@@ -15,6 +15,20 @@ from torch import distributions as pyd, hspmm
 import torch.nn.init as init
 import math
 import copy
+from torch.distributions.dirichlet import Dirichlet
+from torch.distributions.categorical import Categorical
+
+def create_dist(dist_type,n_anchors):
+    n_anchors = max(1,n_anchors)
+    if dist_type == "flat":
+        dist = Dirichlet(torch.ones(n_anchors))
+    if dist_type == "peaked":
+        dist = Dirichlet(torch.Tensor([1.] * (n_anchors-1) + [n_anchors ** 2]))
+    elif dist_type == "categorical":
+        dist = Categorical(torch.ones(n_anchors))
+    elif dist_type == "last_anchor":
+        dist = Categorical(torch.Tensor([0] * (n_anchors-1) + [1]))
+    return dist
 
 class TanhTransform(pyd.transforms.Transform):
     domain = pyd.constraints.real

@@ -156,7 +156,7 @@ class Model:
 
 class CRLAgent(Agent):
     """
-    A salina Agent that is able to apply set_task() method
+    A salina Agent that is able to apply set_task() and add_regularizer() methods
     """
     def set_task(self,task_id = None):
         pass

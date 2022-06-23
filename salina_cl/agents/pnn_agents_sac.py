@@ -19,15 +19,17 @@ from salina_cl.core import CRLAgent, CRLAgents
 from salina_cl.agents.single_agents import  Normalizer
 import copy
 
-def PNNActionAgent(input_dimension,output_dimension, hidden_size, start_steps):
-    return CRLAgents(PNNAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs"))
+def PNNActionAgent(input_dimension,output_dimension, hidden_size, start_steps,layer_norm):
+    return CRLAgents(PNNAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs",layer_norm = layer_norm))
    
 class PNNAction(CRLAgent):
-    def __init__(self, input_dimension,output_dimension, hidden_size, start_steps = 0, input_name = "env/env_obs", activation = nn.LeakyReLU(negative_slope=0.2)):
+    def __init__(self, input_dimension,output_dimension, hidden_size, start_steps = 0, input_name = "env/env_obs", activation = nn.LeakyReLU(negative_slope=0.2), layer_norm = True):
         super().__init__()
         self.iname = input_name
         self.task_id = 0
         self.activation = activation
+        self.layer_norm = layer_norm
+        self.activation_layer_norm = nn.Tanh()
 
         self.start_steps = start_steps
         self.counter = 0        
@@ -46,13 +48,14 @@ class PNNAction(CRLAgent):
         ## we create a column and its lateral connection
         column_model = nn.ModuleList([
             nn.Linear(self.input_size,self.hs),
+            nn.LayerNorm(self.hs) if self.layer_norm else nn.Identity(),
             nn.Linear(self.hs,self.hs),
             nn.Linear(self.hs,self.hs),
-            nn.Linear(self.hs,self.output_dimension * 2)]
-        )
+            nn.Linear(self.hs,self.output_dimension * 2)])
         self.columns.append(column_model)
 
         lateral_model = nn.ModuleList([nn.ModuleList([
+            nn.Linear(self.hs,self.hs),
             nn.Linear(self.hs,self.hs),
             nn.Linear(self.hs,self.hs),
             nn.Linear(self.hs,self.hs)]) for _ in range(len(self.columns)-1)])
@@ -61,13 +64,14 @@ class PNNAction(CRLAgent):
     def _forward(self,x,column_id):
         h = [copy.deepcopy(x) for i in range(column_id + 1)]
         for j in range(len(self.columns[0])):
+            activation = self.activation # if j!=1 else self.activation_layer_norm
             h[column_id] = self.columns[column_id][j](h[column_id])
-            h[column_id] = self.activation(h[column_id])
+            h[column_id] = activation(h[column_id])
             if j < len(self.columns[0]) - 1:
                 # Adding laterals
                 for i in range(column_id):
                     h[i] = self.columns[i][j](h[i])
-                    h[i] = self.activation(h[i])
+                    h[i] = activation(h[i]) #if j!=1 else self.activation_layer_norm(h[i])
                     h[column_id] += self.laterals[column_id][i][j](h[i])
         return h[column_id]
 

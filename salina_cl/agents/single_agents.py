@@ -4,37 +4,55 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
-from torch.distributions.normal import Normal
 from salina_cl.core import CRLAgent, CRLAgents
+import torch.nn.functional as F
+import numpy as np
 import copy
 
-def CriticAgent(input_dimension, n_layers, hidden_size):
-    return CRLAgents(Critic(input_dimension, n_layers, hidden_size))
+def ActionAgent(input_dimension,output_dimension, hidden_size, start_steps, layer_norm = False):
+    """
+    Baseline model: a single policy that is re-used and fine-tuned over the task sequences.
+    """
+    return CRLAgents(Action(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def ActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),Action(input_dimension,output_dimension, n_layers, hidden_size))
+def MultiActionAgent(input_dimension,output_dimension, hidden_size, start_steps, layer_norm = False):
+    """
+    Fine-tune and clone: the model is saved when the task is ended, and duplicated to be fine-tuned on the next task.
+    """
+    return CRLAgents(MultiAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def MultiActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),MultiAction(input_dimension,output_dimension, n_layers, hidden_size))
+def FromscratchActionAgent(input_dimension,output_dimension, hidden_size, start_steps, layer_norm = False):
+    """
+    From scratch: the model is saved when the task is ended, and a new random one is created for the next task.
+    """
+    return CRLAgents(FromscratchAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def FromscratchActionAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),FromscratchAction(input_dimension,output_dimension, n_layers, hidden_size))
+def EWCActionAgent(input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps, layer_norm = False):
+    """
+    EWC regularizer added on top of the ActionAgent model. (see )
+    """
+    return CRLAgents(EWCAction(input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+def L2ActionAgent(input_dimension,output_dimension, hidden_size, l2_coeff, start_steps, layer_norm = False):
+    """
+    L2 regularizer added on top of the ActionAgent model.
+    """
+    return CRLAgents(L2Action(input_dimension,output_dimension, hidden_size, l2_coeff, start_steps, input_name = "env/env_obs", layer_norm = layer_norm))
 
-def FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),NN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+def PNNActionAgent(input_dimension,output_dimension, hidden_size, start_steps,layer_norm):
+    """
+    PNN Agent 
+    """
+    return CRLAgents(PNNAction(input_dimension,output_dimension, hidden_size, start_steps, input_name = "env/env_obs",layer_norm = layer_norm))
 
-def FreezeNN_FromscratchHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),FromscratchAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
+def TwinCritics(obs_dimension, action_dimension, hidden_size):
+    """
+    Twin q value functions for SAC algorithm.
+    """
+    return CRLAgents(Critic(obs_dimension, action_dimension, hidden_size, input_name = "env/env_obs",output_name = "q1"),Critic(obs_dimension, action_dimension, hidden_size, input_name = "env/env_obs", output_name = "q2"))
 
-def FreezeNN_MultiHeadAgent(input_dimension,output_dimension, n_layers, hidden_size):
-    return CRLAgents(Normalizer(input_dimension),FreezeNN(input_dimension, [hidden_size], n_layers - 1, hidden_size),MultiAction([hidden_size],output_dimension, 0, hidden_size, input_name = "env/transformed_env_obs"))
 
 class Normalizer(CRLAgent):
     """
@@ -96,121 +114,61 @@ class BatchNorm(CRLAgent):
         else:
             self.task_id = task_id
 
-class FreezeBatchNorm(CRLAgent):
-    """
-    This batchnorm is frozen after task 1. More convenient to compare methods.
-    """
-    def __init__(self,input_dimension):
-        super().__init__()
-        self.num_features = input_dimension[0]
-        self.bn = nn.BatchNorm1d(num_features=self.num_features)
-        self.stop_update = False
-    
-    def forward(self, t=None, **kwargs):
-        if self.stop_update:
-            self.eval()
-        if not t is None:
-            input = self.get(("env/env_obs", t))
-            input = self.bn(input)
-            self.set(("env/normalized_env_obs", t), input)
-
-    def set_task(self,task_id = None):
-        for params in self.parameters():
-            params.requires_grad = False
-        self.stop_update = True
-
-class NN(CRLAgent):
-    """
-    just a NN.
-    """
-    def __init__(self, input_dimension,output_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs", output_name = "env/transformed_env_obs"):
-        super().__init__()
-        self.iname = input_name
-        self.oname = output_name
-        self.task_id = 0
-            
-        input_size = input_dimension[0]
-        num_outputs = output_dimension[0]
-        hs = hidden_size
-        n_layers = n_layers
-        hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
-        self.model = nn.ModuleList([nn.Sequential(nn.Linear(input_size, hs),nn.ReLU(),*hidden_layers,nn.Linear(hs, num_outputs))])
-
-    def forward(self, t=None, **kwargs):
-        model_id = min(self.task_id,len(self.model) - 1)
-        if t is None:
-            x = self.get(self.iname)
-            x = self.model[model_id](x)
-            self.set(self.oname, x)
-        else:
-            x = self.get((self.iname, t))
-            x = self.model[model_id](x)
-            self.set((self.oname, t), x)
-
-class MultiNN(NN):
-    def set_task(self,task_id = None):
-        if task_id is None:
-            self.model.append(copy.deepcopy(self.model[-1]))
-            self.task_id = len(self.model) - 1
-        else:
-            self.task_id = task_id
-
-class FromScratchNN(NN):
-    def set_task(self,task_id = None):
-        if task_id is None:
-            self.model.append(copy.deepcopy(self.model[-1]).__init__())
-            self.task_id = len(self.model) - 1
-        else:
-            self.task_id = task_id
-
-class FreezeNN(NN):
-    def set_task(self,task_id = None):
-        if task_id is None:
-            for param in self.model[-1].parameters():
-                param.requires_grad = False
-
-
 class Action(CRLAgent):
-    def __init__(self, input_dimension,output_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
+    def __init__(self, input_dimension,output_dimension, hidden_size, start_steps = 0, input_name = "env/env_obs", layer_norm = False):
         super().__init__()
+        self.start_steps = start_steps
+        self.counter = 0
         self.iname = input_name
         self.task_id = 0
-            
-        input_size = input_dimension[0]
-        num_outputs = output_dimension[0]
-        hs = hidden_size
-        n_layers = n_layers
-        if n_layers == 0:
-            self.model = nn.ModuleList([nn.Sequential(nn.Linear(input_size, num_outputs))])
-        else:
-            hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
-            self.model = nn.ModuleList([nn.Sequential(nn.Linear(input_size, hs),nn.ReLU(),*hidden_layers,nn.Linear(hs, num_outputs))])
+        self.output_dimension = output_dimension[0]
+        self.hs = hidden_size
+        self.input_size = input_dimension[0]
+        self.layer_norm = layer_norm
+        
+        self.model = nn.ModuleList([self.make_model()])
 
-    def forward(self, t=None, action_std=0.0, **kwargs):
-        if not self.training: assert action_std==0.0
+    def make_model(self):
+        return nn.Sequential(
+        nn.Linear(self.input_size,self.hs),
+        nn.LeakyReLU(negative_slope=0.2),
+        nn.Linear(self.hs,self.hs),
+        nn.LeakyReLU(negative_slope=0.2),
+        nn.Linear(self.hs,self.hs),
+        nn.LeakyReLU(negative_slope=0.2),
+        nn.Linear(self.hs,self.output_dimension * 2),
+    )
+
+    def forward(self, t = None, **kwargs):
         model_id = min(self.task_id,len(self.model) - 1)
-
-        if t is None:
-            input = self.get(self.iname)
-            mean = self.model[model_id](input)
-            var = torch.ones_like(mean) * action_std + 0.000001
-            dist = Normal(mean, var)
-            action = self.get("action_before_tanh")
-            logp_pi = dist.log_prob(action).sum(axis=-1)
-            logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
-            self.set("action_logprobs", logp_pi)
-        else:
+        if not self.training:
             input = self.get((self.iname, t))
-            mean = self.model[model_id](input)
-            var = torch.ones_like(mean) * action_std + 0.000001
-            dist = Normal(mean, var)
-            action = dist.sample() if action_std > 0 else dist.mean
-            self.set(("action_before_tanh", t), action)
-            logp_pi = dist.log_prob(action).sum(axis=-1)
-            logp_pi -= (2 * (np.log(2) - action - F.softplus(-2 * action))).sum(axis=-1)
-            self.set(("action_logprobs", t), logp_pi)
-            action = torch.tanh(action)
+            mu, _ = self.model[model_id](input).chunk(2, dim=-1)
+            action = torch.tanh(mu)
             self.set(("action", t), action)
+        elif not (t is None):
+            input = self.get((self.iname, t)).detach()
+            if self.counter <= self.start_steps:
+                action = torch.rand(input.shape[0],self.output_dimension).to(input.device) * 2 - 1
+            else:
+                mu, log_std = self.model[model_id](input).chunk(2, dim=-1)
+                log_std = torch.clip(log_std, min=-20., max=2.)
+                std = log_std.exp()
+                action = mu + torch.randn(*mu.shape).to(mu.device) * std
+                action = torch.tanh(action)
+            self.set(("action", t), action)
+            self.counter += 1
+        else:
+            input = self.get(self.iname).detach()
+            mu, log_std = self.model[model_id](input).chunk(2, dim=-1)
+            log_std = torch.clip(log_std, min=-20., max=2.)
+            std = log_std.exp()
+            action = mu + torch.randn(*mu.shape).to(mu.device) * std
+            log_prob = (-0.5 * (((action - mu) / (std + 1e-8)) ** 2 + 2 * log_std + np.log(2 * np.pi))).sum(-1, keepdim=True)
+            log_prob -= (2 * np.log(2) - action - F.softplus( - 2 * action)).sum(-1, keepdim=True)
+            action = torch.tanh(action)
+            self.set("action", action)
+            self.set("action_logprobs", log_prob)
 
 class MultiAction(Action):
     def set_task(self,task_id = None):
@@ -223,22 +181,185 @@ class MultiAction(Action):
 class FromscratchAction(Action):
     def set_task(self,task_id = None):
         if task_id is None:
-            self.model.append(copy.deepcopy(self.model[-1]).__init__())
+            self.model.append(self.make_model())
             self.task_id = len(self.model) - 1
         else:
             self.task_id = task_id
 
-class Critic(CRLAgent):
-    def __init__(self, obs_dimension, action_dimension, n_layers, hidden_size, input_name = "env/normalized_env_obs"):
-        super().__init__()
-        self.iname = input_name 
-        input_size = obs_dimension[0]
-        hs = hidden_size
-        n_layers = n_layers
-        hidden_layers = ([nn.Linear(hs, hs) if i % 2 == 0 else nn.ReLU() for i in range(2 * (n_layers - 1))] if n_layers > 1 else [nn.Identity()])
-        self.model_critic = nn.Sequential(nn.Linear(input_size, hs), nn.ReLU(), *hidden_layers, nn.Linear(hs, 1))
 
-    def forward(self, **kwargs):
+class EWCAction(Action):
+    def __init__(self, input_dimension,output_dimension, hidden_size, fisher_coeff, start_steps = 0, input_name = "env/env_obs", layer_norm = False):
+        super().__init__(input_dimension,output_dimension, hidden_size, start_steps, input_name,layer_norm)
+        self.fisher_coeff = fisher_coeff
+        self.regularize = False
+
+    def register_and_consolidate(self,fisher_diagonals):
+        param_names = [n.replace('.', '_') for n, p in  self.model.named_parameters()]
+        fisher_dict={n: f.detach() for n, f in zip(param_names, fisher_diagonals)}
+        for name, param in self.model.named_parameters():
+            name = name.replace('.', '_')
+            self.model.register_buffer(f"{name}_mean", param.data.clone())
+            if self.regularize:
+                fisher = getattr(self.model, f"{name}_fisher") + fisher_dict[name].data.clone() ## add to the old fisher coeff
+            else:
+                fisher =  fisher_dict[name].data.clone()
+            self.model.register_buffer(f"{name}_fisher", fisher)
+        self.regularize = True
+    
+    def add_regularizer(self):
+        if self.regularize:
+            losses = []
+            for name, param in self.model.named_parameters():
+                name = name.replace('.', '_')
+                mean = getattr(self.model, f"{name}_mean")
+                fisher = getattr(self.model,f"{name}_fisher")
+                losses.append((fisher * (param - mean)**2).sum())
+           
+          
+            return (self.fisher_coeff)*sum(losses).view(1).to(list(self.parameters())[0].device)
+        else:
+            return torch.Tensor([0.]).to(list(self.parameters())[0].device)
+
+class L2Action(Action):
+    def __init__(self, input_dimension,output_dimension, hidden_size, l2_coeff, start_steps = 0, input_name = "env/env_obs", layer_norm = False):
+        super().__init__(input_dimension,output_dimension, hidden_size, start_steps, input_name,layer_norm)
+        self.l2_coeff = l2_coeff
+        self.regularize = False
+
+    def register_and_consolidate(self):
+        for name, param in self.model.named_parameters():
+            name = name.replace('.', '_')
+            self.model.register_buffer(f"{name}_mean", param.data.clone())
+        self.regularize = True
+    
+    def add_regularizer(self):
+        if self.regularize:
+            losses = []
+            for name, param in self.model.named_parameters():
+                name = name.replace('.', '_')
+                mean = getattr(self.model, f"{name}_mean")
+                losses.append(((param - mean.detach())**2).sum())
+            return (self.l2_coeff)*sum(losses).view(1).to(list(self.parameters())[0].device)
+        else:
+            return torch.Tensor([0.]).to(list(self.parameters())[0].device)
+
+class PNNAction(CRLAgent):
+    def __init__(self, input_dimension,output_dimension, hidden_size, start_steps = 0, input_name = "env/env_obs", activation = nn.LeakyReLU(negative_slope=0.2), layer_norm = True):
+        super().__init__()
+        self.iname = input_name
+        self.task_id = 0
+        self.activation = activation
+        self.layer_norm = layer_norm
+        self.activation_layer_norm = nn.Tanh()
+
+        self.start_steps = start_steps
+        self.counter = 0        
+
+        self.output_dimension = output_dimension[0]
+        self.hs = hidden_size
+        self.input_size = input_dimension[0]
+      
+        self.columns=nn.ModuleList()
+        self.laterals=nn.ModuleList()
+        self.create_columns()
+        
+    def create_columns(self):
+        print('Creating a new columns and its lateral')
+
+        ## we create a column and its lateral connection
+        column_model = nn.ModuleList([
+            nn.Linear(self.input_size,self.hs),
+            nn.LayerNorm(self.hs) if self.layer_norm else nn.Identity(),
+            nn.Linear(self.hs,self.hs),
+            nn.Linear(self.hs,self.hs),
+            nn.Linear(self.hs,self.output_dimension * 2)])
+        self.columns.append(column_model)
+
+        lateral_model = nn.ModuleList([nn.ModuleList([
+            nn.Linear(self.hs,self.hs),
+            nn.Linear(self.hs,self.hs),
+            nn.Linear(self.hs,self.hs),
+            nn.Linear(self.hs,self.hs)]) for _ in range(len(self.columns)-1)])
+        self.laterals.append(lateral_model)
+
+    def _forward(self,x,column_id):
+        h = [copy.deepcopy(x) for i in range(column_id + 1)]
+        for j in range(len(self.columns[0])):
+            activation = self.activation # if j!=1 else self.activation_layer_norm
+            h[column_id] = self.columns[column_id][j](h[column_id])
+            h[column_id] = activation(h[column_id])
+            if j < len(self.columns[0]) - 1:
+                # Adding laterals
+                for i in range(column_id):
+                    h[i] = self.columns[i][j](h[i])
+                    h[i] = activation(h[i]) #if j!=1 else self.activation_layer_norm(h[i])
+                    h[column_id] += self.laterals[column_id][i][j](h[i])
+        return h[column_id]
+
+    def forward(self, t = None, **kwargs):
+        column_id = min(self.task_id,len(self.columns) - 1)
+        if not self.training:
+            input = self.get((self.iname, t))
+            mu, _ = self._forward(input,column_id).chunk(2, dim=-1)
+            action = torch.tanh(mu)
+            self.set(("action", t), action)
+        elif not (t is None):
+            input = self.get((self.iname, t)).detach()
+            if self.counter <= self.start_steps:
+                action = torch.rand(input.shape[0],self.output_dimension).to(input.device) * 2 - 1
+            else:
+                mu, log_std = self._forward(input,column_id).chunk(2, dim=-1)
+                log_std = torch.clip(log_std, min=-20., max=2.)
+                std = log_std.exp()
+                action = mu + torch.randn(*mu.shape).to(mu.device) * std
+                action = torch.tanh(action)
+            self.set(("action", t), action)
+            self.counter += 1
+        else:
+            input = self.get(self.iname).detach()
+            mu, log_std = self._forward(input,column_id).chunk(2, dim=-1)
+            log_std = torch.clip(log_std, min=-20., max=2.)
+            std = log_std.exp()
+            action = mu + torch.randn(*mu.shape).to(mu.device) * std
+            log_prob = (-0.5 * (((action - mu) / (std + 1e-8)) ** 2 + 2 * log_std + np.log(2 * np.pi))).sum(-1, keepdim=True)
+            log_prob -= (2 * np.log(2) - action - F.softplus( - 2 * action)).sum(-1, keepdim=True)
+            action = torch.tanh(action)
+            self.set("action", action)
+            self.set("action_logprobs", log_prob)
+
+    def set_task(self,task_id = None):
+        if task_id is None:
+            for param in self.columns[-1].parameters():
+                param.requires_grad = False
+            self.create_columns()
+            self.task_id = len(self.columns) - 1
+        else:
+            self.task_id = task_id
+
+class Critic(CRLAgent):
+    def __init__(self, obs_dimension, action_dimension, hidden_size, input_name = "env/env_obs", output_name = "q"):
+        super().__init__()
+
+        self.iname = input_name 
+        input_size = obs_dimension[0] + action_dimension[0]
+        hs = hidden_size
+        self.output_name = output_name
+        self.model = nn.Sequential(
+            nn.Linear(input_size,hs),
+            nn.LayerNorm(hs),
+            nn.Tanh(),
+            nn.Linear(hs,hs),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(hs,hs),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(hs,1),
+        )
+
+    def forward(self, detach_action=False,**kwargs):
         input = self.get(self.iname).detach()
-        critic = self.model_critic(input).squeeze(-1)
-        self.set("critic", critic)
+        action = self.get(("action"))
+        if detach_action:
+            action = action.detach()
+        input = torch.cat([input, action], dim=-1)
+        critic = self.model(input).squeeze(-1)
+        self.set(self.output_name, critic)

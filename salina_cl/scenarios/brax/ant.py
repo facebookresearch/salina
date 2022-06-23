@@ -21,14 +21,11 @@ def ant_debug(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","tinyfoot_rainfall","hugetorso","normal"])
 
-######################################################################################################
-################################### Pathological scenarios ###########################################
-
 def ant_benchmark1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     Negative backward transfer (forgetting properties): task0 / task1 / task2
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["damping","hugefoot","spring_rainfall","moon"])
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","hugefoot","rainfall","moon"])
 
 def ant_benchmark2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
@@ -53,7 +50,7 @@ def ant_benchmark5(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
     ant_benchmark1 x 2
     """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["damping","hugefoot","spring_rainfall","moon"] * 2)
+    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","hugefoot","rainfall","moon"] * 2)
 
 def ant_benchmark6(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     """
@@ -72,35 +69,6 @@ def ant_benchmark8(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
     ant_benchmark4 x 2
     """
     return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["disabled_hard1","disabled_hard2","disabled_forefeet","disabled_backfeet"] * 2)
-
-######################################################################################################
-######################################################################################################
-
-def ant_1task(n_train_envs,n_evaluation_envs,n_steps,task = "normal",**kwargs):
-    """
-    Ant with one task for benchmarking
-    """
-    return OneAnt(n_train_envs,n_evaluation_envs,n_steps,[task])
-
-def ant_2tasks(n_train_envs,n_evaluation_envs,n_steps,task0 = "normal",task1 = "normal",**kwargs):
-    """
-    ant with two tasks for benchmarking
-    """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,[task0,task1])
-
-def ant_hard1(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    A sequence of 5 "realistic" tasks, alternating between morphological and physics changes to increase catastrophic forgetting on naive models.
-    """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","tinyfoot_rainfall","hugetorso","defective_module","tinyfoot_moon"])
-
-
-def ant_hard2(n_train_envs,n_evaluation_envs,n_steps,**kwargs):
-    """
-    Different ordering
-    """
-    return MultiAnt(n_train_envs,n_evaluation_envs,n_steps,["normal","tinyfoot_moon","hugefoot","damping_rainfall","defective_module"])
-
 
 env_cfgs = {
     ## main insight:  hugefoot : bcp de stabilité + rapidité
@@ -123,8 +91,6 @@ env_cfgs = {
     "defective_module":{"obs_mask":0.5}, ## reward  1000
     "damping":{"spring_damping": 400}, ## reward 3200 le coefficient de ressort
      
-     
-   
      ## fancy combination
      "hugefoot_moon":{"Body 4": 3,"Body 2": 3,"Body 1": 3,"Body 7": 3,"gravity":0.70}, ## reward 4300
      'hugefoot_rainfall':{"Body 4": 3,"Body 2": 3,"Body 1": 3,"Body 7": 3,'friction':0.375},
@@ -286,42 +252,6 @@ class MultiAnt(Scenario):
 
         self._test_tasks=[]
         for k,cfg in enumerate(cfgs):
-            agent_cfg={
-                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
-                "make_env_fn":make_ant,
-                "make_env_args":{"max_episode_steps":1000,
-                                 "env_cfg":cfg},
-                "n_envs":n_evaluation_envs
-            }
-            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k))
-
-    def train_tasks(self):
-        return self._train_tasks
-
-    def test_tasks(self):
-        return self._test_tasks
-
-class OneAnt(Scenario):
-    def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):
-        print("Scenario is ",cfgs)
-        env = make_ant(10)
-        input_dimension = [env.observation_space.shape[0]]
-        output_dimension = [env.action_space.shape[0]]
-
-        self._train_tasks=[]
-        for k,cfg in enumerate(cfgs):
-            agent_cfg={
-                "classname":"salina.agents.brax.AutoResetBraxAgent",
-                "make_env_fn":make_ant,
-                "make_env_args":{
-                                "max_episode_steps":1000,
-                                 "env_cfg":cfg},
-                "n_envs":n_train_envs
-            }
-            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
-
-        self._test_tasks=[]
-        for k,cfg in enumerate(["hugefoot","tinyfoot_rainfall","hugetorso","defective_module","tinyfoot_moon"]):
             agent_cfg={
                 "classname":"salina.agents.brax.NoAutoResetBraxAgent",
                 "make_env_fn":make_ant,

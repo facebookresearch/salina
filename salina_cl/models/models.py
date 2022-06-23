@@ -6,7 +6,6 @@
 #
 from salina_cl.core import Model
 from salina import instantiate_class
-import numpy as np
 import torch
 import os
 
@@ -61,7 +60,7 @@ class Baseline(Model):
 
 class TwoSteps(Model):
     """
-    A model that is using 2 algorithms and managing the budget consequently.
+    A model that is using 2 algorithms (algorithm 2 is for example a regularization).
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)

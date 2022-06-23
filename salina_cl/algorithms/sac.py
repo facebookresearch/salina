@@ -13,7 +13,6 @@ from salina.agents import Agents, TemporalAgent, EpisodesDone
 from salina.agents.remote import NRemoteAgent
 from salina.rl.replay_buffer import ReplayBuffer
 from salina_cl.algorithms.tools import compute_time_unit, _state_dict, soft_update_params
-from salina_cl.agents.subspace_agents_sac import SubspaceAgents
 
 class sac:
     def __init__(self,params):

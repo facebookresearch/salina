@@ -1,14 +1,10 @@
 name: sac_subspace
 seed: 0
-perf_path: results/test.dat
-save_model: False
-final_evaluation: False
 
 defaults: 
   - logger: logger
-  - scenario: halfcheetah_debug
+  - scenario: halfcheetah_benchmark
   - hydra: hydra
-  - evaluation: evaluation_subspace
   - override hydra/launcher: submitit_slurm
 
 model:
@@ -70,16 +66,6 @@ model:
         buffer_size: 1_280_000
         initial_buffer_size: 12800
 
-    k_shot:
-      classname: salina_cl.algorithms.k_shot.k_shot
-      params:
-        device: cuda:0
-        n_envs: ${scenario.n_train_envs}
-        n_max_interactions: 0
-        n_processes: 0
-        time_size: ${model.params.algorithm.params.buffer_time_size}
-
-
     alpha_search:
       classname: salina_cl.algorithms.alpha_search.value_estimation
       params:
@@ -93,7 +79,7 @@ model:
         time_size: ${model.params.algorithm.params.buffer_time_size}
 
     policy_agent:
-      classname: salina_cl.agents.subspace_agents_sac.SubspaceActionAgent
+      classname: salina_cl.agents.subspace_agents.SubspaceActionAgent
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
@@ -107,7 +93,7 @@ model:
       repeat_alpha: 10
 
     critic_agent:
-      classname: salina_cl.agents.subspace_agents_sac.TwinCritics
+      classname: salina_cl.agents.subspace_agents.TwinCritics
       hidden_size: 256
       obs_dimension: nil
       action_dimension: nil

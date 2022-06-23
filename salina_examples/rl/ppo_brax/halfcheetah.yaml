@@ -1,5 +1,5 @@
 env:
-  env_name: halfcheetah
+  env_name: brax/halfcheetah
 
 device: cuda:0
 

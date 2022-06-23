@@ -78,7 +78,6 @@ def clip_grad(parameters, grad):
 
 def run_ppo(action_agent, critic_agent, logger, cfg):
     if cfg.algorithm.use_observation_normalizer:
-        # norm_agent=BatchNormalizer(cfg.algorithm.env,momentum=None)
         norm_agent = Normalizer(cfg.env)
     else:
         norm_agent = NoAgent()
@@ -250,7 +249,7 @@ def run_ppo(action_agent, critic_agent, logger, cfg):
         epoch += 1
 
 
-@hydra.main(config_path=".", config_name="pendulum.yaml")
+@hydra.main(config_path=".", config_name="halfcheetah.yaml")
 def main(cfg):
     import torch.multiprocessing as mp
 

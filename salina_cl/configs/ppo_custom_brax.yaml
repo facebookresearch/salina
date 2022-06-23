@@ -5,7 +5,7 @@ perf_path: /checkpoint/jbgaya/CRL_subspace/multirun/${scenario.name}/${name}/${n
 
 defaults:
   - logger: logger
-  - scenario: halfcheetah_2tasks
+  - scenario: ant_2tasks
   - algorithm: ppo
   - override hydra/launcher: submitit_slurm
 

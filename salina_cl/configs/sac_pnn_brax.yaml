@@ -71,6 +71,7 @@ model:
       input_dimension: nil
       output_dimension: nil
       start_steps: 0
+      layer_norm: False
 
     critic_agent:
       classname: salina_cl.agents.single_agents_sac.TwinCritics

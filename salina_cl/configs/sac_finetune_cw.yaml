@@ -12,13 +12,12 @@ model:
   classname: salina_cl.models.models.Baseline
   seed: ${seed}
   params:
-    checkpoint: False
+    checkpoint: True
     evaluation:
       device: cpu
       seed: ${seed}
       n_rollouts: 20
-      evaluate_success: False
-    reset_critic_on_task_change: False
+      evaluate_success: True
     algorithm:
       classname: salina_cl.algorithms.sac.sac
       params:
@@ -44,17 +43,17 @@ model:
         n_processes: 0
   
         reward_scaling: 1.
-        policy_update_delay: 2
-        target_update_delay: 2
+        policy_update_delay: 1
+        target_update_delay: 1
         time_limit: 0
         
-        n_timesteps: 25  ## burning timesteps
+        n_timesteps: 50  ## burning timesteps
         batch_size: 128   ## 128 ,256,512
 
         init_temperature: 2.7
         target_multiplier: 2.
        
-        clip_grad: 50.
+        clip_grad: 0.
         inner_epochs: 50
         grad_updates_per_step: 1.
         discount_factor: 0.99
@@ -68,7 +67,7 @@ model:
       hidden_size: 256
       input_dimension: nil
       output_dimension: nil
-      start_steps: 10_000
+      start_steps: 1_000
       layer_norm: True
 
     critic_agent:

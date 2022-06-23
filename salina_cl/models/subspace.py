@@ -8,76 +8,18 @@ from salina_cl.core import Model
 from salina.agents import Agents,TemporalAgent
 from salina.agents.brax import EpisodesDone
 from salina import Workspace
-from torch.distributions.dirichlet import Dirichlet
-from ternary.helpers import simplex_iterator
 from salina import instantiate_class
 import torch
 import os
 import copy
-import time
-import matplotlib.pyplot as plt
-from matplotlib.patches import RegularPolygon
-
-def draw_alphas(n_anchors, steps, scale):
-    midpoint = torch.ones(n_anchors).unsqueeze(0) / n_anchors
-    if n_anchors == 1:
-        alphas = torch.Tensor([[1.]])
-    if n_anchors == 2:
-        alphas = torch.stack([torch.linspace(0.,1.,steps = steps - 1),1 - torch.linspace(0.,1.,steps = steps - 1)],dim=1)
-        alphas = torch.cat([midpoint,alphas],dim = 0)
-    if n_anchors == 3:
-        alphas = torch.Tensor([[i/scale,j/scale,k/scale] for i,j,k in simplex_iterator(scale)])
-        alphas = torch.cat([midpoint,alphas],dim = 0)
-    if n_anchors > 3:
-        dist = Dirichlet(torch.ones(n_anchors))
-        last_anchor = torch.Tensor([0] * (n_anchors - 1) + [1]).unsqueeze(0)
-        alphas = torch.cat([midpoint,dist.sample(torch.Size([steps - 2])),last_anchor], dim = 0)
-    return alphas
-
-def display_kshot(alphas,rewards):
-    fig, ax = plt.subplots(figsize = (10,8))
-    plt.axis('off')
-    n_anchors = alphas.shape[1]
-    radius = 0.5
-    center = (0.5,0.5)
-
-    subspace = RegularPolygon((0.5,0.5),n_anchors,radius = radius, fc=(1,1,1,0), edgecolor="black")
-    anchors = subspace.get_path().vertices[:-1] * radius + center
-
-    for i,anchor in enumerate(anchors):
-        x = anchor[0] + (anchor[0]-center[0]) * 0.1
-        y = anchor[1] + (anchor[1]-center[1]) * 0.1
-        ax.text(x,y,"θ"+str(i+1),fontsize="x-large")
-
-    coordinates = (alphas @ anchors).T
-    ax.add_artist(subspace)
-    points = ax.scatter(coordinates[0],coordinates[1],c=rewards, cmap="RdYlGn", s=5)
-    ax.scatter(coordinates[0][rewards.argmax()],coordinates[1][rewards.argmax()], s=300, color="darkgreen", marker="x")
-    ax.set_xlim(0.,1.)
-    ax.set_ylim(0.,1.)
-
-    cbar = fig.colorbar(points, ax=ax, pad=0.1)
-    minVal = int(rewards.min().item())
-    maxVal = int(rewards.max().item())
-    cbar.set_ticks([minVal, maxVal])
-    cbar.set_ticklabels([minVal, maxVal])
-
-    return fig
-
-
-def display_time(last_time, line):
-    new_time = time.time()
-    print(line,": ",round(new_time-last_time,2),"sec")
-    return new_time
 
 
 class Subspace(Model):
     """
-
+    Model for the subspace method.
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
-        self.k_shot = instantiate_class(self.cfg.k_shot)
         self.train_algorithm = instantiate_class(self.cfg.algorithm)
         self.alpha_search = instantiate_class(self.cfg.alpha_search)
         self.policy_agent = None
@@ -116,7 +58,6 @@ class Subspace(Model):
         infos = {}
         r0 = {"n_interactions":0}
         if task._task_id > 0:
-            #r0, self.policy_agent, self.critic_agent, infos = self.k_shot.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed)
             self.policy_agent.add_anchor(logger = logger)
             self.critic_agent.add_anchor(n_anchors = self.policy_agent[0].n_anchors,logger = logger)
         r1, self.policy_agent, self.critic_agent, infos = self.train_algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions() - r0["n_interactions"], infos = infos)
@@ -140,7 +81,6 @@ class Subspace(Model):
         self.policy_agent.set_task(task_id)
         return copy.deepcopy(self.policy_agent),self.critic_agent
 
-
     def evaluate(self,test_tasks,logger):
         """ Evaluate a model over a set of test tasks
         Args:
@@ -160,93 +100,23 @@ class Subspace(Model):
         logger.message("-- End evaluation...")
         return evaluation
 
-
     def _evaluate_single_task(self,task,logger):
-        metrics={}
         env_agent = task.make()
         policy_agent, _ =self.get_evaluation_agent(task.task_id())
-#
-        #best_alpha = policy_agent[0].best_alpha.to(self.cfg.evaluation.device)
-        #logger.message("Best alpha for task "+str(task._task_id)+":"+str(best_alpha.tolist()))
-        #best_alpha = torch.cat([best_alpha,torch.zeros(policy_agent[0].n_anchors - best_alpha.shape[-1]).to(self.cfg.evaluation.device)], dim = 0)
-        #alphas = torch.stack([best_alpha for _ in range(self.cfg.evaluation.n_evaluation_envs)], dim = 0)
-#
-        #policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
-        #policy_agent.eval()
-        #no_autoreset=EpisodesDone()
-        #acquisition_agent=TemporalAgent(Agents(env_agent,no_autoreset,policy_agent))
-        #acquisition_agent.seed(self.seed*13+self._stage*100)
-        #acquisition_agent.to(self.cfg.evaluation.device)
-        #avg_reward=0.0
-        #n=0
-        #avg_success=0.0
-        #w = Workspace()
-        #for r in range(self.cfg.evaluation.n_rollouts):
-        #    w.set_full("alphas",torch.stack([alphas for _ in range(1001)],dim=0))
-        #    acquisition_agent(w, t=0, stop_variable="env/done")
-        #    ep_lengths = w["env/done"].max(0)[1]+1
-        #    B = ep_lengths.size()[0]
-        #    arange=torch.arange(B).to(ep_lengths.device)
-        #    cr=w["env/cumulated_reward"][ep_lengths-1,arange]
-        #    avg_reward+=cr.sum().item()
-        #    if self.cfg.evaluation.evaluate_success:
-        #        cr=w["env/success"][ep_lengths-1,arange]
-        #        avg_success+=cr.sum().item()
-        #    n += B
-        #avg_reward /= n
-        #metrics["best_alpha/avg_reward"] = avg_reward
-        #if self.cfg.evaluation.evaluate_success:
-        #    avg_success /= n
-        #    metrics["success_rate"] = avg_success
-
-        # Oracle and full value estimation
-        alphas = draw_alphas(policy_agent[0].n_anchors,self.cfg.evaluation.steps, self.cfg.evaluation.scale).to(self.cfg.evaluation.device)
-        best_alpha_train = policy_agent[0].best_alpha.to(self.cfg.evaluation.device)
-        best_alpha_train = torch.cat([best_alpha_train,torch.zeros(alphas.shape[-1] - best_alpha_train.shape[-1]).to(self.cfg.evaluation.device)], dim = 0)
-        alphas = torch.cat([best_alpha_train.unsqueeze(0),alphas],dim = 0)
         policy_agent.eval()
-        oracle_task = copy.deepcopy(task)
-        oracle_task._env_agent_cfg["n_envs"] = alphas.shape[0]
-        env_agent = oracle_task.make()
-        no_autoreset = EpisodesDone()
-        acquisition_agent = TemporalAgent(Agents(env_agent, no_autoreset, policy_agent)).to(self.cfg.evaluation.device)
-        #critic_agent.eval().to(self.cfg.evaluation.device)
+        acquisition_agent = TemporalAgent(Agents(env_agent, EpisodesDone(), policy_agent)).to(self.cfg.evaluation.device)
         acquisition_agent.seed(self.seed*13+self._stage*100)
         rewards = []
-        #values = []
         w = Workspace()
-        w.set("alphas",0,alphas)
         for i in range(self.cfg.evaluation.n_rollouts):
             with torch.no_grad():
-                acquisition_agent(w, t = 0, stop_variable = "env/done", mute_alpha = True)
-                #critic_agent(w)
+                acquisition_agent(w, t = 0, stop_variable = "env/done")
             ep_lengths= w["env/done"].max(0)[1]+1
             B = ep_lengths.size()[0]
             arange = torch.arange(B).to(ep_lengths.device)
             cr = w["env/cumulated_reward"][ep_lengths-1,arange]
             rewards.append(cr)
-            #values.append(w["q1"].mean(0))
-        rewards = torch.stack(rewards, dim = 0).mean(0)
-        #values = torch.stack(values, dim = 0).mean(0)
-        #if alphas.shape[-1] == 2:
-        #    logger_images = logger.get_logger("")
-        #    logger_images.prefix = "stage_"+str(policy_agent[0].n_anchors - 1)+"/task_"+str(task.task_id())
-        #    image = display_kshot_2anchors(alphas.cpu(),values.round().cpu(),"task_"+str(task.task_id()))
-        #    logger_images.add_figure("/value_distribution",image,0)
-        #    image = display_kshot_2anchors(alphas.cpu(),rewards.round().cpu(),"task_"+str(task.task_id()))
-        #    logger_images.add_figure("/reward_distribution",image,0)
-        #elif alphas.shape[-1] == 3:
-        #    logger_images = logger.get_logger("")
-        #    logger_images.prefix = "stage_"+str(policy_agent[0].n_anchors - 1)+"/task_"+str(task.task_id())
-        #    image = display_kshot_3anchors(alphas.cpu(),values.round().cpu(),"task_"+str(task.task_id()))
-        #    logger_images.add_figure("/value_distribution",image,0)
-        #    image = display_kshot_3anchors(alphas.cpu(),rewards.round().cpu(),"task_"+str(task.task_id()))
-        #    logger_images.add_figure("/reward_distribution",image,0)
-        metrics["best_alpha/avg_reward"] = rewards[0].item()
-        metrics["avg_reward"] = rewards.mean().item()
-        metrics["oracle/avg_reward"] = rewards.max().item()
-        #metrics["value/avg_reward"] = rewards[values.argmax()].item()
-        metrics["midpoint/avg_reward"] = rewards[1].item()
-        metrics["last_anchor/avg_reward"] = rewards[-1].item()
+        rewards = torch.stack(rewards, dim = 0).mean()
+        metrics={ "best_alpha/avg_reward" : rewards.item()}
         del w
         return metrics

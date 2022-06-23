@@ -8,18 +8,9 @@ import hydra
 from salina import instantiate_class
 import torch
 import time
-import os
-from os.path import exists
-import numpy as np
-import pickle
-#from salina_cl.results.evaluation_subspace import *
 
-@hydra.main(config_path="configs/", config_name="ppo_finetune_cartpole.yaml")
+@hydra.main(config_path="configs/", config_name="sac_subspace_brax.yaml")
 def main(cfg):
-    #if not exists(cfg.perf_path):
-    #    os.makedirs(os.path.dirname(cfg.perf_path), exist_ok=True)
-    #    with open(cfg.perf_path, "wb") as f:
-    #        pickle.dump({},f)
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg, verbose =False)
     model = instantiate_class(cfg.model)
@@ -39,33 +30,6 @@ def main(cfg):
         stage+=1
     logger.close()
     print("....done !")
-    #if cfg.save_model:
-    #    torch.save(model.policy_agent,os.getcwd()+"/policy.dat")
-    #perf = np.mean([v['avg_reward'] for v in evaluation.values()])
-    #d_perf = {os.getcwd():perf}
-    #with open(cfg.perf_path, "rb") as f:
-    #    data = pickle.load(f)
-    #    data.update(d_perf)
-    #with open(cfg.perf_path, "wb") as f:
-    #    pickle.dump(data,f)
-    #ds = {}
-    #if cfg.final_evaluation:
-    #    print("Starting evaluation")
-    #    eval = evaluator(cfg.evaluation)
-    #    policy_agent = model.policy_agent
-    #    policy_agent.agents = policy_agent.agents[1:] #deleting alpha agent
-    #    while policy_agent[1].n_anchors > 0:
-    #        d = {}
-    #        for test_task in scenario.test_tasks():
-    #            print("\t- Task",test_task._task_id)
-    #            critic_agent = torch.load(os.getcwd()+"/critic_"+str(policy_agent[1].n_anchors-1)+".dat")
-    #            d["task_"+str(test_task._task_id)] = eval.evaluate(policy_agent,critic_agent,test_task)
-    #        ds[str(policy_agent[1].n_anchors)+"_anchors"] = d
-    #        policy_agent = remove_anchor(policy_agent)
-    #        print("- set anchor agent to ",policy_agent[1].n_anchors)
-    #    print("....done !")
-    #    with open(os.getcwd()+"/eval.pkl", "wb") as f:
-    #        pickle.dump(ds, f)
 
 if __name__ == "__main__":
     import torch.multiprocessing as mp
