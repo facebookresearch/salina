@@ -1,0 +1,6 @@
+classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_1task
+name: halfcheetah_1task
+task: normal
+n_train_envs: 512
+n_evaluation_envs: 512
+n_steps: 100_000

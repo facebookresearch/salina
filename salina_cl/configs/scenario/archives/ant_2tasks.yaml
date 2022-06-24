@@ -1,0 +1,7 @@
+classname: salina_cl.scenarios.brax.ant.ant_2tasks
+name: ant_2tasks
+task0: normal
+task1: carry_stuff
+n_train_envs: 512
+n_evaluation_envs: 512
+n_steps: 10_000_000

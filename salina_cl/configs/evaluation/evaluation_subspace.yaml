@@ -1,7 +1,0 @@
-device: cuda:0
-seed: 124
-scale: 89 #For building the triangle
-steps: 4096
-n_processes: 0
-n_evaluation_rollout: 5
-n_envs: 1

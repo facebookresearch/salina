@@ -1,0 +1,8 @@
+name: distraction_long
+classname: salina_cl.scenarios.scenario.BraxScenario
+domain: ant
+tasks: ["normal","inverted_actions","normal","inverted_actions"]
+repeat_scenario: 2
+n_train_envs: 128
+n_evaluation_envs: 512
+n_steps: 1_000_000

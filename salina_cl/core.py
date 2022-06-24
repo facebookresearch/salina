@@ -16,20 +16,21 @@ from salina import Workspace,Agent
 class Task:
     """ A Reinforcement Learning task defined as a SaLinA agent
     """
-    def __init__(self,env_agent_cfg,input_dimension,output_dimension,task_id,n_interactions=None):
+    def __init__(self,env_agent_cfg,task_id,n_interactions=None):
         """ Create a new RL task
         Args:
             env_agent_cfg   : The OmegaConf (or dict) that allows to configure the SaLinA agent
             input_dimension : The input dimension of the observations
             output_dimension: The output dimension of the actions (i.e size of the output tensor, or number of actions if discrete actions)
             task_id         : An identifier of the task
-            n_interactions  : [description]. Defaults to None. Number of env interactions allowed for training
+            n_interactions  : Defaults to None. Number of env interactions allowed for training
         """
-        self._env_agent_cfg=env_agent_cfg
-        self._task_id=task_id
-        self._input_dimension=input_dimension
-        self._output_dimension=output_dimension
-        self._n_interactions=n_interactions
+        self._env_agent_cfg = env_agent_cfg
+        env = env_agent_cfg["make_env_fn"](**env_agent_cfg["make_env_args"])
+        self._task_id = task_id
+        self._input_dimension = env.observation_space.shape[0]
+        self._output_dimension = env.action_space.shape[0]
+        self._n_interactions = n_interactions
 
     def output_dimension(self):
         return self._output_dimension
@@ -39,6 +40,9 @@ class Task:
 
     def task_id(self):
         return self._task_id
+
+    def env_cfg(self):
+        return self._env_agent_cfg
 
     def make(self, n_envs = None)-> salina.Agent:
         """ Return the environment agent corresponding to this task

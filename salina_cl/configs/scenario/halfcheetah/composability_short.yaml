@@ -1,0 +1,8 @@
+name: composability_short
+classname: salina_cl.scenarios.scenario.BraxScenario
+domain: halfcheetah
+tasks: ["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"]
+repeat_scenario: 1
+n_train_envs: 128
+n_evaluation_envs: 512
+n_steps: 1_000_000

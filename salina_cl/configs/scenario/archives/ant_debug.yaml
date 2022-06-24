@@ -1,0 +1,5 @@
+classname: salina_cl.scenarios.brax.ant.ant_debug
+name: ant_debug
+n_train_envs: 128
+n_evaluation_envs: 128
+n_steps: 10_000

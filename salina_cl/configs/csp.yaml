@@ -1,0 +1,58 @@
+name: csp
+seed: 0
+
+defaults: 
+  - logger: logger
+  - scenario: halfcheetah/forgetting_short
+  - hydra: hydra
+  - model/params/algorithm/generic_sac
+  - optional model/params/algorithm: ${scenario} # best HPS for sac are loaded if available
+  - override hydra/launcher: submitit_slurm
+
+model:
+  classname: salina_cl.models.subspace.Subspace
+  seed: ${seed}
+  params:
+    checkpoint: False
+    evaluation:
+      device: cuda:0
+      n_evaluation_envs: ${scenario.n_evaluation_envs}
+      seed: 1
+      n_rollouts: 10
+      evaluate_success: False
+
+    lr_scaling:  0. #scaling of the lr * nb_anchors
+
+    alpha_search:
+      classname: salina_cl.algorithms.alpha_search.value_estimation
+      params:
+        device: cuda:0
+        n_estimations: 1024
+        steps: 4096
+        scale: 89
+        n_processes: 0
+        n_rollouts: 3
+        improvement_threshold: 0.1
+        time_size: ${model.params.algorithm.params.buffer_time_size}
+
+    policy_agent:
+      classname: salina_cl.agents.subspace_agents.SubspaceActionAgent
+      hidden_size: 256
+      input_dimension: nil
+      output_dimension: nil
+      start_steps: 0
+
+      n_initial_anchors: 1
+      dist_type: flat
+      refresh_rate: 1.
+      resampling_q: True
+      resampling_policy: False
+      repeat_alpha: 10
+
+    critic_agent:
+      classname: salina_cl.agents.subspace_agents.TwinCritics
+      hidden_size: 256
+      obs_dimension: nil
+      action_dimension: nil
+      n_anchors:
+

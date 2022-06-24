@@ -60,7 +60,7 @@ class Normalizer(CRLAgent):
     """
     def __init__(self,input_dimension):
         super().__init__()
-        if input_dimension[0] == 23: #halfcheetah
+        if input_dimension == 23: #halfcheetah
             self.running_mean = nn.Parameter(torch.Tensor([ 6.1431e-01,  4.5919e-01,  0.0000e+00, -6.2606e-03,  0.0000e+00,
                                                             1.1327e-01, -6.0021e-02, -1.5187e-01, -2.2399e-01, -4.0081e-01,
                                                             -2.8977e-01,  6.5863e+00,  0.0000e+00, -7.2588e-03,  0.0000e+00,
@@ -70,7 +70,7 @@ class Normalizer(CRLAgent):
                                                             3.5026e-01, 1.3651e-01, 4.2359e-01, 5.5605e-01, 9.4230e-02, 5.3188e+00,
                                                             5.6052e-45, 1.9010e+00, 5.6052e-45, 1.0593e+01, 5.6052e-45, 1.5619e+02,
                                                             2.1769e+02, 7.1641e+02, 2.4682e+02, 1.0647e+03, 9.3556e+02])),requires_grad = False)
-        elif input_dimension[0] == 27: #ant
+        elif input_dimension == 27: #ant
             self.running_mean = nn.Parameter(torch.Tensor([ 0.6112,  0.9109, -0.0210, -0.0481,  0.2029, -0.0707,  0.6687,  0.0399,
                                                             -0.6143,  0.0655, -0.6917, -0.1086,  0.6811,  4.4375, -0.2056, -0.0135,
                                                             0.0437,  0.0760,  0.0340, -0.0578, -0.1628,  0.0781,  0.2136,  0.0246,
@@ -95,7 +95,7 @@ class BatchNorm(CRLAgent):
     """
     def __init__(self,input_dimension):
         super().__init__()
-        self.num_features = input_dimension[0]
+        self.num_features = input_dimension
         self.bn = nn.ModuleList([nn.BatchNorm1d(num_features=self.num_features)])
         self.task_id = 0
     
@@ -121,9 +121,9 @@ class Action(CRLAgent):
         self.counter = 0
         self.iname = input_name
         self.task_id = 0
-        self.output_dimension = output_dimension[0]
+        self.output_dimension = output_dimension
         self.hs = hidden_size
-        self.input_size = input_dimension[0]
+        self.input_size = input_dimension
         self.layer_norm = layer_norm
         
         self.model = nn.ModuleList([self.make_model()])
@@ -255,9 +255,9 @@ class PNNAction(CRLAgent):
         self.start_steps = start_steps
         self.counter = 0        
 
-        self.output_dimension = output_dimension[0]
+        self.output_dimension = output_dimension
         self.hs = hidden_size
-        self.input_size = input_dimension[0]
+        self.input_size = input_dimension
       
         self.columns=nn.ModuleList()
         self.laterals=nn.ModuleList()
@@ -341,7 +341,7 @@ class Critic(CRLAgent):
         super().__init__()
 
         self.iname = input_name 
-        input_size = obs_dimension[0] + action_dimension[0]
+        input_size = obs_dimension + action_dimension
         hs = hidden_size
         self.output_name = output_name
         self.model = nn.Sequential(

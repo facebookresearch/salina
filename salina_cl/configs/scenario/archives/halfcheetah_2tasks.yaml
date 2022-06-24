@@ -1,0 +1,7 @@
+classname: salina_cl.scenarios.brax.halfcheetah.halfcheetah_2tasks
+name: halfcheetah_2tasks
+task0: inverted_actions
+task1: normal
+n_train_envs: 512
+n_evaluation_envs: 512
+n_steps: 10_000_000

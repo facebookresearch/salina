@@ -22,8 +22,6 @@ class sac:
         logger = logger.get_logger(type(self).__name__+str("/"))
         if n_max_interactions > 0:
             time_unit=None
-            
-            # import ipdb;ipdb.set_trace()
             cfg=self.cfg
             if cfg.time_limit>0:
                 time_unit=compute_time_unit(cfg.device)
@@ -81,7 +79,6 @@ class sac:
             _training_start_time=time.time()
             best_performance=None
             logger.message("Start training")
-            ## there is a warmup of 1000 steps before training
             while is_training:
                 # Compute average performance of multiple rollouts
                 if epoch%cfg.control_every_n_epochs==0:
@@ -202,19 +199,7 @@ class sac:
 
                     iteration += 1
                 _et_inner_epoch=time.time()
-                #logger.add_scalar("monitor/epoch_time", _et_inner_epoch - _st_inner_epoch,epoch)
                 epoch += 1
-
-                #if isinstance(action_agent,SubspaceAgents):
-                #    L2_norms = action_agent[-1].L2_norms()
-                #    cosine_similarities = action_agent[-1].cosine_similarities()
-                #    for layer in L2_norms:
-                #        for penalty in L2_norms[layer]:
-                #            logger.add_scalar("L2_norm/"+layer+"/"+penalty,L2_norms[layer][penalty],epoch)
-                #    for layer in cosine_similarities:
-                #        for penalty in cosine_similarities[layer]:
-                #            logger.add_scalar("Cos_sim/"+layer+"/"+penalty,cosine_similarities[layer][penalty],epoch)
-
                 if n_interactions > n_max_interactions:
                     logger.message("== Maximum interactions reached")
                     is_training = False

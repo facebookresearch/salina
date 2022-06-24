@@ -181,8 +181,8 @@ class SubspaceAction(SubspaceAgent):
         self.iname = input_name
         self.task_id = 0
         self.n_anchors = n_initial_anchors
-        self.input_size = input_dimension[0]
-        self.output_dimension = output_dimension[0]
+        self.input_size = input_dimension
+        self.output_dimension = output_dimension
         self.hidden_size = hidden_size
         
         self.model = Sequential(
@@ -285,8 +285,8 @@ class Critic(SubspaceAgent):
         super().__init__()
         self.iname = input_name
         self.n_anchors = n_anchors
-        self.obs_dimension = obs_dimension[0]
-        self.action_dimension= action_dimension[0]
+        self.obs_dimension = obs_dimension
+        self.action_dimension= action_dimension
         self.input_size = self.obs_dimension + self.action_dimension + self.n_anchors
         self.hs = hidden_size
         self.output_name = output_name
@@ -301,7 +301,7 @@ class Critic(SubspaceAgent):
             nn.Linear(self.hs,1),
         )
 
-    def forward(self, q_update = False, policy_update = False, **kwargs):
+    def forward(self, q_update: bool = False, policy_update: bool = False, **kwargs)-> None:
         input = self.get(self.iname).detach()
         action = self.get(("action"))
         if q_update:
@@ -316,8 +316,8 @@ class Critic(SubspaceAgent):
         critic = self.model(input).squeeze(-1)
         self.set(self.output_name, critic)
 
-    def add_anchor(self, n_anchors = None, logger = None,**kwargs):
-        self.__init__(self.n_anchors if n_anchors is None else n_anchors, [self.obs_dimension], [self.action_dimension], self.hs, input_name = self.iname, output_name = self.output_name)
+    def add_anchor(self, n_anchors = None, logger = None,**kwargs)-> None:
+        self.__init__(self.n_anchors if n_anchors is None else n_anchors, self.obs_dimension, self.action_dimension, self.hs, input_name = self.iname, output_name = self.output_name)
         if not (logger is None):
             logger = logger.get_logger(type(self).__name__+str("/"))
             logger.message("Setting input size to "+str(self.input_size)+" and reinitializing network")

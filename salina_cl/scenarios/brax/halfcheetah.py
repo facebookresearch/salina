@@ -4,150 +4,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-from salina_cl.core import Task
-from salina_cl.core import Scenario
-from brax.envs import wrappers
 import brax
 from brax.envs.halfcheetah import Halfcheetah
 from google.protobuf import text_format
 from brax.envs.halfcheetah import _SYSTEM_CONFIG as halfcheetah_config
-from brax.experimental.biggym.registry.jump.envs.cheetah import JumpCheetah
 from brax import jumpy as jp
 import numpy as np
-from omegaconf.listconfig import ListConfig
 from brax.envs import env as _env
 
-def halfcheetah_debug(n_train_envs,n_evaluation_envs,n_steps = 1e5,**kwargs):
-    """
-    For debugging
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","moon"])
-
-def halfcheetah_benchmark1(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Negative backward transfer (forgetting properties): task0 / task1 / task2 / task3
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"] * repeat_scenario)
-
-def halfcheetah_benchmark2(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Negative forward transfer: task0 / task1 / task2 / task3
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"] * repeat_scenario)
-
-def halfcheetah_benchmark3(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Distraction (orthogonal task-ish): task0 / distraction / task0
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"] * repeat_scenario)
-
-def halfcheetah_benchmark4(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Skills Combination: task0 / task1 / distraction / task0 + task1
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * repeat_scenario)
-
-def halfcheetah_benchmark5(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 1 repeated 2 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"] * 2)
-
-def halfcheetah_benchmark6(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 2 repeated 2 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"] * 2)
-
-def halfcheetah_benchmark7(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 3 repeated 2 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"] * 2)
-
-def halfcheetah_benchmark8(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 4 repeated 2 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * 2)
-
-
-def halfcheetah_benchmark9(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 1 repeated 3 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["hugefoot","moon","carry_stuff","rainfall"] * 3)
-
-def halfcheetah_benchmark10(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 2 repeated 3 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["carry_stuff_hugegravity","moon","defective_module","hugefoot_rainfall"] * 3)
-
-def halfcheetah_benchmark11(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 3 repeated 3 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["normal","inverted_actions","normal","inverted_actions"] * 3)
-
-def halfcheetah_benchmark12(n_train_envs,n_evaluation_envs,n_steps, repeat_scenario, **kwargs):
-    """
-    Benchmark 4 repeated 3 times
-    """
-    return MultiHalfcheetah(n_train_envs,n_evaluation_envs,n_steps,["tinyfoot","moon","carry_stuff_hugegravity","tinyfoot_moon"] * 3)
-
-
-env_cfgs = {
-    "normal":{},
-    "jumpcheetah":{},
-    
-    # Morphological changes
-    "disproportionate_feet":{"torso": 0.75,"thigh": 0.75,"shin": 0.75,"foot": 1.25},
-    "tinythigh":{"thigh":0.5},
-    "hugethigh":{"thigh":1.5},
-    "tinyshin":{"shin":0.5},
-    "hugeshin":{"shin":1.5},
-    "tinytorso":{"torso":0.5},
-    "hugetorso":{"torso":1.5},
-    "overweight":{"torso": 1.5,"thigh": 1.5,"shin": 1.5,"foot": 1.5},
-    "underweight":{"torso": 0.75,"thigh": 0.75,"shin": 0.75,"foot": 0.75},
-    "carry_stuff":{"torso": 4.,"thigh": 1.,"shin": 1.,"foot": 1.},
-    "defective_module":{"obs_mask":0.5},
-    "tinyfoot":{"foot":0.5},
-    "hugefoot":{"foot":1.5},
-      
-    # Environment changes
-    "modified_physics":{"gravity": 1.5,"friction": 1.25},
-    "tinygravity":{"gravity":0.5},
-    "hugegravity":{"gravity":1.5},
-    "tinyfriction":{"friction":0.5},
-    "hugefriction":{"friction":1.5},
-    "rainfall":{"friction":0.4},
-    "moon":{"gravity":0.15},
-     
-    # Combination
-    "tinyfoot_moon": {'foot': 0.5, 'gravity': 0.15},
-    "hugefoot_moon": {'foot': 1.5, 'gravity': 0.15},
-    "tinyfoot_rainfall": {'foot': 0.5, 'friction': 0.4},
-    "hugefoot_rainfall": {'foot': 1.5, 'friction': 0.4},
-    "tinyfoot_hugegravity'": {'foot': 0.5, 'gravity': 1.5},
-    "hugefoot_hugegravity": {'foot': 1.5, 'gravity': 1.5},
-    "carry_stuff_moon": {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'gravity': 0.15},
-    'carry_stuff_rainfall': {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'friction': 0.4},
-    'carry_stuff_hugegravity': {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'gravity': 1.5},
-    "defective_module_moon":{"obs_mask":0.5,'gravity': 0.15},
-    "defective_module_rainfall":{"obs_mask":0.5,"friction":0.4},
-    "crippled_backlegs":{"action_mask":[0,1,2]},
-    "crippled_forelegs":{"action_mask":[3,4,5]},
-    "inverted_actions":{"action_swap":[0,1,2,3,4,5]},
-}
-env_gravity_cfgs = {"gravity_"+str(2*x/10):{"gravity":2*x/10} for x in range(1,11)}
-env_cfgs = dict(**env_cfgs,**env_gravity_cfgs)
-
-class CustomHalfcheetah(Halfcheetah):
-    def __init__(self, env_cfg, **kwargs):
+class Halfcheetah(Halfcheetah):
+    def __init__(self, env_task: str, **kwargs):
         config = text_format.Parse(halfcheetah_config, brax.Config())
-        env_specs = env_cfgs[env_cfg]
+        env_specs = env_tasks[env_task]
         self.obs_mask = jp.concatenate(np.ones((1,23)))
         self.action_mask = jp.concatenate(np.ones((1,6)))
         for spec,coeff in env_specs.items():
@@ -156,8 +24,8 @@ class CustomHalfcheetah(Halfcheetah):
             elif spec == "friction":
                 config.friction *= coeff
             elif spec == "obs_mask":
-                zeros = int(coeff*23)
-                ones = 23-zeros
+                zeros = int(coeff * 23)
+                ones = 23 - zeros
                 np.random.seed(0)
                 self.obs_mask = jp.concatenate(np.random.permutation(([0]*zeros)+([1]*ones)).reshape(1,-1))
             elif spec == "action_mask":
@@ -213,7 +81,6 @@ class CustomHalfcheetah(Halfcheetah):
       action = action * self.action_mask
       qp, info = self.sys.step(state.qp, action)
       obs = self._get_obs(qp, info)
-
       x_before = state.qp.pos[0, 0]
       x_after = qp.pos[0, 0]
       forward_reward = (x_after - x_before) / self.sys.config.dt
@@ -221,60 +88,51 @@ class CustomHalfcheetah(Halfcheetah):
       reward = forward_reward + ctrl_cost
       state.metrics.update(
           reward_ctrl_cost=ctrl_cost, reward_forward=forward_reward)
-
       return state.replace(qp=qp, obs=obs, reward=reward)
 
-def make_halfcheetah(seed = 0,
-                   batch_size = None,
-                   max_episode_steps = 1000,
-                   action_repeat = 1,
-                   backend = None,
-                   auto_reset = True,
-                   env_cfg = "normal",
-                   **kwargs):
-
-    env = JumpCheetah() if env_cfg == "jumpcheetah" else CustomHalfcheetah(env_cfg, **kwargs)
-    if max_episode_steps is not None:
-        env = wrappers.EpisodeWrapper(env, max_episode_steps, action_repeat)
-    if batch_size:
-        env = wrappers.VectorWrapper(env, batch_size)
-    if auto_reset:
-        env = wrappers.AutoResetWrapper(env)
-    if batch_size is None:
-        return wrappers.GymWrapper(env, seed=seed, backend=backend)
-    return wrappers.VectorGymWrapper(env, seed=seed, backend=backend)
-
-class MultiHalfcheetah(Scenario):
-    def __init__(self,n_train_envs,n_evaluation_envs,n_steps,cfgs):
-        print("Scenario is ",cfgs)
-        env = make_halfcheetah(10)
-        input_dimension = [env.observation_space.shape[0]]
-        output_dimension = [env.action_space.shape[0]]
-
-        self._train_tasks=[]
-        n_steps = n_steps if isinstance(n_steps,ListConfig) else [n_steps] * len(cfgs)
-        for k,cfg in enumerate(cfgs):
-            agent_cfg={
-                "classname":"salina.agents.brax.AutoResetBraxAgent",
-                "make_env_fn":make_halfcheetah,
-                "make_env_args":{"max_episode_steps":1000, "env_cfg":cfg},
-                "n_envs":n_train_envs
-            }
-            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps[k]))
-
-        self._test_tasks=[]
-        for k,cfg in enumerate(cfgs):
-            agent_cfg={
-                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
-                "make_env_fn":make_halfcheetah,
-                "make_env_args":{"max_episode_steps":1000,
-                                 "env_cfg":cfg},
-                "n_envs":n_evaluation_envs
-            }
-            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k))
-
-    def train_tasks(self):
-        return self._train_tasks
-
-    def test_tasks(self):
-        return self._test_tasks
+env_tasks = {
+    "normal":{},
+    "jumpcheetah":{},
+    
+    # Morphological changes
+    "disproportionate_feet":{"torso": 0.75,"thigh": 0.75,"shin": 0.75,"foot": 1.25},
+    "tinythigh":{"thigh":0.5},
+    "hugethigh":{"thigh":1.5},
+    "tinyshin":{"shin":0.5},
+    "hugeshin":{"shin":1.5},
+    "tinytorso":{"torso":0.5},
+    "hugetorso":{"torso":1.5},
+    "overweight":{"torso": 1.5,"thigh": 1.5,"shin": 1.5,"foot": 1.5},
+    "underweight":{"torso": 0.75,"thigh": 0.75,"shin": 0.75,"foot": 0.75},
+    "carry_stuff":{"torso": 4.,"thigh": 1.,"shin": 1.,"foot": 1.},
+    "defective_module":{"obs_mask":0.5},
+    "tinyfoot":{"foot":0.5},
+    "hugefoot":{"foot":1.5},
+      
+    # Environment changes
+    "modified_physics":{"gravity": 1.5,"friction": 1.25},
+    "tinygravity":{"gravity":0.5},
+    "hugegravity":{"gravity":1.5},
+    "tinyfriction":{"friction":0.5},
+    "hugefriction":{"friction":1.5},
+    "rainfall":{"friction":0.4},
+    "moon":{"gravity":0.15},
+     
+    # Combinations
+    "tinyfoot_moon": {'foot': 0.5, 'gravity': 0.15},
+    "hugefoot_moon": {'foot': 1.5, 'gravity': 0.15},
+    "tinyfoot_rainfall": {'foot': 0.5, 'friction': 0.4},
+    "hugefoot_rainfall": {'foot': 1.5, 'friction': 0.4},
+    "tinyfoot_hugegravity'": {'foot': 0.5, 'gravity': 1.5},
+    "hugefoot_hugegravity": {'foot': 1.5, 'gravity': 1.5},
+    "carry_stuff_moon": {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'gravity': 0.15},
+    'carry_stuff_rainfall': {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'friction': 0.4},
+    'carry_stuff_hugegravity': {'torso': 4.0,'thigh': 1.0,'shin': 1.0,'foot': 1.0,'gravity': 1.5},
+    "defective_module_moon":{"obs_mask":0.5,'gravity': 0.15},
+    "defective_module_rainfall":{"obs_mask":0.5,"friction":0.4},
+    "crippled_backlegs":{"action_mask":[0,1,2]},
+    "crippled_forelegs":{"action_mask":[3,4,5]},
+    "inverted_actions":{"action_swap":[0,1,2,3,4,5]},
+}
+env_gravity_tasks = {"gravity_"+str(2*x/10):{"gravity":2*x/10} for x in range(1,11)}
+env_tasks = dict(**env_tasks,**env_gravity_tasks)

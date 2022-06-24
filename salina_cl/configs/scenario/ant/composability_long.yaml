@@ -1,0 +1,8 @@
+name: composability_long
+classname: salina_cl.scenarios.scenario.BraxScenario
+domain: ant
+tasks: ["disabled_hard1","disabled_hard2","disabled_forefeet","disabled_backfeet"]
+repeat_scenario: 2
+n_train_envs: 128
+n_evaluation_envs: 512
+n_steps: 1_000_000

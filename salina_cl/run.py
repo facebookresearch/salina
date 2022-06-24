@@ -9,7 +9,7 @@ from salina import instantiate_class
 import torch
 import time
 
-@hydra.main(config_path="configs/", config_name="sac_subspace_brax.yaml")
+@hydra.main(config_path="configs/", config_name="csp.yaml")
 def main(cfg):
     logger = instantiate_class(cfg.logger)
     logger.save_hps(cfg, verbose =False)
