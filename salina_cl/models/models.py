@@ -63,7 +63,7 @@ class TwoSteps(Baseline):
     """
     def __init__(self,seed,params):
         super().__init__(seed,params)
-        self.algorithm1 = instantiate_class(self.cfg.algorithm1)
+        self.algorithm = instantiate_class(self.cfg.algorithm)
         self.algorithm2 = instantiate_class(self.cfg.algorithm2)
         self.policy_agent=None
         self.critic_agent=None
@@ -74,6 +74,6 @@ class TwoSteps(Baseline):
         else:
             self.policy_agent.set_task()
         env_agent = task.make()
-        r1,self.policy_agent,self.critic_agent, infos = self.algorithm1.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
+        r1,self.policy_agent,self.critic_agent, infos = self.algorithm.run(self.policy_agent, self.critic_agent, env_agent,logger, self.seed, n_max_interactions = task.n_interactions())
         r2,self.policy_agent,self.critic_agent = self.algorithm2.run(self.policy_agent, self.critic_agent, infos, logger, task._task_id)
         return r1
