@@ -45,7 +45,8 @@ class Task:
         return self._env_agent_cfg
 
     def make(self, n_envs = None)-> salina.Agent:
-        """ Return the environment agent corresponding to this task
+        """ 
+        Return the environment agent corresponding to this task
         Returns:
             salina.Agent: The env agent
         """
@@ -56,22 +57,28 @@ class Task:
         return self._n_interactions
 
 class Scenario:
-    """ A scenario is a sequence of train tasks and a sequence of test tasks
+    """ 
+    A scenario is a sequence of train tasks and a sequence of test tasks.
     """
 
+    def __init__(self):
+        self._train_tasks = []
+        self._test_tasks = []
+
     def train_tasks(self):
-        raise NotImplementedError
+        return self._train_tasks
 
     def test_tasks(self):
-        raise NotImplementedError
+        return self._test_tasks
 
 
 
 class Model:
-    """ A (CRL) Model can be updated over one new task, and evaluated over any task
-        Args:
-            seed 
-            params : The OmegaConf (or dict) that allows to configure the model
+    """ 
+    A (CRL) Model can be updated over one new task, and evaluated over any task
+    Args:
+        seed 
+        params : The OmegaConf (or dict) that allows to configure the model
     """
     def __init__(self,seed,params):
         self.seed=seed
@@ -79,14 +86,16 @@ class Model:
         self._stage=0
 
     def memory_size(self) -> dict:
-        """ Returns a dict containing different infos about the memory size of the model
+        """ 
+        Returns a dict containing different infos about the memory size of the model
         Returns:
             dict: a dict containing different infos about the memory size of the model
         """        
         raise NotImplementedError
 
     def train(self,task,logger,**extra_args):
-        """ Update a model over a particular task
+        """ 
+        Update a model over a particular task
         Args:
             task: The task to train on
             logger
@@ -97,7 +106,8 @@ class Model:
         self._stage+=1
 
     def evaluate(self,test_tasks,logger):
-        """ Evaluate a model over a set of test tasks
+        """ 
+        Evaluate a model over a set of test tasks
         Args:
             test_tasks: The set of tasks to evaluate on
             logger

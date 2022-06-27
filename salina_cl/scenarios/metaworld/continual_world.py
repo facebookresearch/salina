@@ -15,22 +15,6 @@ from typing import List
 
 
 TASK_SEQS = {
-    "CW2": [
-        "hammer-v1",
-        "push-wall-v1",
-    ],
-    "CW3": [
-        "hammer-v1",
-        "push-wall-v1",
-        "faucet-close-v1",
-    ],
-    "CW5": [
-        "hammer-v1",
-        "push-wall-v1",
-        "faucet-close-v1",
-        "push-back-v1",
-        "stick-pull-v1",
-    ],
     "CW10": [
         "hammer-v1",
         "push-wall-v1",
@@ -150,7 +134,7 @@ class MetaWorldWrapper(gym.Wrapper):
         return o,r,d,i
 
 
-def make_mt(name,seed,randomization="random_init_all"):
+def make_mt(name,seed = 0):
     print("Building environment ",name)
     random.seed(seed)
     # ml1 = metaworld.ML1(name)
@@ -158,7 +142,7 @@ def make_mt(name,seed,randomization="random_init_all"):
     # task = random.choice(ml1.train_tasks)
     
     env = metaworld.MT50().train_classes[name]()
-    env = RandomizationWrapper(env, get_subtasks(name), randomization)
+    env = RandomizationWrapper(env, get_subtasks(name), randomization = "random_init_all")
     
     
     # env.set_task(name)
@@ -166,54 +150,3 @@ def make_mt(name,seed,randomization="random_init_all"):
     env=TimeLimit(env,max_episode_steps=META_WORLD_TIME_HORIZON)
     # import ipdb;ipdb.set_trace()
     return env
-
-# env = MT50.train_classes[task_name]()
-# env = RandomizationWrapper(env, get_subtasks(task_name), randomization)
-# env = OneHotAdder(env, one_hot_idx=i, one_hot_len=num_tasks)
-# env.name = task_name
-# env = TimeLimit(env, META_WORLD_TIME_HORIZON)
-# env = SuccessCounter(env)
-# envs.append(env)
-
-
-class CW_scenarios(Scenario):
-    def __init__(self,name,n_train_envs,n_evaluation_envs,n_steps,seed=0):
-        task_list=TASK_SEQS[name]
-        train_names=[n for n in task_list]
-        
-        
-        
-        test_names=[n for n in task_list]
-        
-        input_dimension = [12]
-        output_dimension = [4]
-        seed=seed
-
-        self._train_tasks=[]
-        self._test_tasks=[]
-        for k,n in enumerate(train_names):
-           
-            agent_cfg={
-                "classname":"salina.agents.gyma.AutoResetGymAgent",
-                "make_env_fn":make_mt,
-                "make_env_args":{"name":n,"seed":seed},
-                "n_envs":n_train_envs
-            }
-            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
-            
-        for k,n in enumerate(test_names):
-           
-            agent_cfg={
-                "classname":"salina.agents.gyma.AutoResetGymAgent",
-                "make_env_fn":make_mt,
-                "make_env_args":{"name":n,"seed":seed},
-                "n_envs":n_train_envs
-            }
-            self._test_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
-        # import ipdb;ipdb.set_trace()
-
-    def train_tasks(self):
-        return self._train_tasks
-
-    def test_tasks(self):
-        return self._test_tasks

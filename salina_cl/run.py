@@ -29,7 +29,7 @@ def main(cfg):
             logger_evaluation.add_scalar("memory/"+k,v,stage)
         stage+=1
     logger.close()
-    print("....done !")
+    logger.message("....done !")
 
 if __name__ == "__main__":
     import torch.multiprocessing as mp
