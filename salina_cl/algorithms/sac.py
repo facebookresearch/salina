@@ -129,7 +129,6 @@ class sac:
                 n_interactions += (acquisition_workspace.time_size() - 1) * acquisition_workspace.batch_size()
                 logger.add_scalar("monitor/n_interactions", n_interactions, epoch)
         
-                _st_inner_epoch=time.time()
                 for inner_epoch in range(inner_epochs):
                     entropy = log_entropy.exp()
                     replay_workspace = replay_buffer.get(cfg.batch_size).to(cfg.learning_device)
@@ -198,7 +197,6 @@ class sac:
 
 
                     iteration += 1
-                _et_inner_epoch=time.time()
                 epoch += 1
                 if n_interactions > n_max_interactions:
                     logger.message("== Maximum interactions reached")

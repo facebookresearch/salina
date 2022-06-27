@@ -13,7 +13,7 @@ model:
   classname: salina_cl.models.models.Baseline
   seed: ${seed}
   params:
-    checkpoint: True
+    checkpoint: False
     evaluation:
       device: cuda:0
       seed: ${seed}

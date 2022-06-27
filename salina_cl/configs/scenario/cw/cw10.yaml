@@ -1,4 +1,4 @@
-classname: salina_cl.scenarios.scenario.
+classname: salina_cl.scenarios.scenario.CWScenario
 name: CW10  ## or CW20
 n_train_envs: 1 ## ?
 n_evaluation_envs: 1

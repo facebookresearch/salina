@@ -1,0 +1,5 @@
+classname: salina_cl.scenarios.scenario.CWScenario
+name: T1 ## T1,T2,...,T8
+n_train_envs: 1 ## ?
+n_evaluation_envs: 1
+n_steps: 1e6  ## 1e6

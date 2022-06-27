@@ -39,29 +39,20 @@ def make_brax_env(seed = 0,
         return wrappers.GymWrapper(env, seed=seed, backend=backend)
     return wrappers.VectorGymWrapper(env, seed=seed, backend=backend)
 
-def make_mt(name,seed = 0):
+def make_mt_env(name,seed = 0):
     print("Building environment ",name)
     random.seed(seed)
-    # ml1 = metaworld.ML1(name)
-    # env = metaworld.MT50() #.train_classes[name]()  # Create an environment with task `pick_place`
-    # task = random.choice(ml1.train_tasks)
-    
     env = metaworld.MT50().train_classes[name]()
-    env = RandomizationWrapper(env, get_subtasks(name), randomization = "random_init_all")
-    
-    
-    # env.set_task(name)
+    env = RandomizationWrapper(env, get_subtasks(name), kind = "random_init_all")
     env = MetaWorldWrapper(env)
     env = TimeLimit(env,max_episode_steps = META_WORLD_TIME_HORIZON)
-    # import ipdb;ipdb.set_trace()
     return env
 
 class BraxScenario(Scenario):
     def __init__(self,n_train_envs,n_evaluation_envs,n_steps,domain,tasks, **kwargs):
-        super.__init__()
+        super().__init__()
         print("Domain:",domain)
         print("Scenario:",tasks)
-
         for k,task in enumerate(tasks):
             agent_cfg={
                 "classname":"salina.agents.brax.AutoResetBraxAgent",
@@ -73,32 +64,25 @@ class BraxScenario(Scenario):
                 "n_envs":n_train_envs
             }
             self._train_tasks.append(Task(agent_cfg,k,n_steps))
-
-        self._test_tasks=[]
-        for k,task in enumerate(tasks):
-            agent_cfg={
-                "classname":"salina.agents.brax.NoAutoResetBraxAgent",
-                "make_env_fn":make_brax_env,
-                "make_env_args":{"max_episode_steps":1000,
-                                 "env_task":task},
-                "n_envs":n_evaluation_envs
-            }
+            agent_cfg.update({"classname":"salina.agents.brax.NoAutoResetBraxAgent",
+                              "n_envs":n_evaluation_envs
+                            })
             self._test_tasks.append(Task(agent_cfg,k))
 
 class CWScenario(Scenario):
-    def __init__(self,scenario,n_train_envs,n_evaluation_envs,n_steps,seed=0):
-        super.__init__()
-        tasks = [n for n in TASK_SEQS[scenario]]
-        input_dimension = 12
-        output_dimension = 4
-
+    def __init__(self,name,n_train_envs,n_evaluation_envs,n_steps,seed=0):
+        print("Domain: metaworld")
+        print("Scenario:",name)
+        super().__init__()
+        tasks = [n for n in TASK_SEQS[name]]
+        print("Sequence:",tasks)
         for k,task in enumerate(tasks):
-           
             agent_cfg={
                 "classname":"salina.agents.gyma.AutoResetGymAgent",
-                "make_env_fn":make_mt,
+                "make_env_fn":make_mt_env,
                 "make_env_args":{"name":task,"seed":seed},
                 "n_envs":n_train_envs
             }
-            self._train_tasks.append(Task(agent_cfg,input_dimension,output_dimension,k,n_steps))
-            self._test_tasks.append(Task(agent_cfg.update({"n_envs":n_evaluation_envs}),input_dimension,output_dimension,k,n_steps))
+            self._train_tasks.append(Task(agent_cfg,k,n_steps))
+            agent_cfg.update({"n_envs":n_evaluation_envs})
+            self._test_tasks.append(Task(agent_cfg,k,n_steps))

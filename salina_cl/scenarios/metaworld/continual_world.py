@@ -4,8 +4,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 #
-from salina_cl.core import Task
-from salina_cl.core import Scenario
 import gym
 import metaworld
 import numpy as np
@@ -132,21 +130,3 @@ class MetaWorldWrapper(gym.Wrapper):
         o,r,d,i=self.env.step(a)
         o={"env_obs":o,"success":i["success"],"goalDist":i["goalDist"]}
         return o,r,d,i
-
-
-def make_mt(name,seed = 0):
-    print("Building environment ",name)
-    random.seed(seed)
-    # ml1 = metaworld.ML1(name)
-    # env = metaworld.MT50() #.train_classes[name]()  # Create an environment with task `pick_place`
-    # task = random.choice(ml1.train_tasks)
-    
-    env = metaworld.MT50().train_classes[name]()
-    env = RandomizationWrapper(env, get_subtasks(name), randomization = "random_init_all")
-    
-    
-    # env.set_task(name)
-    env=MetaWorldWrapper(env)
-    env=TimeLimit(env,max_episode_steps=META_WORLD_TIME_HORIZON)
-    # import ipdb;ipdb.set_trace()
-    return env
