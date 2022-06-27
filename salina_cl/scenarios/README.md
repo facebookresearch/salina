@@ -8,7 +8,7 @@ A CRL Scenario is a sequence of training and testing tasks. Each task is associa
 
 ## Provided Scenarios
 
-You can create new sequences of existing tasks provided in `brax`  You can also design your own scenario and add it in this folder. To use them in an experiment, simply add a yaml file `my_scenario.yaml` in the [configs/scenario](configs/scenario/) folder and use the option `scenario=my_scenario` in the command line. Here is a list of the current scenarios and a link to their yaml file:
+You can create new sequences of existing tasks provided in `brax`  You can also design your own scenario and add it in this folder. To use them in an experiment, simply add a yaml file `my_scenario.yaml` in the [configs/scenario](../configs/scenario/) folder and use the option `scenario=my_scenario` in the command line. Here is a list of the current scenarios and a link to their yaml file:
 
 **Forgetting scenarios:**  are designed such that a single policy tends to forget the former task when learning a new one.
 * [Halfcheetah short](../configs/scenario/halfcheetah/forgetting_short.yaml): hugefoot, moon, carry_stuff, rainfall
