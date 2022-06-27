@@ -8,15 +8,28 @@ A CRL Scenario is a sequence of training and testing tasks. Each task is associa
 
 ## Provided Scenarios
 
-You can add your own scenario in this repo. To use them in an experiment, simply add a yaml file `my_scenario` in the [configs/scenario](configs/scenario/) folder and use the option `scenario=my_scenario` in the command line. Here is a list of the current scenarios:
+You can create new sequences of existing tasks provided in `brax`  You can also design your own scenario and add it in this folder. To use them in an experiment, simply add a yaml file `my_scenario.yaml` in the [configs/scenario](configs/scenario/) folder and use the option `scenario=my_scenario` in the command line. Here is a list of the current scenarios and a link to their yaml file:
 
-*Debbuging scenarios:*
-* `cartpole_debug`
-* `halfcheetah_debug`
+**Forgetting scenarios:**  are designed such that a single policy tends to forget the former task when learning a new one.
+* [Halfcheetah short](configs/scenario/halfcheetah/forgetting_short): hugefoot, moon, carry_stuff, rainfall
+* [Halfcheetah long](configs/scenario/halfcheetah/forgetting_long): hugefoot, moon, carry_stuff, rainfall, hugefoot, moon, carry_stuff, rainfall
+* [Ant short](configs/scenario/ant/forgetting_short): normal, hugefoot, rainfall, moon
+* [Ant long](configs/scenario/ant/forgetting_long): normal, hugefoot, rainfall, moon, normal, hugefoot, rainfall, moon
 
-*'Simple' scenarios:*
-* `cartpole_7tasks`: 7 tasks with varying parameters
-* `halfcheetah_simple`: 10 HalfCheetah environments with a linear increasing gravity coefficient (from 0.2 to 2)
+**Transfer scenarios:**  are designed such that a single policy has more difficulties to learn a new task after having learned the former one, rather than learning it from scratch.
+* [Halfcheetah short](configs/scenario/halfcheetah/transfer_short): carry_stuff_hugegravity, moon, defective_module, hugefoot_rainfall
+* [Halfcheetah long](configs/scenario/halfcheetah/transfer_long): carry_stuff_hugegravity, moon, defective_module, hugefoot_rainfall, carry_stuff_hugegravity, moon, defective_module, hugefoot_rainfall
+* [Ant short](configs/scenario/ant/transfer_short): disabled_first_diagonal, disabled_second_diagonal, disabled_forefeet, disabled_backfeet
+* [Ant long](configs/scenario/ant/transfer_long): disabled_first_diagonal, disabled_second_diagonal, disabled_forefeet, disabled_backfeet, disabled_first_diagonal, disabled_second_diagonal, disabled_forefeet, disabled_backfeet
 
-*'Hard' scenarios:*
-* `halfcheetah_hard`: in progress ...
+**Distraction scenarios:**  alternate between a normal task and a very different distraction task that disturbs the whole learning process of a single policy.
+* [Halfcheetah short](configs/scenario/halfcheetah/distraction_short): normal, inverted_actions, normal, inverted_actions
+* [Halfcheetah long](configs/scenario/halfcheetah/distraction_long): normal, inverted_actions, normal, inverted_actions, normal, inverted_actions, normal, inverted_actions
+* [Ant short](configs/scenario/ant/distraction_short): normal, inverted_actions, normal, inverted_actions
+* [Ant long](configs/scenario/ant/distraction_long): normal, inverted_actions, normal, inverted_actions, normal, inverted_actions, normal, inverted_actions
+
+**Composability scenarios:**  present two first tasks that will be useful to learn the last one, but a very different distraction task is put at the third place to disturb this forward transfer.
+* [Halfcheetah short](configs/scenario/halfcheetah/composability_short): tinyfoot, moon, carry_stuff_hugegravity, tinyfoot_moon
+* [Halfcheetah long](configs/scenario/halfcheetah/composability_long): tinyfoot, moon, carry_stuff_hugegravity, tinyfoot_moon, tinyfoot, moon, carry_stuff_hugegravity, tinyfoot_moon
+* [Ant short](configs/scenario/ant/composability_short): disabled_hard1, disabled_hard2, disabled_forefeet, disabled_backfeet
+* [Ant long](configs/scenario/ant/composability_long): disabled_hard1, disabled_hard2, disabled_forefeet, disabled_backfeet, disabled_hard1, disabled_hard2, disabled_forefeet, disabled_backfeet

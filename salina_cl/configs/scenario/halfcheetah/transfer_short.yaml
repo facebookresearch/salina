@@ -1,7 +1,7 @@
 name: transfer_short
 classname: salina_cl.scenarios.scenario.BraxScenario
 domain: halfcheetah
-tasks: ["hugefoot","moon","carrystuff","rainfall"]
+tasks: ["carry_stuff_hugegravity", "moon", "defective_module", "hugefoot_rainfall"]
 repeat_scenario: 1
 n_train_envs: 128
 n_evaluation_envs: 512

@@ -1,7 +1,7 @@
 name: forgetting_short
 classname: salina_cl.scenarios.scenario.BraxScenario
 domain: ant
-tasks: ["disabled_hard1","disabled_hard2","disabled_forefeet","disabled_backfeet"]
+tasks: ["normal","hugefoot","rainfall","moon"]
 repeat_scenario: 1
 n_train_envs: 128
 n_evaluation_envs: 512
